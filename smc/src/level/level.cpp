@@ -56,8 +56,8 @@
 #include "../core/filesystem/resource_manager.h"
 #include "../overworld/world_editor.h"
 // CEGUI
-#include "CEGUIXMLParser.h"
-#include "CEGUIExceptions.h"
+#include <CEGUI/XMLParser.h>
+#include <CEGUI/Exceptions.h>
 
 namespace SMC
 {
@@ -177,6 +177,18 @@ bool cLevel :: Load( std::string filename )
 	// new level format
 	if( filename.rfind( ".smclvl" ) != std::string::npos )
 	{
+		// Render loading screen before blocking XML parse
+		pVideo->Clear_Screen();
+		Color white( static_cast<Uint8>(255), static_cast<Uint8>(255), static_cast<Uint8>(255), static_cast<Uint8>(255) );
+		cGL_Surface *surf = pFont->Render_Text( pFont->m_font_normal, "Loading...", white );
+		if( surf )
+		{
+		    surf->Blit( game_res_w * 0.5f - surf->m_w * 0.5f,
+		                game_res_h * 0.5f - surf->m_h * 0.5f, 0.9f );
+		    pVideo->Render();  // flush before delete — deferred renderer pattern
+		    delete surf;
+		}
+
 		try
 		{
 		// fixme : Workaround for std::string to CEGUI::String utf8 conversion. Check again if CEGUI 0.8 works with std::string utf8
@@ -753,7 +765,7 @@ bool cLevel :: Key_Down( const SDLKey key )
 		pLevel_Player->Action_Interact( INP_ITEM );
 	}
 	// God Mode
-	else if( pKeyboard->m_keys[SDLK_g] && pKeyboard->m_keys[SDLK_o] && pKeyboard->m_keys[SDLK_d] && !editor_enabled )
+	else if( pKeyboard->m_keys[SDL_SCANCODE_G] && pKeyboard->m_keys[SDL_SCANCODE_O] && pKeyboard->m_keys[SDL_SCANCODE_D] && !editor_enabled )
 	{
 		if( pLevel_Player->m_god_mode )
 		{
@@ -767,7 +779,7 @@ bool cLevel :: Key_Down( const SDLKey key )
 		pLevel_Player->m_god_mode = !pLevel_Player->m_god_mode;
 	}
 	// Set Small state
-	else if( pKeyboard->m_keys[SDLK_k] && pKeyboard->m_keys[SDLK_i] && pKeyboard->m_keys[SDLK_d] && !editor_enabled )
+	else if( pKeyboard->m_keys[SDL_SCANCODE_K] && pKeyboard->m_keys[SDL_SCANCODE_I] && pKeyboard->m_keys[SDL_SCANCODE_D] && !editor_enabled )
 	{
 		pLevel_Player->Set_Type( MARYO_SMALL, 0 );
 	}
@@ -1130,7 +1142,7 @@ void cLevel :: elementEnd( const CEGUI::String &element )
 		{
 			if( m_xml_attributes.exists( "cam_limit_h" ) )
 			{
-				m_xml_attributes.add( "cam_limit_h", CEGUI::PropertyHelper::floatToString( m_xml_attributes.getValueAsFloat( "cam_limit_h" ) - 600.0f ) );
+				m_xml_attributes.add( "cam_limit_h", CEGUI::PropertyHelper<float>::toString( m_xml_attributes.getValueAsFloat( "cam_limit_h" ) - 600.0f ) );
 			}
 		}
 
@@ -1287,7 +1299,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 		// if V.1.9 and lower : change fire_1 animation to particles
@@ -1455,7 +1467,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1468,7 +1480,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1477,7 +1489,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "motion" ) )
 			{
-				attributes.add( "camera_motion", CEGUI::PropertyHelper::intToString( attributes.getValueAsInteger( "motion" ) + 1 ) );
+				attributes.add( "camera_motion", CEGUI::PropertyHelper<int>::toString( attributes.getValueAsInteger( "motion" ) + 1 ) );
 				attributes.remove( "motion" );
 			}
 		}
@@ -1491,7 +1503,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1504,7 +1516,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1570,7 +1582,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1616,7 +1628,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString(  attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString(  attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1645,7 +1657,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		// renamed time_fall to touch_time and change to the new value
 		if( attributes.exists( "time_fall" ) )
 		{
-			attributes.add( "touch_time", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "time_fall" ) * speedfactor_fps ) );
+			attributes.add( "touch_time", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "time_fall" ) * speedfactor_fps ) );
 			attributes.remove( "time_fall" );
 		}
 		else
@@ -1668,7 +1680,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1748,7 +1760,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1830,7 +1842,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "pos_y" ) )
 			{
-				attributes.add( "pos_y", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "pos_y" ) - 600.0f ) );
+				attributes.add( "pos_y", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "pos_y" ) - 600.0f ) );
 			}
 		}
 
@@ -1845,7 +1857,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "pos_y" ) )
 			{
-				attributes.add( "pos_y", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "pos_y" ) - 600.0f ) );
+				attributes.add( "pos_y", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "pos_y" ) - 600.0f ) );
 			}
 		}
 
@@ -1881,7 +1893,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 
@@ -1895,7 +1907,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( !attributes.exists( "time_to_live" ) )
 			{
-				attributes.add( "time_to_live", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "lifetime_mod", 20 ) * 0.3f ) );
+				attributes.add( "time_to_live", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "lifetime_mod", 20 ) * 0.3f ) );
 				attributes.remove( "lifetime_mod" );
 			}
 		}
@@ -1905,7 +1917,7 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		{
 			if( !attributes.exists( "emitter_iteration_interval" ) )
 			{
-				attributes.add( "emitter_iteration_interval", CEGUI::PropertyHelper::floatToString( ( 1.0f / attributes.getValueAsFloat( "creation_speed", 0.3f ) ) * 0.032f ) );
+				attributes.add( "emitter_iteration_interval", CEGUI::PropertyHelper<float>::toString( ( 1.0f / attributes.getValueAsFloat( "creation_speed", 0.3f ) ) * 0.032f ) );
 				attributes.remove( "creation_speed" );
 			}
 		}
@@ -1931,26 +1943,26 @@ cSprite *Create_Level_Object_From_XML( const CEGUI::String &xml_element, CEGUI::
 		}
 
 		// rename attributes
-		attributes.add( "pos_x", CEGUI::PropertyHelper::intToString( attributes.getValueAsInteger( "rect_x", 0 ) ) );
-		attributes.add( "pos_y", CEGUI::PropertyHelper::intToString( attributes.getValueAsInteger( "rect_y", 0 ) - 600 ) );
-		attributes.add( "size_x", CEGUI::PropertyHelper::intToString( attributes.getValueAsInteger( "rect_w", game_res_w ) ) );
-		attributes.add( "size_y", CEGUI::PropertyHelper::intToString( attributes.getValueAsInteger( "rect_h", 0 ) ) );
-		attributes.add( "emitter_time_to_live", CEGUI::PropertyHelper::floatToString( -1.0f ) );
-		attributes.add( "pos_z", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "z", 0.12f ) ) );
-		attributes.add( "pos_z_rand", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "z_rand", 0.0f ) ) );
+		attributes.add( "pos_x", CEGUI::PropertyHelper<int>::toString( attributes.getValueAsInteger( "rect_x", 0 ) ) );
+		attributes.add( "pos_y", CEGUI::PropertyHelper<int>::toString( attributes.getValueAsInteger( "rect_y", 0 ) - 600 ) );
+		attributes.add( "size_x", CEGUI::PropertyHelper<int>::toString( attributes.getValueAsInteger( "rect_w", game_res_w ) ) );
+		attributes.add( "size_y", CEGUI::PropertyHelper<int>::toString( attributes.getValueAsInteger( "rect_h", 0 ) ) );
+		attributes.add( "emitter_time_to_live", CEGUI::PropertyHelper<float>::toString( -1.0f ) );
+		attributes.add( "pos_z", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "z", 0.12f ) ) );
+		attributes.add( "pos_z_rand", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "z_rand", 0.0f ) ) );
 		if( !attributes.exists( "time_to_live" ) )
 		{
-			attributes.add( "time_to_live", CEGUI::PropertyHelper::floatToString( 7.0f ) );
+			attributes.add( "time_to_live", CEGUI::PropertyHelper<float>::toString( 7.0f ) );
 		}
-		attributes.add( "emitter_interval", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "emitter_iteration_interval", 0.3f ) ) );
-		attributes.add( "size_scale", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "scale", 0.2f ) ) );
-		attributes.add( "size_scale_rand", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "scale_rand", 0.2f ) ) );
-		attributes.add( "vel", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "speed", 2.0f ) ) );
-		attributes.add( "vel_rand", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "speed_rand", 8.0f ) ) );
-		attributes.add( "angle_start", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "dir_range_start", 0.0f ) ) );
-		attributes.add( "angle_range", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "dir_range_size", 90.0f ) ) );
-		attributes.add( "const_rot_z", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "const_rotz", -5.0f ) ) );
-		attributes.add( "const_rot_z_rand", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "const_rotz_rand", 10.0f ) ) );
+		attributes.add( "emitter_interval", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "emitter_iteration_interval", 0.3f ) ) );
+		attributes.add( "size_scale", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "scale", 0.2f ) ) );
+		attributes.add( "size_scale_rand", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "scale_rand", 0.2f ) ) );
+		attributes.add( "vel", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "speed", 2.0f ) ) );
+		attributes.add( "vel_rand", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "speed_rand", 8.0f ) ) );
+		attributes.add( "angle_start", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "dir_range_start", 0.0f ) ) );
+		attributes.add( "angle_range", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "dir_range_size", 90.0f ) ) );
+		attributes.add( "const_rot_z", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "const_rotz", -5.0f ) ) );
+		attributes.add( "const_rot_z_rand", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "const_rotz_rand", 10.0f ) ) );
 
 
 		cParticle_Emitter *emitter = new cParticle_Emitter( attributes, sprite_manager );
