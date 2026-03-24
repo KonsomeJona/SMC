@@ -5,10 +5,13 @@
 #define SMC_HELP_CARD_H
 
 #include <string>
+#include <vector>
 #include <SDL2/SDL.h>
 
 namespace SMC
 {
+
+class cGL_Surface;  // forward declaration
 
 enum HelpCardIcon
 {
@@ -32,9 +35,11 @@ public:
     void Run( void );
 
 private:
-    void Render( float anim_t );     // anim_t: 0.0=hidden, 1.0=fully shown
+    // anim_t: 0.0=hidden, 1.0=fully shown. Queues GL surfaces into pending_delete;
+    // caller must delete them AFTER pVideo->Render() flushes the render queue.
+    void Render( float anim_t, std::vector<cGL_Surface*> &pending_delete );
     bool Handle_Event( const SDL_Event &e );
-    void Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height );
+    void Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height, std::vector<cGL_Surface*> &pending_delete );
 
     std::string m_title;
     std::string m_body;

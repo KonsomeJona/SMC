@@ -7,6 +7,7 @@
 #include "../core/framerate.h"
 #include "../video/video.h"
 #include "../video/font.h"
+#include "../video/gl_surface.h"
 #include "../audio/audio.h"
 #include "../user/preferences.h"
 #include "../input/keyboard.h"
@@ -90,9 +91,14 @@ void cHelpCard :: Run( void )
         }
 
         Draw_Game();
-        Render( anim_t );
+        std::vector<cGL_Surface*> pending_delete;
+        Render( anim_t, pending_delete );
         pAudio->Update();
         pVideo->Render();
+        // Delete font surfaces AFTER Render() — their GL textures must stay alive
+        // until pVideo->Render() flushes the deferred render queue.
+        for( unsigned int i = 0; i < pending_delete.size(); ++i )
+            delete pending_delete[i];
         pFramerate->Update();
     }
 }
@@ -144,7 +150,7 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
     return false;
 }
 
-void cHelpCard :: Render( float anim_t )
+void cHelpCard :: Render( float anim_t, std::vector<cGL_Surface*> &pending_delete )
 {
     const float CARD_W = game_res_w * 0.75f;
     const float CARD_H = HEADER_H + BODY_H + BTN_H + BODY_PAD * 3.0f;
@@ -194,14 +200,14 @@ void cHelpCard :: Render( float anim_t )
         if( title_surf )
         {
             title_surf->Blit( off_x + pad, off_y + ( header_h - title_surf->m_h * scale ) * 0.5f, 0.903f );
-            delete title_surf;
+            pending_delete.push_back( title_surf );
         }
     }
 
     if( t > 0.4f )
     {
         float body_y = off_y + header_h + pad;
-        Render_Text_Wrapped( m_body, off_x + pad, body_y, sw - pad * 2.0f, 18.0f * scale, body_h );
+        Render_Text_Wrapped( m_body, off_x + pad, body_y, sw - pad * 2.0f, 18.0f * scale, body_h, pending_delete );
     }
 
     float btn_x = off_x + ( sw - BTN_W * scale ) * 0.5f;
@@ -224,12 +230,12 @@ void cHelpCard :: Render( float anim_t )
         {
             btn_surf->Blit( btn_x + ( BTN_W * scale - btn_surf->m_w ) * 0.5f,
                             btn_y + ( btn_h - btn_surf->m_h ) * 0.5f, 0.904f );
-            delete btn_surf;
+            pending_delete.push_back( btn_surf );
         }
     }
 }
 
-void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height )
+void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height, std::vector<cGL_Surface*> &pending_delete )
 {
     float cur_y = y - m_scroll_offset;
     float clip_top = y;
@@ -262,7 +268,7 @@ void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y
                 if( surf )
                 {
                     surf->Blit( x, cur_y, 0.903f );
-                    delete surf;
+                    pending_delete.push_back( surf );
                 }
             }
 
