@@ -34,14 +34,13 @@ public:
 private:
     void Render( float anim_t );     // anim_t: 0.0=hidden, 1.0=fully shown
     bool Handle_Event( const SDL_Event &e );
-    void Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h );
+    void Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height );
 
     std::string m_title;
     std::string m_body;
     HelpCardIcon m_icon;
 
     float m_scroll_offset;   // pixels scrolled in body
-    bool  m_dismissed;
     bool  m_closing;
 };
 

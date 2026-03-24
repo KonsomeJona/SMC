@@ -12,6 +12,7 @@
 #include "../input/keyboard.h"
 #include "../input/joystick.h"
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <algorithm>
 #include <cmath>
 
@@ -39,13 +40,12 @@ static const float ANIM_OUT_TIME = 0.10f;
 static const float BODY_H        = 120.0f;
 
 cHelpCard :: cHelpCard( const std::string &title, const std::string &body, HelpCardIcon icon )
-: m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_dismissed(false), m_closing(false)
+: m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_closing(false)
 {
 }
 
 void cHelpCard :: Run( void )
 {
-    m_dismissed = false;
     m_scroll_offset = 0.0f;
     m_closing = false;
 
@@ -199,7 +199,7 @@ void cHelpCard :: Render( float anim_t )
     if( t > 0.4f )
     {
         float body_y = off_y + header_h + pad;
-        Render_Text_Wrapped( m_body, off_x + pad, body_y, sw - pad * 2.0f, 18.0f * scale );
+        Render_Text_Wrapped( m_body, off_x + pad, body_y, sw - pad * 2.0f, 18.0f * scale, body_h );
     }
 
     float btn_x = off_x + ( sw - BTN_W * scale ) * 0.5f;
@@ -227,12 +227,11 @@ void cHelpCard :: Render( float anim_t )
     }
 }
 
-void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h )
+void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height )
 {
-    Color col = COL_BODY;
     float cur_y = y - m_scroll_offset;
     float clip_top = y;
-    float clip_bot = y + BODY_H;
+    float clip_bot = y + clip_height;
 
     std::string remaining = text;
     while( !remaining.empty() )
@@ -246,17 +245,17 @@ void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y
             std::string fit = line;
             while( !fit.empty() )
             {
-                cGL_Surface *test = pFont->Render_Text( pFont->m_font_small, fit, col );
-                float w = test ? static_cast<float>(test->m_w) : 0.0f;
-                delete test;
-                if( w <= max_w ) break;
+                int tw = 0, th = 0;
+                TTF_SizeUTF8( pFont->m_font_small, fit.c_str(), &tw, &th );
+                if( static_cast<float>(tw) <= max_w ) break;
                 size_t sp = fit.rfind( ' ' );
-                if( sp == std::string::npos ) { fit = line.substr(0,1); break; }
+                if( sp == std::string::npos ) { break; }  // keep full word, let it overflow
                 fit = fit.substr( 0, sp );
             }
 
             if( cur_y + line_h > clip_top && cur_y < clip_bot )
             {
+                Color col = COL_BODY;
                 cGL_Surface *surf = pFont->Render_Text( pFont->m_font_small, fit, col );
                 if( surf )
                 {
