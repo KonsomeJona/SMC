@@ -18,6 +18,7 @@
 #include "../level/level_player.h"
 #include "../input/mouse.h"
 #include "../overworld/world_player.h"
+#include "../core/debug_log.h"
 #include <algorithm>
 
 namespace SMC
@@ -32,6 +33,10 @@ cSprite_Manager :: cSprite_Manager( unsigned int reserve_items /* = 2000 */, uns
 
 	m_z_pos_data.assign( zpos_items, 0.0f );
 	m_z_pos_data_editor.assign( zpos_items,0.0f );
+
+	// Force a cache rebuild on first Update_Nearby_Cache() call
+	m_cache_cam_x = -99999.0f;
+	m_cache_cam_y = -99999.0f;
 }
 
 cSprite_Manager :: ~cSprite_Manager( void )
@@ -49,6 +54,8 @@ void cSprite_Manager :: Add( cSprite *sprite )
 
 	Set_Pos_Z( sprite );
 
+	LOG_DEBUG(SPRITE_MGR, "Add: type=%d name=%s size_before=%zu", sprite->m_type, sprite->m_name.c_str(), objects.size());
+
 	// Check if an destroyed object can be replaced
 	for( cSprite_List::iterator itr = objects.begin(); itr != objects.end(); ++itr )
 	{
@@ -58,16 +65,20 @@ void cSprite_Manager :: Add( cSprite *sprite )
 		// if destroy is set
 		if( obj->m_auto_destroy )
 		{
+			LOG_DEBUG(SPRITE_MGR, "Add: reusing destroyed slot for type=%d", sprite->m_type);
 			// set new object
 			*itr = sprite;
 			// delete old
 			delete obj;
 
+			m_nearby_sprites.clear();
 			return;
 		}
 	}
 
 	cObject_Manager<cSprite>::Add( sprite );
+	LOG_DEBUG(SPRITE_MGR, "Add: appended, new size=%zu", objects.size());
+	m_nearby_sprites.clear();
 }
 
 cSprite *cSprite_Manager :: Copy( unsigned int identifier )
@@ -188,6 +199,8 @@ void cSprite_Manager :: Move_To_Back( cSprite *sprite )
 
 void cSprite_Manager :: Delete_All( bool delayed /* = 0 */ )
 {
+	m_nearby_sprites.clear();
+
 	// delayed
 	if( delayed )
 	{
@@ -359,9 +372,13 @@ void cSprite_Manager :: Get_Colliding_Objects( cSprite_List &col_objects, const 
 
 void cSprite_Manager :: Handle_Collision_Items( void )
 {
-	for( cSprite_List::iterator itr = objects.begin(); itr != objects.end(); ++itr )
+	// Use index-based loop: iterator-based loops are invalidated if Add() triggers
+	// a vector reallocation (e.g. when a collision handler spawns a new sprite).
+	const unsigned int size = static_cast<unsigned int>( objects.size() );
+	LOG_DEBUG(SPRITE_MGR, "Handle_Collision_Items: processing %zu objects", (size_t)size);
+	for( unsigned int i = 0; i < size; ++i )
 	{
-		cSprite *obj = (*itr);
+		cSprite *obj = objects[i];
 
 		// invalid
 		if( obj->m_auto_destroy )
@@ -395,6 +412,50 @@ unsigned int cSprite_Manager :: Get_Size_Array( const ArrayType sprite_array )
 	}
 
 	return count;
+}
+
+void cSprite_Manager :: Update_Nearby_Cache( void )
+{
+	if( !pActive_Camera )
+	{
+		return;
+	}
+
+	float cam_x = pActive_Camera->m_x;
+	float cam_y = pActive_Camera->m_y;
+
+	// Rebuild only if camera has moved more than 100px since last build
+	if( !m_nearby_sprites.empty() &&
+		std::abs( cam_x - m_cache_cam_x ) < 100.0f &&
+		std::abs( cam_y - m_cache_cam_y ) < 100.0f )
+	{
+		return;  // cache is still valid
+	}
+
+	m_nearby_sprites.clear();
+	m_cache_cam_x = cam_x;
+	m_cache_cam_y = cam_y;
+
+	static const float MARGIN = 300.0f;
+	GL_rect viewport( cam_x - MARGIN, cam_y - MARGIN,
+	                  static_cast<float>(game_res_w) + MARGIN * 2.0f,
+	                  static_cast<float>(game_res_h) + MARGIN * 2.0f );
+
+	for( cSprite_List::iterator itr = objects.begin(); itr != objects.end(); ++itr )
+	{
+		cSprite *s = *itr;
+
+		// Skip sprites that are pending destruction
+		if( s->m_auto_destroy )
+			continue;
+
+		// Only include sprites with a valid collision rect that overlap the viewport
+		if( s->m_col_rect.m_w > 0.0f && s->m_col_rect.m_h > 0.0f &&
+		    viewport.Intersects( s->m_col_rect ) )
+		{
+			m_nearby_sprites.push_back( s );
+		}
+	}
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
