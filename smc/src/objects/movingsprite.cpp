@@ -699,7 +699,16 @@ cObjectCollisionType *cMovingSprite :: Collision_Check( const GL_rect &new_rect,
 	// if no object list is given get all objects available
 	if( !objects )
 	{
-		objects = &m_sprite_manager->objects;
+		// Use the nearby-sprites cache when available (rebuilt each frame by Update_Items),
+		// fall back to the full list only if the cache has never been built yet.
+		if( !m_sprite_manager->m_cache_valid )
+		{
+			objects = &m_sprite_manager->objects;
+		}
+		else
+		{
+			objects = &m_sprite_manager->m_nearby_sprites;
+		}
 
 		// Player
 		if( m_type != TYPE_PLAYER && new_rect.Intersects( pActive_Player->m_col_rect ) )

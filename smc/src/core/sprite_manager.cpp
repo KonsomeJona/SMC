@@ -37,6 +37,7 @@ cSprite_Manager :: cSprite_Manager( unsigned int reserve_items /* = 2000 */, uns
 	// Force a cache rebuild on first Update_Nearby_Cache() call
 	m_cache_cam_x = -99999.0f;
 	m_cache_cam_y = -99999.0f;
+	m_cache_valid = false;
 }
 
 cSprite_Manager :: ~cSprite_Manager( void )
@@ -200,6 +201,7 @@ void cSprite_Manager :: Move_To_Back( cSprite *sprite )
 void cSprite_Manager :: Delete_All( bool delayed /* = 0 */ )
 {
 	m_nearby_sprites.clear();
+	m_cache_valid = false;
 
 	// delayed
 	if( delayed )
@@ -425,7 +427,7 @@ void cSprite_Manager :: Update_Nearby_Cache( void )
 	float cam_y = pActive_Camera->m_y;
 
 	// Rebuild only if camera has moved more than 100px since last build
-	if( !m_nearby_sprites.empty() &&
+	if( m_cache_valid &&
 		std::abs( cam_x - m_cache_cam_x ) < 100.0f &&
 		std::abs( cam_y - m_cache_cam_y ) < 100.0f )
 	{
@@ -456,6 +458,11 @@ void cSprite_Manager :: Update_Nearby_Cache( void )
 			m_nearby_sprites.push_back( s );
 		}
 	}
+
+	m_cache_valid = true;
+	LOG_DEBUG(SPRITE_MGR, "nearby cache: %zu sprites (cam=%.0f,%.0f viewport=%.0f,%.0f,%.0f,%.0f)",
+	    m_nearby_sprites.size(), cam_x, cam_y,
+	    viewport.m_x, viewport.m_y, viewport.m_w, viewport.m_h);
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */

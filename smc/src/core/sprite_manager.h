@@ -28,7 +28,7 @@ namespace SMC
 class cSprite_Manager : public cObject_Manager<cSprite>
 {
 public:
-	cSprite_Manager( unsigned int reserve_items = 2000, unsigned int zpos_items = 100 );
+	cSprite_Manager( unsigned int reserve_items = 2000, unsigned int zpos_items = 101 );
 	virtual ~cSprite_Manager( void );
 
 	/* Add a sprite
@@ -90,11 +90,15 @@ public:
 	// Update items
 	inline void Update_Items( void )
 	{
+		Update_Nearby_Cache();
 		for( cSprite_List::iterator itr = objects.begin(); itr != objects.end(); ++itr )
 		{
 			(*itr)->Update();
 		}
 	}
+
+	// Rebuild the nearby-sprites cache based on camera viewport + margin
+	void Update_Nearby_Cache( void );
 	// Update_Late items
 	inline void Update_Items_Late( void )
 	{
@@ -126,6 +130,12 @@ public:
 	{
 		return Get_Pointer( identifier );
 	}
+
+	// Camera-viewport collision pre-filter cache
+	cSprite_List m_nearby_sprites;
+	float m_cache_cam_x;
+	float m_cache_cam_y;
+	bool m_cache_valid;   // true once Update_Nearby_Cache() has run at least once
 
 	typedef vector<float> ZposList;
 	// biggest type z position
