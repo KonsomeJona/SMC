@@ -34,9 +34,26 @@
 #include "../input/mouse.h"
 #include "../user/savegame.h"
 #include "../input/keyboard.h"
+#include "../input/touch_controls.h"
 #include "../video/renderer.h"
 #include "../core/i18n.h"
 #include "../gui/generic.h"
+#include "core/sdl2_compat.h"
+#include "../core/debug_log.h"
+#include <signal.h>
+#include <execinfo.h>
+
+static void crash_handler(int sig)
+{
+    fprintf(stderr, "[CRASH] Signal %d (%s) received\n", sig, strsignal(sig));
+    void *buffer[64];
+    int nptrs = backtrace(buffer, 64);
+    fprintf(stderr, "[CRASH] Backtrace (%d frames):\n", nptrs);
+    backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+    fflush(stderr);
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
 
 #ifdef __APPLE__
 // needed for datapath detection
@@ -45,7 +62,7 @@
 #endif
 
 // CEGUI
-#include "CEGUIDefaultLogger.h"
+#include <CEGUI/DefaultLogger.h>
 
 // SMC namespace is set later to exclude main() from it
 using namespace SMC;
@@ -59,6 +76,9 @@ using namespace SMC;
 
 int main( int argc, char **argv )
 {
+    signal(SIGSEGV, crash_handler);
+    signal(SIGABRT, crash_handler);
+    signal(SIGFPE, crash_handler);
 // todo : remove this apple hack
 #ifdef __APPLE__
 	// dynamic datapath detection for OS X
@@ -209,9 +229,9 @@ int main( int argc, char **argv )
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	}
 
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_BLACK ) );
+	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 
 	// game loop
@@ -326,6 +346,8 @@ void Init_Game( void )
 	pMouseCursor = new cMouseCursor( pActive_Level->m_sprite_manager );
 	pKeyboard = new cKeyboard();
 	pJoystick = new cJoystick();
+	pTouchControls = new cTouchControls();
+	pTouchControls->Init();
 	pLevel_Manager->Init();
 	// note : set any sprite manager as cOverworld_Manager::Load sets it again
 	pOverworld_Player = new cOverworld_Player( pActive_Level->m_sprite_manager, NULL );
@@ -405,6 +427,12 @@ void Exit_Game( void )
 	{
 		delete pMouseCursor;
 		pMouseCursor = NULL;
+	}
+
+	if( pTouchControls )
+	{
+		delete pTouchControls;
+		pTouchControls = NULL;
 	}
 
 	if( pJoystick )
@@ -507,7 +535,7 @@ void Exit_Game( void )
 		pResource_Manager = NULL;
 	}
 
-	char *last_sdl_error = SDL_GetError();
+	const char *last_sdl_error = SDL_GetError();
 	if( strlen( last_sdl_error ) > 0 )
 	{
 		printf( "Last known SDL Error : %s\n", last_sdl_error );
@@ -521,23 +549,63 @@ void Exit_Game( void )
 
 bool Handle_Input_Global( SDL_Event *ev )
 {
+	LOG_DEBUG(INPUT, "Handle_Input_Global: event type=%d", ev->type);
+
 	switch( ev->type )
 	{
 		case SDL_QUIT:
 		{
+			LOG_DEBUG(INPUT, "SDL_QUIT received");
 			game_exit = 1;
 			Clear_Input_Events();
 
 			// handle on all handlers ?
 			return 0;
 		}
-		case SDL_VIDEORESIZE:
+		case SDL_WINDOWEVENT:
 		{
-			pGuiSystem->notifyDisplaySizeChanged( CEGUI::Size( static_cast<float>(ev->resize.w), static_cast<float>(ev->resize.h) ) );
+			LOG_DEBUG(INPUT, "SDL_WINDOWEVENT sub-event=%d", ev->window.event);
+			if( ev->window.event == SDL_WINDOWEVENT_RESIZED )
+			{
+				// Update GL viewport to match new drawable size
+				int draw_w, draw_h;
+				SDL_GL_GetDrawableSize( g_sdl_window, &draw_w, &draw_h );
+				glViewport( 0, 0, draw_w, draw_h );
+				// CEGUI uses the window size (matches our glOrtho projection)
+				pGuiSystem->notifyDisplaySizeChanged( CEGUI::Sizef( static_cast<float>(ev->window.data1), static_cast<float>(ev->window.data2) ) );
+			}
+			else if( ev->window.event == SDL_WINDOWEVENT_FOCUS_LOST )
+			{
+				bool music_paused = 0;
+				if( pAudio->Is_Music_Playing() )
+				{
+					pAudio->Pause_Music();
+					music_paused = 1;
+				}
+				{
+					SDL_Event wait_ev;
+					while( SDL_WaitEvent( &wait_ev ) )
+					{
+						if( wait_ev.type == SDL_QUIT )
+						{
+							game_exit = 1;
+							break;
+						}
+						if( wait_ev.type == SDL_WINDOWEVENT &&
+							wait_ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED )
+							break;
+					}
+				}
+				if( music_paused )
+				{
+					pAudio->Resume_Music();
+				}
+			}
 			break;
 		}
 		case SDL_KEYDOWN:
 		{
+			LOG_DEBUG(INPUT, "SDL_KEYDOWN key=%s (sym=%d, scancode=%d)", SDL_GetKeyName(ev->key.keysym.sym), ev->key.keysym.sym, ev->key.keysym.scancode);
 			if( pKeyboard->Key_Down( ev->key.keysym.sym ) )
 			{
 				return 1;
@@ -546,14 +614,42 @@ bool Handle_Input_Global( SDL_Event *ev )
 		}
 		case SDL_KEYUP:
 		{
+			LOG_DEBUG(INPUT, "SDL_KEYUP key=%s (sym=%d)", SDL_GetKeyName(ev->key.keysym.sym), ev->key.keysym.sym);
 			if( pKeyboard->Key_Up( ev->key.keysym.sym ) )
 			{
 				return 1;
 			}
 			break;
 		}
+		case SDL_TEXTINPUT:
+		{
+			// Inject text characters to CEGUI for editbox input
+			const char *text = ev->text.text;
+			for( int i = 0; text[i]; )
+			{
+				// Decode UTF-8 to UTF-32 code point
+				Uint32 cp = 0;
+				unsigned char c = text[i];
+				if( c < 0x80 ) { cp = c; i += 1; }
+				else if( c < 0xE0 ) { cp = (c & 0x1F) << 6 | (text[i+1] & 0x3F); i += 2; }
+				else if( c < 0xF0 ) { cp = (c & 0x0F) << 12 | (text[i+1] & 0x3F) << 6 | (text[i+2] & 0x3F); i += 3; }
+				else { cp = (c & 0x07) << 18 | (text[i+1] & 0x3F) << 12 | (text[i+2] & 0x3F) << 6 | (text[i+3] & 0x3F); i += 4; }
+				pGuiSystem->getDefaultGUIContext().injectChar( cp );
+			}
+			break;
+		}
+		case SDL_MOUSEWHEEL:
+		{
+			// SDL2 mouse wheel events
+			if( ev->wheel.y > 0 )
+				pGuiSystem->getDefaultGUIContext().injectMouseWheelChange( 1.0f );
+			else if( ev->wheel.y < 0 )
+				pGuiSystem->getDefaultGUIContext().injectMouseWheelChange( -1.0f );
+			break;
+		}
 		case SDL_JOYBUTTONDOWN:
 		{
+			LOG_DEBUG(INPUT, "SDL_JOYBUTTONDOWN button=%d", ev->jbutton.button);
 			if( pJoystick->Handle_Button_Down_Event( ev ) )
 			{
 				return 1;
@@ -578,34 +674,56 @@ bool Handle_Input_Global( SDL_Event *ev )
 			pJoystick->Handle_Motion( ev );
 			break;
 		}
-		case SDL_ACTIVEEVENT:
+		case SDL_FINGERDOWN:
 		{
-			// lost visibility
-			if( ev->active.gain == 0 )
+			if( pTouchControls && pTouchControls->m_enabled )
 			{
-				bool music_paused = 0;
-				// pause music
-				if( pAudio->Is_Music_Playing() )
-				{
-					pAudio->Pause_Music();
-					music_paused = 1;
-				}
-				SDL_WaitEvent( NULL );
-				// resume if music got paused
-				if( music_paused )
-				{
-					pAudio->Resume_Music();
-				}
-				return 1;
+				if( pTouchControls->Handle_Finger_Down( ev ) )
+					return 1;
+			}
+			break;
+		}
+		case SDL_FINGERUP:
+		{
+			if( pTouchControls && pTouchControls->m_enabled )
+			{
+				if( pTouchControls->Handle_Finger_Up( ev ) )
+					return 1;
+			}
+			break;
+		}
+		case SDL_FINGERMOTION:
+		{
+			if( pTouchControls && pTouchControls->m_enabled )
+			{
+				if( pTouchControls->Handle_Finger_Motion( ev ) )
+					return 1;
 			}
 			break;
 		}
 		default: // other events
 		{
+			// Check touch controls for mouse clicks (touch pad / Surface)
+			if( pTouchControls && pTouchControls->m_visible )
+			{
+				if( ev->type == SDL_MOUSEBUTTONDOWN && pTouchControls->Handle_Mouse_Down( ev ) )
+				{
+					return 1;
+				}
+				if( ev->type == SDL_MOUSEBUTTONUP && pTouchControls->Handle_Mouse_Up( ev ) )
+				{
+					return 1;
+				}
+				if( ev->type == SDL_MOUSEMOTION && pTouchControls->Handle_Mouse_Motion( ev ) )
+				{
+					// Don't consume motion — let game cursor update too
+				}
+			}
+
 			// mouse
 			if( pMouseCursor->Handle_Event( ev ) )
 			{
-				return 1; 
+				return 1;
 			}
 
 			// send events
@@ -681,6 +799,12 @@ void Update_Game( void )
 
 	pMouseCursor->Update();
 
+	// ## touch controls
+	if( pTouchControls )
+	{
+		pTouchControls->Update();
+	}
+
 	// ## audio
 	pAudio->Resume_Music();
 	pAudio->Update();
@@ -691,18 +815,22 @@ void Update_Game( void )
 	// ## update
 	if( Game_Mode == MODE_LEVEL )
 	{
+		LOG_DEBUG(GAME, "Update_Game: MODE_LEVEL");
 		pLevel_Manager->Update();
 	}
 	else if( Game_Mode == MODE_OVERWORLD )
 	{
+		LOG_DEBUG(GAME, "Update_Game: MODE_OVERWORLD");
 		pActive_Overworld->Update();
 	}
 	else if( Game_Mode == MODE_MENU )
 	{
+		LOG_DEBUG(GAME, "Update_Game: MODE_MENU");
 		pMenuCore->Update();
 	}
 	else if( Game_Mode == MODE_LEVEL_SETTINGS )
 	{
+		LOG_DEBUG(GAME, "Update_Game: MODE_LEVEL_SETTINGS");
 		pLevel_Editor->m_settings_screen->Update();
 	}
 

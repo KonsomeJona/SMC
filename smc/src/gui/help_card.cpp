@@ -61,7 +61,13 @@ void cHelpCard :: Run( void )
         SDL_Event e;
         while( SDL_PollEvent( &e ) )
         {
-            if( Handle_Event( e ) )
+            if( e.type == SDL_QUIT )
+            {
+                game_exit = 1;
+                closing = true;
+                m_closing = true;
+            }
+            else if( Handle_Event( e ) )
             {
                 closing = true;
                 m_closing = true;
