@@ -103,7 +103,8 @@ void cText_Box :: Save_To_XML( CEGUI::XMLSerializer &stream )
 
 void cText_Box :: Activate( void )
 {
-	cHelpCard card( "Hint!", m_text, ICON_HINT );
+	const std::string &text = m_text.empty() ? "(No text set. Use the editor to add text.)" : m_text;
+	cHelpCard card( "Hint!", text, ICON_HINT );
 	card.Run();
 }
 
