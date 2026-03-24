@@ -178,8 +178,8 @@ bool cLevel :: Load( std::string filename )
 	if( filename.rfind( ".smclvl" ) != std::string::npos )
 	{
 		// Render loading screen before blocking XML parse.
-		// Order matters: Clear_Screen queues a clear, Blit queues text, Render flushes all
-		// to GPU; delete must come after Render (deferred renderer pattern).
+		// Blit enqueues the text; Render flushes queue and swaps buffer;
+		// delete must come after Render (deferred renderer pattern).
 		pVideo->Clear_Screen();
 		Color white( static_cast<Uint8>(255), static_cast<Uint8>(255), static_cast<Uint8>(255), static_cast<Uint8>(255) );
 		cGL_Surface *surf = pFont->Render_Text( pFont->m_font_normal, _("Loading..."), white );
@@ -187,9 +187,9 @@ bool cLevel :: Load( std::string filename )
 		{
 			surf->Blit( game_res_w * 0.5f - surf->m_w * 0.5f,
 			            game_res_h * 0.5f - surf->m_h * 0.5f, 0.9f );
-			pVideo->Render();
-			delete surf;
 		}
+		pVideo->Render();
+		delete surf;
 
 		try
 		{

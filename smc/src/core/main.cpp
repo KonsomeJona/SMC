@@ -576,25 +576,25 @@ bool Handle_Input_Global( SDL_Event *ev )
 			}
 			else if( ev->window.event == SDL_WINDOWEVENT_FOCUS_LOST )
 			{
-				bool music_paused = 0;
+				bool music_paused = false;
 				if( pAudio->Is_Music_Playing() )
 				{
 					pAudio->Pause_Music();
-					music_paused = 1;
+					music_paused = true;
 				}
+				SDL_Event wait_ev;
+				while( SDL_WaitEvent( &wait_ev ) )
 				{
-					SDL_Event wait_ev;
-					while( SDL_WaitEvent( &wait_ev ) )
+					if( wait_ev.type == SDL_QUIT )
 					{
-						if( wait_ev.type == SDL_QUIT )
-						{
-							game_exit = 1;
-							break;
-						}
-						if( wait_ev.type == SDL_WINDOWEVENT &&
-							wait_ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED )
-							break;
+						game_exit = 1;
+						break;
 					}
+					if( wait_ev.type == SDL_FINGERDOWN )
+						break;
+					if( wait_ev.type == SDL_WINDOWEVENT &&
+						wait_ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED )
+						break;
 				}
 				if( music_paused )
 				{

@@ -73,6 +73,7 @@ void cSprite_Manager :: Add( cSprite *sprite )
 			delete obj;
 
 			m_nearby_sprites.clear();
+			m_cache_valid = false;
 			return;
 		}
 	}
@@ -80,6 +81,7 @@ void cSprite_Manager :: Add( cSprite *sprite )
 	cObject_Manager<cSprite>::Add( sprite );
 	LOG_DEBUG(SPRITE_MGR, "Add: appended, new size=%zu", objects.size());
 	m_nearby_sprites.clear();
+	m_cache_valid = false;
 }
 
 cSprite *cSprite_Manager :: Copy( unsigned int identifier )
