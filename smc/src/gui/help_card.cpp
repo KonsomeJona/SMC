@@ -39,7 +39,7 @@ static const float ANIM_OUT_TIME = 0.10f;
 static const float BODY_H        = 120.0f;
 
 cHelpCard :: cHelpCard( const std::string &title, const std::string &body, HelpCardIcon icon )
-: m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_dismissed(false)
+: m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_dismissed(false), m_closing(false)
 {
 }
 
@@ -47,6 +47,7 @@ void cHelpCard :: Run( void )
 {
     m_dismissed = false;
     m_scroll_offset = 0.0f;
+    m_closing = false;
 
     float anim_t = 0.0f;
     bool closing = false;
@@ -58,7 +59,10 @@ void cHelpCard :: Run( void )
         while( SDL_PollEvent( &e ) )
         {
             if( Handle_Event( e ) )
+            {
                 closing = true;
+                m_closing = true;
+            }
         }
 
         const Uint8 *keys = SDL_GetKeyboardState( NULL );
@@ -126,7 +130,13 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
     {
         float mx = e.tfinger.x * game_res_w;
         float my = e.tfinger.y * game_res_h;
+        // dismiss if outside card
         if( mx < cx || mx > cx + CARD_W || my < cy || my > cy + CARD_H )
+            return true;
+        // dismiss if on "Got it" button
+        float btn_x = cx + ( CARD_W - BTN_W ) * 0.5f;
+        float btn_y = cy + HEADER_H + BODY_H + BODY_PAD * 2.0f;
+        if( mx >= btn_x && mx <= btn_x + BTN_W && my >= btn_y && my <= btn_y + BTN_H )
             return true;
     }
     return false;
@@ -142,7 +152,11 @@ void cHelpCard :: Render( float anim_t )
     float cx = ( game_res_w - CARD_W ) * 0.5f;
     float cy = ( game_res_h - CARD_H ) * 0.5f;
 
-    float scale    = 0.85f + 0.15f * t;
+    float scale;
+    if( !m_closing )
+        scale = 0.8f + 0.2f * t;    // entry: 0.8→1.0
+    else
+        scale = 0.9f + 0.1f * t;    // exit:  collapses from 1.0 to 0.9
     float off_x    = cx + CARD_W * 0.5f * ( 1.0f - scale );
     float off_y    = cy + CARD_H * 0.5f * ( 1.0f - scale );
     float sw       = CARD_W * scale;

@@ -42,6 +42,7 @@ private:
 
     float m_scroll_offset;   // pixels scrolled in body
     bool  m_dismissed;
+    bool  m_closing;
 };
 
 } // namespace SMC
