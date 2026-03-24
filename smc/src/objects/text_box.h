@@ -18,6 +18,7 @@
 
 #include "../core/global_basic.h"
 #include "../objects/box.h"
+#include "../gui/help_card.h"
 
 namespace SMC
 {

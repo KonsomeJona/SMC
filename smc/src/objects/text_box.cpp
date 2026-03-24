@@ -24,9 +24,8 @@
 #include "../audio/audio.h"
 #include "../level/level.h"
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIMultiLineEditbox.h"
-#include "elements/CEGUIScrollbar.h"
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/MultiLineEditbox.h>
 
 namespace SMC
 {
@@ -104,146 +103,8 @@ void cText_Box :: Save_To_XML( CEGUI::XMLSerializer &stream )
 
 void cText_Box :: Activate( void )
 {
-	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
-	CEGUI::MultiLineEditbox *editbox = static_cast<CEGUI::MultiLineEditbox *>(wmgr.createWindow( "TaharezLook/MultiLineEditbox", "text_box_text" ));
-
-	// add to main window
-	pGuiSystem->getGUISheet()->addChildWindow( editbox );
-
-
-	// set on top
-	editbox->setAlwaysOnTop( 1 );
-	// set position
-	float text_pos_x = m_pos_x - ( text_box_window_width * 0.5f ) + ( m_rect.m_w * 0.5f );
-	float text_pos_y = m_pos_y - 5 - text_box_window_height;
-
-	// if not on screen on the left side
-	if( text_pos_x < 0 )
-	{
-		// put it on screen
-		text_pos_x = 0;
-	}
-	// if not on screen on the right side
-	if( text_pos_x > pActive_Camera->m_limit_rect.m_x + pActive_Camera->m_limit_rect.m_w - text_box_window_width )
-	{
-		// put it on screen
-		text_pos_x = pActive_Camera->m_limit_rect.m_x + pActive_Camera->m_limit_rect.m_w - text_box_window_width;
-	}
-
-	editbox->setXPosition( CEGUI::UDim( 0, ( text_pos_x - pActive_Camera->m_x ) * global_upscalex ) );
-	editbox->setYPosition( CEGUI::UDim( 0, ( text_pos_y - pActive_Camera->m_y ) * global_upscaley ) );
-	// set size
-	editbox->setWidth( CEGUI::UDim( 0, text_box_window_width * global_upscalex ) );
-	editbox->setHeight( CEGUI::UDim( 0, text_box_window_height * global_upscaley ) );
-
-	// set text
-	editbox->setText( reinterpret_cast<const CEGUI::utf8*>(m_text.c_str()) );
-	// always hide horizontal scrollbar
-	editbox->getHorzScrollbar()->hide();
-
-	bool display = 1;
-
-	while( display )
-	{
-		while( SDL_PollEvent( &input_event ) )
-		{
-			if( input_event.type == SDL_KEYDOWN )
-			{
-				pKeyboard->m_keys[input_event.key.keysym.sym] = 1;
-
-				// exit keys
-				if( input_event.key.keysym.sym == pPreferences->m_key_action || input_event.key.keysym.sym == SDLK_ESCAPE || input_event.key.keysym.sym == SDLK_RETURN || input_event.key.keysym.sym == SDLK_SPACE )
-				{
-					display = 0;
-					break;
-				}
-				// handled keys
-				else if( input_event.key.keysym.sym == pPreferences->m_key_right || input_event.key.keysym.sym == pPreferences->m_key_left )
-				{
-					pKeyboard->Key_Down( input_event.key.keysym.sym );
-				}
-			}
-			else if( input_event.type == SDL_KEYUP )
-			{
-				pKeyboard->m_keys[input_event.key.keysym.sym] = 0;
-
-				// handled keys
-				if( input_event.key.keysym.sym == pPreferences->m_key_right || input_event.key.keysym.sym == pPreferences->m_key_left )
-				{
-					pKeyboard->Key_Up( input_event.key.keysym.sym );
-				}
-			}
-			else if( input_event.type == SDL_JOYBUTTONDOWN )
-			{
-				pJoystick->Set_Button( input_event.jbutton.button, 1 );
-
-				if( input_event.jbutton.button == pPreferences->m_joy_button_action || input_event.jbutton.button == pPreferences->m_joy_button_exit )
-				{
-					display = 0;
-					break;
-				}
-			}
-			else if( input_event.type == SDL_JOYBUTTONUP )
-			{
-				pJoystick->Set_Button( input_event.jbutton.button, 0 );
-			}
-			else if( input_event.type == SDL_JOYHATMOTION )
-			{
-				pJoystick->Handle_Hat( &input_event );
-				break;
-			}
-			else if( input_event.type == SDL_JOYAXISMOTION )
-			{
-				pJoystick->Handle_Motion( &input_event );
-				break;
-			}
-		}
-
-		Uint8 *keys = SDL_GetKeyState( NULL );
-		Sint16 joy_ver_axis = 0;
-
-		// if joystick enabled
-		if( pPreferences->m_joy_enabled )
-		{
-			joy_ver_axis = SDL_JoystickGetAxis( pJoystick->m_joystick, pPreferences->m_joy_axis_ver );
-		}
-
-		// down
-		if( keys[pPreferences->m_key_down] || joy_ver_axis > pPreferences->m_joy_axis_threshold )
-		{
-			editbox->getVertScrollbar()->setScrollPosition( editbox->getVertScrollbar()->getScrollPosition() + ( editbox->getVertScrollbar()->getStepSize() * 0.25f * pFramerate->m_speed_factor ) );
-		}
-		// up
-		if( keys[pPreferences->m_key_up] || joy_ver_axis < -pPreferences->m_joy_axis_threshold )
-		{
-			editbox->getVertScrollbar()->setScrollPosition( editbox->getVertScrollbar()->getScrollPosition() - ( editbox->getVertScrollbar()->getStepSize() * 0.25f * pFramerate->m_speed_factor ) );
-		}
-
-		// move camera because text could not be completely visible
-		if( pActive_Camera->m_y_offset > 0 )
-		{
-			pActive_Camera->m_y_offset -= 2;
-			// set position
-			pActive_Camera->Center();
-
-			// set position
-			editbox->setXPosition( CEGUI::UDim( 0, ( text_pos_x - pActive_Camera->m_x ) * global_upscalex ) );
-			editbox->setYPosition( CEGUI::UDim( 0, ( text_pos_y - pActive_Camera->m_y ) * global_upscaley ) );
-		}
-
-		// update animation
-		Update();
-		
-		// update audio
-		pAudio->Update();
-		// draw
-		Draw_Game();
-		// render
-		pVideo->Render();
-		pFramerate->Update();
-	}
-
-	wmgr.destroyWindow( editbox );
+	cHelpCard card( "Hint!", m_text, ICON_HINT );
+	card.Run();
 }
 
 void cText_Box :: Update( void )

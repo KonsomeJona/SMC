@@ -19,16 +19,18 @@
 namespace SMC
 {
 
-// Card palette (RGBA)
-static const Color COL_OVERLAY    = Color( 0,   0,   0,   160 );
-static const Color COL_CARD_BG    = Color( 255, 248, 220, 245 );
-static const Color COL_HEADER_BG  = Color( 218, 165,  32, 255 );
-static const Color COL_BORDER     = Color( 139,  90,  43, 200 );
-static const Color COL_BTN_BG     = Color( 218, 165,  32, 255 );
-static const Color COL_BTN_BORDER = Color( 139,  90,  43, 255 );
-static const Color COL_TITLE      = Color( 255, 255, 255, 255 );
-static const Color COL_BODY       = Color(  60,  30,   0, 255 );
-static const Color COL_BTN_TEXT   = Color(  60,  30,   0, 255 );
+// Card palette (RGBA) — cast first arg to Uint8 to disambiguate overloads
+#define RGBA(r,g,b,a) Color( static_cast<Uint8>(r), static_cast<Uint8>(g), static_cast<Uint8>(b), static_cast<Uint8>(a) )
+static const Color COL_OVERLAY    = RGBA(   0,   0,   0, 160 );
+static const Color COL_CARD_BG    = RGBA( 255, 248, 220, 245 );
+static const Color COL_HEADER_BG  = RGBA( 218, 165,  32, 255 );
+static const Color COL_BORDER     = RGBA( 139,  90,  43, 200 );
+static const Color COL_BTN_BG     = RGBA( 218, 165,  32, 255 );
+static const Color COL_BTN_BORDER = RGBA( 139,  90,  43, 255 );
+static const Color COL_TITLE      = RGBA( 255, 255, 255, 255 );
+static const Color COL_BODY       = RGBA(  60,  30,   0, 255 );
+static const Color COL_BTN_TEXT   = RGBA(  60,  30,   0, 255 );
+#undef RGBA
 
 static const float HEADER_H      = 44.0f;
 static const float BODY_PAD      = 14.0f;
@@ -77,11 +79,11 @@ void cHelpCard :: Run( void )
             m_scroll_offset = std::max( 0.0f, m_scroll_offset - scroll_step );
 
         if( !closing && anim_t < 1.0f )
-            anim_t = std::min( 1.0f, anim_t + pFramerate->m_speed_factor / ( ANIM_IN_TIME * pFramerate->m_fps_max ) );
+            anim_t = std::min( 1.0f, anim_t + pFramerate->m_speed_factor / ( ANIM_IN_TIME * pFramerate->m_fps_target ) );
 
         if( closing )
         {
-            close_t += pFramerate->m_speed_factor / ( ANIM_OUT_TIME * pFramerate->m_fps_max );
+            close_t += pFramerate->m_speed_factor / ( ANIM_OUT_TIME * pFramerate->m_fps_target );
             anim_t = std::max( 0.0f, 1.0f - close_t );
             if( anim_t <= 0.0f )
                 break;
