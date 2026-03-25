@@ -29,25 +29,29 @@
 #include "../core/filesystem/filesystem.h"
 #include "../core/filesystem/resource_manager.h"
 #include "../gui/spinner.h"
+#include "../input/touch_controls.h"
 // SDL
-#include "SDL_opengl.h"
+#include "core/sdl2_compat.h"
+#include <GL/glew.h>
+#include <SDL2/SDL_opengl.h>
 // CEGUI
-#include "CEGUIDefaultResourceProvider.h"
-#include "CEGUIDefaultLogger.h"
-#include "CEGUIExceptions.h"
-#include "CEGUIWindowFactoryManager.h"
-#include "CEGUIImagesetManager.h"
-#include "CEGUIFontManager.h"
-#include "CEGUIWindowManager.h"
-#include "CEGUISchemeManager.h"
-#include "falagard/CEGUIFalWidgetLookManager.h"
-#include "elements/CEGUIProgressBar.h"
-#include "RendererModules/Null/CEGUINullRenderer.h"
+#include <CEGUI/DefaultResourceProvider.h>
+#include <CEGUI/DefaultLogger.h>
+#include <CEGUI/Exceptions.h>
+#include <CEGUI/WindowFactoryManager.h>
+#include <CEGUI/ImageManager.h>
+#include <CEGUI/FontManager.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/SchemeManager.h>
+#include <CEGUI/falagard/WidgetLookManager.h>
+#include <CEGUI/widgets/ProgressBar.h>
+#include <CEGUI/RendererModules/Null/Renderer.h>
 // png
 #include <png.h>
 #ifndef PNG_COLOR_TYPE_RGBA
 	#define PNG_COLOR_TYPE_RGBA PNG_COLOR_TYPE_RGB_ALPHA
 #endif
+#include "../core/debug_log.h"
 
 namespace SMC
 {
@@ -79,6 +83,12 @@ cVideo :: cVideo( void )
 	m_render_thread = boost::thread();
 
 	m_initialised = 0;
+	m_post_gui_render = NULL;
+}
+
+void cVideo :: Set_Post_GUI_Render( void(*cb)(void) )
+{
+	m_post_gui_render = cb;
 }
 
 cVideo :: ~cVideo( void )
@@ -109,13 +119,10 @@ void cVideo :: Init_CEGUI_Fake( void ) const
 
 void cVideo :: Delete_CEGUI_Fake( void ) const
 {
-	CEGUI::ResourceProvider *rp = pGuiSystem->getResourceProvider();
 	CEGUI::Renderer *renderer = pGuiSystem->getRenderer();
-
-	pGuiSystem->destroy();
+	CEGUI::System::destroy();
 	pGuiSystem = NULL;
-	delete renderer;
-	delete rp;
+	CEGUI::NullRenderer::destroy( static_cast<CEGUI::NullRenderer&>(*renderer) );
 }
 
 void cVideo :: Init_CEGUI( void ) const
@@ -123,7 +130,8 @@ void cVideo :: Init_CEGUI( void ) const
 	// create renderer
 	try
 	{
-		pGuiRenderer = &CEGUI::OpenGLRenderer::create( CEGUI::Size( screen->w, screen->h ) );
+		// Use preference resolution for CEGUI (matches our glOrtho projection)
+		pGuiRenderer = &CEGUI::OpenGLRenderer::create( CEGUI::Sizef( (float)pPreferences->m_video_screen_w, (float)pPreferences->m_video_screen_h ) );
 	}
 	// catch CEGUI Exceptions
 	catch( CEGUI::Exception &ex )
@@ -158,10 +166,10 @@ void cVideo :: Init_CEGUI( void ) const
 	logger->setLoggingLevel( CEGUI::Errors );
 #endif
 
-	// set initial mouse position
+	// set initial mouse position (scaled to preference resolution which matches our projection)
 	int mouse_x, mouse_y;
 	SDL_GetMouseState( &mouse_x, &mouse_y );
-	CEGUI::MouseCursor::setInitialMousePosition( CEGUI::Point( mouse_x, mouse_y ) );
+	CEGUI::MouseCursor::setInitialMousePosition( CEGUI::Vector2f( static_cast<float>(mouse_x), static_cast<float>(mouse_y) ) );
 	// add custom widgets
 	CEGUI::WindowFactoryManager::addFactory<CEGUI::SMC_SpinnerFactory>();
 
@@ -187,15 +195,18 @@ void cVideo :: Init_CEGUI_Data( void ) const
 {
 	// set the default resource groups to be used
 	CEGUI::Scheme::setDefaultResourceGroup( "schemes" );
-	CEGUI::Imageset::setDefaultResourceGroup( "imagesets" );
+	CEGUI::ImageManager::setImagesetDefaultResourceGroup( "imagesets" );
 	CEGUI::Font::setDefaultResourceGroup( "fonts" );
 	CEGUI::WidgetLookManager::setDefaultResourceGroup( "looknfeels" );
 	CEGUI::WindowManager::setDefaultResourceGroup( "layouts" );
 
 	// load the scheme file, which auto-loads the imageset
+	printf("DEBUG: Loading scheme from resource group 'schemes'\n");
+	printf("DEBUG: DATA_DIR = %s\n", DATA_DIR);
+	printf("DEBUG: GUI_SCHEME_DIR = %s\n", GUI_SCHEME_DIR);
 	try
 	{
-		CEGUI::SchemeManager::getSingleton().create( "TaharezLook.scheme" );
+		CEGUI::SchemeManager::getSingleton().createFromFile( "TaharezLook.scheme" );
 	}
 	// catch CEGUI Exceptions
 	catch( CEGUI::Exception &ex )
@@ -205,15 +216,13 @@ void cVideo :: Init_CEGUI_Data( void ) const
 	}
 
 	// default mouse cursor
-	pGuiSystem->setDefaultMouseCursor( "TaharezLook", "MouseArrow" );
-	// force new mouse image
-	CEGUI::MouseCursor::getSingleton().setImage( &CEGUI::ImagesetManager::getSingleton().get( "TaharezLook" ).getImage( "MouseArrow" ) );
+	CEGUI::System::getSingleton().getDefaultGUIContext().getMouseCursor().setImage( "TaharezLook/MouseArrow" );
 	// default tooltip
-	pGuiSystem->setDefaultTooltip( "TaharezLook/Tooltip" );
+	pGuiSystem->getDefaultGUIContext().setDefaultTooltipType( "TaharezLook/Tooltip" );
 
 	// create default root window
-	CEGUI::Window *window_root = CEGUI::WindowManager::getSingleton().loadWindowLayout( "default.layout" );
-	pGuiSystem->setGUISheet( window_root );
+	CEGUI::Window *window_root = CEGUI::WindowManager::getSingleton().loadLayoutFromFile( "default.layout" );
+	pGuiSystem->getDefaultGUIContext().setRootWindow( window_root );
 	window_root->activate();
 }
 
@@ -245,27 +254,29 @@ void cVideo :: Init_SDL( void )
 	else
 	{
 		m_audio_init_failed = 0;
+		const char *driver = SDL_GetCurrentAudioDriver();
+		LOG_DEBUG(AUDIO, "SDL audio driver: %s", driver ? driver : "none");
 	}
 
 	// preload the sdl_image png library
 	IMG_Init( IMG_INIT_PNG );
 
-	SDL_EnableUNICODE( 1 );
 	// hide by default
 	SDL_ShowCursor( SDL_DISABLE );
 }
 
 void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_preferences /* = 1 */ )
 {
+	LOG_INIT("Init_Video: reload_textures=%d use_preferences=%d", reload_textures_from_file, use_preferences);
 	Render_Finish();
 
 	// set the video flags
-	int flags = SDL_OPENGL | SDL_SWSURFACE;
+	int flags = SDL_WINDOW_OPENGL;
 
 	// only enter fullscreen if set in preferences
 	if( use_preferences && pPreferences->m_video_fullscreen )
 	{
-		flags |= SDL_FULLSCREEN;
+		flags |= SDL_WINDOW_FULLSCREEN;
 	}
 
 	int screen_w, screen_h, screen_bpp;
@@ -283,25 +294,6 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		screen_w = 800;
 		screen_h = 600;
 		screen_bpp = 16;
-	}
-
-	// first initialization
-	if( !m_initialised )
-	{
-		// Set Caption
-		SDL_WM_SetCaption( CAPTION, NULL );
-		// Set Icon
-		std::string filename_icon = DATA_DIR "/" GAME_ICON_DIR "/window_32.png";
-		if( File_Exists( filename_icon ) )
-		{
-			SDL_Surface *icon = IMG_Load( filename_icon.c_str() );
-			SDL_WM_SetIcon( icon, NULL );
-			SDL_FreeSurface( icon );
-		}
-		else
-		{
-			printf( "Warning : Window icon %s does not exist\n", filename_icon.c_str() );
-		}
 	}
 
 	// test screen mode
@@ -382,17 +374,11 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	// not yet needed
 	//SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 16 );
 	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
-	// if vertical synchronization is enabled
-	if( use_preferences && pPreferences->m_video_vsync )
-	{
-		SDL_GL_SetAttribute( SDL_GL_SWAP_CONTROL, 1 );
-	}
-
 	// if reinitialization
 	if( m_initialised )
 	{
 		// check if CEGUI is initialized
-		bool cegui_initialized = pGuiSystem->getGUISheet() != NULL;
+		bool cegui_initialized = pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL;
 
 		// show loading screen
 		if( cegui_initialized )
@@ -413,19 +399,54 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		}
 	}
 
-	// Note: As of SDL 1.2.10, if width and height are both 0, SDL_SetVideoMode will use the desktop resolution.
-	screen = SDL_SetVideoMode( screen_w, screen_h, screen_bpp, flags );
-
-	if( !screen )
+	// Create window and GL context
+	if( !g_sdl_window )
 	{
-		printf( "Error : Screen mode creation failed\nReason : %s\n", SDL_GetError() );
-		exit( EXIT_FAILURE );
+		g_sdl_window = SDL_CreateWindow( CAPTION, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_w, screen_h, flags );
+		if( !g_sdl_window )
+		{
+			printf( "Error : Window creation failed\nReason : %s\n", SDL_GetError() );
+			exit( EXIT_FAILURE );
+		}
+		g_gl_context = SDL_GL_CreateContext( g_sdl_window );
+		if( !g_gl_context )
+		{
+			printf( "Error : GL context creation failed\nReason : %s\n", SDL_GetError() );
+			exit( EXIT_FAILURE );
+		}
+		// Set icon after window creation
+		std::string filename_icon2 = DATA_DIR "/" GAME_ICON_DIR "/window_32.png";
+		if( File_Exists( filename_icon2 ) )
+		{
+			SDL_Surface *icon2 = IMG_Load( filename_icon2.c_str() );
+			if( icon2 ) { SDL_SetWindowIcon( g_sdl_window, icon2 ); SDL_FreeSurface( icon2 ); }
+		}
+	}
+	else
+	{
+		// Reinitializing: update window size and fullscreen
+		SDL_SetWindowSize( g_sdl_window, screen_w, screen_h );
+		if( flags & SDL_WINDOW_FULLSCREEN )
+			SDL_SetWindowFullscreen( g_sdl_window, SDL_WINDOW_FULLSCREEN );
+		else
+			SDL_SetWindowFullscreen( g_sdl_window, 0 );
+	}
+	screen = SDL_GetWindowSurface( g_sdl_window );
+
+	if( use_preferences && pPreferences->m_video_vsync )
+	{
+		SDL_GL_SetSwapInterval( 1 );
+	}
+	else
+	{
+		SDL_GL_SetSwapInterval( 0 );
 	}
 
 	// check if fullscreen got set
 	if( use_preferences && pPreferences->m_video_fullscreen )
 	{
-		bool is_fullscreen = ( ( screen->flags & SDL_FULLSCREEN ) == SDL_FULLSCREEN );
+		Uint32 wflags = SDL_GetWindowFlags( g_sdl_window );
+		bool is_fullscreen = ( ( wflags & SDL_WINDOW_FULLSCREEN ) != 0 );
 
 		if( !is_fullscreen )
 		{
@@ -450,9 +471,7 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	// check if vertical synchronization got set
 	if( use_preferences && pPreferences->m_video_vsync )
 	{
-		int is_vsync;
-		// seems to return always true even if not available
-		SDL_GL_GetAttribute( SDL_GL_SWAP_CONTROL, &is_vsync );
+		int is_vsync = SDL_GL_GetSwapInterval();
 
 		if( !is_vsync )
 		{
@@ -495,7 +514,7 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	printf( "accel %d\n", accelerated );*/
 
 	// get window manager information
-	if( !SDL_GetWMInfo( &wm_info ) )
+	if( !SDL_GetWindowWMInfo( g_sdl_window, &wm_info ) )
 	{
 		printf( "Error: SDL_GetWMInfo not implemented\n" );
 	}
@@ -519,11 +538,11 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		pGuiRenderer->restoreTextures();
 		pFont->Restore_Textures();
 
-		// send new size to CEGUI
-		pGuiSystem->notifyDisplaySizeChanged( CEGUI::Size( static_cast<float>(screen_w), static_cast<float>(screen_h) ) );
+		// send preference resolution to CEGUI (matches our glOrtho projection)
+		pGuiSystem->notifyDisplaySizeChanged( CEGUI::Sizef( static_cast<float>(screen_w), static_cast<float>(screen_h) ) );
 
 		// check if CEGUI is initialized
-		bool cegui_initialized = pGuiSystem->getGUISheet() != NULL;
+		bool cegui_initialized = pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL;
 
 		// show loading screen
 		if( cegui_initialized )
@@ -576,14 +595,31 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 
 void cVideo :: Init_OpenGL( void )
 {
-	// viewport should cover the whole screen
-	glViewport( 0, 0, pPreferences->m_video_screen_w, pPreferences->m_video_screen_h );
+	LOG_INIT("Init_OpenGL called");
+	// Get actual drawable size (may differ from window size on HiDPI/WSL)
+	int draw_w = pPreferences->m_video_screen_w;
+	int draw_h = pPreferences->m_video_screen_h;
+	if( g_sdl_window )
+	{
+		SDL_GL_GetDrawableSize( g_sdl_window, &draw_w, &draw_h );
+	}
+	LOG_DEBUG(VIDEO, "Init_OpenGL: window=%dx%d drawable=%dx%d game=%dx%d",
+		pPreferences->m_video_screen_w, pPreferences->m_video_screen_h,
+		draw_w, draw_h, game_res_w, game_res_h);
+	printf( "Init_OpenGL: window=%dx%d drawable=%dx%d game=%dx%d\n",
+		pPreferences->m_video_screen_w, pPreferences->m_video_screen_h,
+		draw_w, draw_h, game_res_w, game_res_h );
+
+	// viewport should cover the whole drawable area
+	LOG_DEBUG(VIDEO, "Init_OpenGL: glViewport(0, 0, %d, %d)", draw_w, draw_h);
+	glViewport( 0, 0, draw_w, draw_h );
 
 	// select the projection matrix
 	glMatrixMode( GL_PROJECTION );
 	// clear it
 	glLoadIdentity();
-	// Set up the orthographic projection matrix
+	// Use preference resolution for projection — determines how much of the game world is visible
+	LOG_DEBUG(VIDEO, "Init_OpenGL: glOrtho(0, %d, %d, 0, -1, 1)", pPreferences->m_video_screen_w, pPreferences->m_video_screen_h);
 	glOrtho( 0, static_cast<float>(pPreferences->m_video_screen_w), static_cast<float>(pPreferences->m_video_screen_h), 0, -1, 1 );
 	
 	// select the orthographic projection matrix
@@ -625,7 +661,7 @@ void cVideo :: Init_OpenGL( void )
 	// clear screen
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	SDL_GL_SwapBuffers();
+	SDL_GL_SwapWindow( g_sdl_window );
 }
 
 void cVideo :: Init_Geometry( void )
@@ -699,6 +735,7 @@ void cVideo :: Init_Resolution_Scale( void ) const
 	// down scale
 	global_downscalex = static_cast<float>(game_res_w) / static_cast<float>(pPreferences->m_video_screen_w);
 	global_downscaley = static_cast<float>(game_res_h) / static_cast<float>(pPreferences->m_video_screen_h);
+	LOG_DEBUG(VIDEO, "Init_Resolution_Scale: upscale=(%.3f, %.3f) downscale=(%.3f, %.3f)", global_upscalex, global_upscaley, global_downscalex, global_downscaley);
 }
 
 void cVideo :: Init_Image_Cache( bool recreate /* = 0 */, bool draw_gui /* = 0 */ )
@@ -760,7 +797,7 @@ void cVideo :: Init_Image_Cache( bool recreate /* = 0 */, bool draw_gui /* = 0 *
 	if( draw_gui )
 	{
 		// get progress bar
-		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI::WindowManager::getSingleton().getWindow( "progress_bar" ));
+		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
 		progress_bar->setProgress( 0 );
 
 		// set loading screen text
@@ -912,96 +949,55 @@ int cVideo :: Test_Video( int width, int height, int bpp, int flags /* = 0 */ ) 
 	// auto set the video flags
 	if( !flags )
 	{
-		flags = SDL_OPENGL | SDL_SWSURFACE;
+		flags = SDL_WINDOW_OPENGL;
 
 		// if fullscreen is set
 		if( pPreferences->m_video_fullscreen )
 		{
-			flags |= SDL_FULLSCREEN;
+			flags |= SDL_WINDOW_FULLSCREEN;
 		}
 	}
 
-	return SDL_VideoModeOK( width, height, bpp, flags );
+	return bpp > 0 ? bpp : 32;
 }
 
 vector<cSize_Int> cVideo :: Get_Supported_Resolutions( int flags /* = 0 */ ) const
 {
 	vector<cSize_Int> valid_resolutions;
-
-	// auto set the video flags
-	if( !flags )
+	int num_modes = SDL_GetNumDisplayModes( 0 );
+	if( num_modes > 0 )
 	{
-		// always set fullscreen
-		flags = SDL_OPENGL | SDL_SWSURFACE | SDL_FULLSCREEN;
-	}
-
-	SDL_Rect** modes = SDL_ListModes( NULL, flags );
-	bool create_default_list = 0;
-
-	// no dimension is available
-	if( modes == NULL )
-	{
-		create_default_list = 1;
-	}
-	// any dimension is allowed
-	else if( modes == (SDL_Rect**)-1 )
-	{
-		create_default_list = 1;
-	}
-	else
-	{
-		for( int i = 0; modes[i]; ++i )
+		for( int i = 0; i < num_modes; i++ )
 		{
-			valid_resolutions.push_back( cSize_Int( modes[i]->w, modes[i]->h ) );
+			SDL_DisplayMode mode;
+			if( SDL_GetDisplayMode( 0, i, &mode ) == 0 )
+			{
+				cSize_Int res( mode.w, mode.h );
+				// avoid duplicates
+				bool found = false;
+				for( auto& r : valid_resolutions ) { if( r.m_width == res.m_width && r.m_height == res.m_height ) { found = true; break; } }
+				if( !found ) valid_resolutions.push_back( res );
+			}
 		}
 	}
-
-	if( create_default_list )
+	if( valid_resolutions.empty() )
 	{
-		valid_resolutions.push_back( cSize_Int( 2048, 1536 ) );
-		valid_resolutions.push_back( cSize_Int( 1600, 1200 ) );
+		valid_resolutions.push_back( cSize_Int( 1920, 1080 ) );
 		valid_resolutions.push_back( cSize_Int( 1280, 1024 ) );
 		valid_resolutions.push_back( cSize_Int( 1024, 768 ) );
 		valid_resolutions.push_back( cSize_Int( 800, 600 ) );
-		valid_resolutions.push_back( cSize_Int( 640, 480 ) );
 	}
-
 	return valid_resolutions;
 }
 
 void cVideo :: Make_GL_Context_Current( void )
 {
-	// scoped context lock here
-#ifdef _WIN32
-	if( wglGetCurrentContext() != wm_info.hglrc )
-	{
-		wglMakeCurrent( GetDC( wm_info.window ), wm_info.hglrc );
-	}
-#elif __unix__
-	if( glx_context != NULL )
-	{
-		glXMakeCurrent( wm_info.info.x11.gfxdisplay, wm_info.info.x11.window, glx_context );
-	}
-#elif __APPLE__
-	// party time
-#endif
-
-	// update info (needed?)
-	SDL_GetWMInfo( &wm_info );
+	SDL_GL_MakeCurrent( g_sdl_window, g_gl_context );
 }
 
 void cVideo :: Make_GL_Context_Inactive( void )
 {
-#ifdef _WIN32
-	wglMakeCurrent( NULL, NULL );
-#elif __unix__
-	glXMakeCurrent( wm_info.info.x11.gfxdisplay, None, NULL );
-#elif __APPLE__
-	// party time
-#endif
-
-	// update info (needed?)
-	SDL_GetWMInfo( &wm_info );
+	SDL_GL_MakeCurrent( g_sdl_window, NULL );
 }
 
 void cVideo :: Render_From_Thread( void )
@@ -1009,7 +1005,7 @@ void cVideo :: Render_From_Thread( void )
 	Make_GL_Context_Current();
 
 	pRenderer_current->Render();
-	// under linux with sofware mesa 7.9 it only showed the rendered output with SDL_GL_SwapBuffers()
+	// under linux with sofware mesa 7.9 it only showed the rendered output with SDL_GL_SwapWindow(g_sdl_window)
 
 	// update performance timer
 	//pFramerate->m_perf_timer[PERF_RENDER_GAME]->Update();
@@ -1019,16 +1015,22 @@ void cVideo :: Render_From_Thread( void )
 
 void cVideo :: Render( bool threaded /* = 0 */ )
 {
+	static unsigned long s_frame_count = 0;
+	s_frame_count++;
+	if( s_frame_count % 300 == 0 )
+	{
+		LOG_DEBUG(VIDEO, "Render: frame %lu (threaded=%d)", s_frame_count, threaded);
+	}
 	Render_Finish();
 
 	if( threaded )
 	{
-		pGuiSystem->renderGUI();
+		pGuiSystem->renderAllGUIContexts();
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GUI]->Update();
 
-		SDL_GL_SwapBuffers();
+		SDL_GL_SwapWindow( g_sdl_window );
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_BUFFER]->Update();
@@ -1058,12 +1060,22 @@ void cVideo :: Render( bool threaded /* = 0 */ )
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GAME]->Update();
 
-		pGuiSystem->renderGUI();
+		pGuiSystem->renderAllGUIContexts();
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GUI]->Update();
 
-		SDL_GL_SwapBuffers();
+		// Draw touch controls overlay on top of everything
+		if( pTouchControls && pTouchControls->m_visible )
+		{
+			pTouchControls->Draw();
+		}
+
+		// Post-CEGUI hook (used by menus that need to draw on top of CEGUI widgets)
+		if( m_post_gui_render )
+			m_post_gui_render();
+
+		SDL_GL_SwapWindow( g_sdl_window );
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_BUFFER]->Update();
@@ -1095,13 +1107,10 @@ void cVideo :: Toggle_Fullscreen( void )
 	GLclampf clear_color[4];
 	glGetFloatv( GL_COLOR_CLEAR_VALUE, clear_color );
 
-#ifdef _WIN32
-	// windows needs reinitialization
-	Init_Video();
-#else
-	// works only for X11 platforms
-	SDL_WM_ToggleFullScreen( screen );
-#endif
+	if( pPreferences->m_video_fullscreen )
+		SDL_SetWindowFullscreen( g_sdl_window, SDL_WINDOW_FULLSCREEN );
+	else
+		SDL_SetWindowFullscreen( g_sdl_window, 0 );
 
 	// set back clear color
 	glClearColor( clear_color[0], clear_color[1], clear_color[2], clear_color[3] );
@@ -1294,7 +1303,7 @@ SDL_Surface *cVideo :: Convert_To_Final_Software_Image( SDL_Surface *surface ) c
 		#endif
 
 		// set the entire surface alpha to 0
-		SDL_SetAlpha( surface, 0, SDL_ALPHA_TRANSPARENT );
+		SDL_SetSurfaceBlendMode( surface, SDL_BLENDMODE_NONE );
 		// blit to 32 bit surface
 		SDL_BlitSurface( surface, NULL, final, NULL );
 		// delete original surface
@@ -2407,13 +2416,13 @@ void Draw_Effect_In( Effect_Fadein effect /* = EFFECT_IN_RANDOM */, float speed 
 
 void Loading_Screen_Init( void )
 {
-	if( CEGUI::WindowManager::getSingleton().isWindowPresent( "loading" ) )
+	if( pGuiSystem->getDefaultGUIContext().getRootWindow()->isChild( "loading" ) )
 	{
 		printf( "Warning: Loading Screen already initialized." );
 		return;
 	}
 
-	CEGUI::Window *guisheet = pGuiSystem->getGUISheet();
+	CEGUI::Window *guisheet = pGuiSystem->getDefaultGUIContext().getRootWindow();
 
 	// hide all windows
 	for( unsigned int i = 0, gui_windows = guisheet->getChildCount(); i < gui_windows; i++ )
@@ -2422,18 +2431,18 @@ void Loading_Screen_Init( void )
 	}
 
 	// Create loading window
-	CEGUI::Window *loading_window = CEGUI::WindowManager::getSingleton().loadWindowLayout( "loading.layout" );
-	guisheet->addChildWindow( loading_window );
+	CEGUI::Window *loading_window = CEGUI::WindowManager::getSingleton().loadLayoutFromFile( "loading.layout" );
+	guisheet->addChild( loading_window );
 
 	// set info text
-	CEGUI::Window *text_default = static_cast<CEGUI::Window *>(CEGUI::WindowManager::getSingleton().getWindow( "text_loading" ));
+	CEGUI::Window *text_default = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "text_loading" ));
 	text_default->setText( _("Loading") );
 }
 
 void Loading_Screen_Draw_Text( const std::string &str_info /* = "Loading" */ )
 {
 	// set info text
-	CEGUI::Window *text_default = static_cast<CEGUI::Window *>(CEGUI::WindowManager::getSingleton().getWindow( "text_loading" ));
+	CEGUI::Window *text_default = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "text_loading" ));
 	if( !text_default )
 	{
 		printf( "Warning: Loading Screen not initialized." );
@@ -2459,21 +2468,21 @@ void Loading_Screen_Draw( void )
 
 	// Render
 	pRenderer->Render();
-	pGuiSystem->renderGUI();
-	SDL_GL_SwapBuffers();
+	pGuiSystem->renderAllGUIContexts();
+	SDL_GL_SwapWindow( g_sdl_window );
 }
 
 void Loading_Screen_Exit( void )
 {
-	CEGUI::Window *loading_window = CEGUI::WindowManager::getSingleton().getWindow( "loading" );
+	CEGUI::Window *loading_window = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "loading" );
 
 	// loading window is present
 	if( loading_window )
 	{
-		CEGUI::Window *guisheet = pGuiSystem->getGUISheet();
+		CEGUI::Window *guisheet = pGuiSystem->getDefaultGUIContext().getRootWindow();
 
 		// delete loading window
-		guisheet->removeChildWindow( loading_window );
+		guisheet->removeChild( loading_window );
 		CEGUI::WindowManager::getSingleton().destroyWindow( loading_window );
 
 		// show windows again
@@ -2493,6 +2502,8 @@ CEGUI::OpenGLRenderer *pGuiRenderer = NULL;
 CEGUI::System *pGuiSystem = NULL;
 
 SDL_Surface *screen = NULL;
+SDL_Window *g_sdl_window = NULL;
+SDL_GLContext g_gl_context = NULL;
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

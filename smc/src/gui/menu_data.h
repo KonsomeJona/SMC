@@ -98,7 +98,7 @@ public:
 	virtual void Draw( void );
 
 	// Get all levels from the given directory
-	void Get_Levels( std::string dir, CEGUI::colour color );
+	void Get_Levels( std::string dir, CEGUI::Colour color );
 
 	/* Highlight the given level
 	 * and activates level tab if needed
@@ -108,6 +108,9 @@ public:
 	 * and exit if successful
 	*/
 	void Load_Selected( void );
+
+	// Load the item at idx in the current tab; no-op if idx is out of range
+	void Load_Item( int idx );
 
 	/* Load the Campaign
 	 * and exit if successful
@@ -161,6 +164,17 @@ public:
 	CEGUI::String m_listbox_search_buffer;
 	// counter until buffer is cleared
 	float m_listbox_search_buffer_counter;
+
+	// ModernUI state
+	std::vector<std::string> m_campaign_names;
+	std::vector<std::string> m_world_names;
+	std::vector<std::string> m_level_names;
+	int m_active_tab;        // 0=Campaign, 1=World, 2=Level
+	int m_scroll_offset;     // current tab's scroll offset
+	int m_selected_item;     // currently selected item index (-1 = none)
+	// Surfaces rendered this frame; deleted at the start of the next Draw()
+	// after the game loop has called pVideo->Render()
+	std::vector<cGL_Surface*> m_pending_delete;
 };
 
 /* *** *** *** *** *** *** *** cMenu_Options *** *** *** *** *** *** *** *** *** *** */
@@ -269,7 +283,7 @@ public:
 	CEGUI::Spinner *m_video_spinner_fps_limit;
 	CEGUI::Slider *m_video_slider_geometry_quality;
 	CEGUI::Slider *m_video_slider_texture_quality;
-	// video settings
+	// video settings (shared between CEGUI and ModernUI paths)
 	unsigned int m_vid_w;
 	unsigned int m_vid_h;
 	unsigned int m_vid_bpp;
@@ -277,12 +291,24 @@ public:
 	bool m_vid_vsync;
 	float m_vid_geometry_detail;
 	float m_vid_texture_detail;
+	// ModernUI Video tab state
+	std::vector<std::string> m_vid_resolutions;  // "WxH" strings
+	int m_vid_res_idx;                            // selected index in m_vid_resolutions
 	// audio
 	CEGUI::Combobox *m_audio_combo_hz;
 	CEGUI::Combobox *m_audio_combo_music;
 	CEGUI::Slider *m_audio_slider_music;
 	CEGUI::Combobox *m_audio_combo_sounds;
 	CEGUI::Slider *m_audio_slider_sound;
+	// ModernUI Audio tab state
+	int   m_audio_hz_idx;     // 0=22050, 1=44100, 2=48000
+	float m_audio_music_vol;  // 0–128
+	float m_audio_sound_vol;  // 0–128
+	// ModernUI shared: deferred surface delete
+	std::vector<cGL_Surface*> m_opt_pending_delete;
+	// ModernUI post-CEGUI rendering callback (set when Video/Audio tab active)
+	void Post_GUI_Draw( void );
+	static void S_Post_GUI_Draw( void );
 
 	// Shortcut item
 	class cShortcut_item

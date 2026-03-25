@@ -16,29 +16,59 @@
 #ifndef SMC_VIDEO_H
 #define SMC_VIDEO_H
 
+// GLEW must be included before any other GL headers
+#include <GL/glew.h>
+
 #include "../core/global_basic.h"
 #include "../core/global_game.h"
 #include "../video/color.h"
-// glx
+// SDL
+#include "core/sdl2_compat.h"
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_opengl.h>
+#include <SDL2/SDL_syswm.h>
 #ifdef __unix__
 	#include <GL/glx.h>
 #endif
-// SDL
-#include "SDL.h"
-#include "SDL_image.h"
-#ifdef __unix__
-	#define NO_SDL_GLEXT
+// X11 defines True/False/None/Status as macros which conflict with CEGUI
+#ifdef True
+	#undef True
 #endif
-#include "SDL_opengl.h"
-#ifdef __unix__
-	#undef NO_SDL_GLEXT
+#ifdef False
+	#undef False
 #endif
-#include "SDL_syswm.h"
+#ifdef None
+	#undef None
+#endif
+#ifdef Status
+	#undef Status
+#endif
 // CEGUI
-#include "CEGUISystem.h"
-#include "RendererModules/OpenGL/CEGUIOpenGLRenderer.h"
+#include <CEGUI/System.h>
+#include <CEGUI/RendererModules/OpenGL/GLRenderer.h>
+#include <CEGUI/Window.h>
 // boost thread
 #include <boost/thread/thread.hpp>
+
+// CEGUI 0.8 helper: recursive child search by name (avoids getChild which throws/logs on miss)
+inline CEGUI::Window* CEGUI_GetChild( CEGUI::Window* parent, const CEGUI::String& name )
+{
+	if( !parent ) return nullptr;
+	// Check direct children first
+	for( size_t i = 0; i < parent->getChildCount(); i++ )
+	{
+		CEGUI::Window* child = static_cast<CEGUI::Window*>( parent->getChildAtIdx( i ) );
+		if( child->getName() == name ) return child;
+	}
+	// Search recursively
+	for( size_t i = 0; i < parent->getChildCount(); i++ )
+	{
+		CEGUI::Window* child = static_cast<CEGUI::Window*>( parent->getChildAtIdx( i ) );
+		CEGUI::Window* found = CEGUI_GetChild( child, name );
+		if( found ) return found;
+	}
+	return nullptr;
+}
 
 namespace SMC
 {
@@ -131,6 +161,11 @@ public:
 	void Render( bool threaded = 0 );
 	// Finish thread rendering
 	void Render_Finish( void );
+
+	// Set a one-shot callback invoked after CEGUI renders but before buffer swap.
+	// Pass NULL to clear. Used by menus that need to draw on top of CEGUI.
+	void Set_Post_GUI_Render( void(*cb)(void) );
+	void(*m_post_gui_render)(void);
 
 	// Toggle fullscreen video mode ( new mode is set to preferences )
 	void Toggle_Fullscreen( void );
@@ -298,6 +333,8 @@ extern CEGUI::System *pGuiSystem;
 
 // Screen
 extern SDL_Surface *screen;
+extern SDL_Window *g_sdl_window;
+extern SDL_GLContext g_gl_context;
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 
