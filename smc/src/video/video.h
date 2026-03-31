@@ -16,8 +16,11 @@
 #ifndef SMC_VIDEO_H
 #define SMC_VIDEO_H
 
-// GLEW must be included before any other GL headers
-#include <GL/glew.h>
+// GL headers — GLEW on desktop, GLES2 on Android
+#ifndef __ANDROID__
+  // GLEW must be included before any other GL headers
+  #include <GL/glew.h>
+#endif
 
 #include "../core/global_basic.h"
 #include "../core/global_game.h"
@@ -25,10 +28,14 @@
 // SDL
 #include "core/sdl2_compat.h"
 #include <SDL2/SDL_image.h>
-#include <SDL2/SDL_opengl.h>
+#ifndef __ANDROID__
+  #include <SDL2/SDL_opengl.h>
+#endif
 #include <SDL2/SDL_syswm.h>
-#ifdef __unix__
-	#include <GL/glx.h>
+#ifndef __ANDROID__
+  #ifdef __unix__
+    #include <GL/glx.h>
+  #endif
 #endif
 // X11 defines True/False/None/Status as macros which conflict with CEGUI
 #ifdef True
@@ -43,14 +50,24 @@
 #ifdef Status
 	#undef Status
 #endif
-// CEGUI
-#include <CEGUI/System.h>
-#include <CEGUI/RendererModules/OpenGL/GLRenderer.h>
-#include <CEGUI/Window.h>
-// boost thread
-#include <boost/thread/thread.hpp>
+// CEGUI (desktop only)
+#ifndef __ANDROID__
+  #ifndef SMC_NO_CEGUI
+    #include <CEGUI/System.h>
+    #include <CEGUI/RendererModules/OpenGL/GLRenderer.h>
+    #include <CEGUI/Window.h>
+  #endif
+#endif
+// boost thread (desktop only)
+#ifndef __ANDROID__
+  #ifndef SMC_NO_BOOST
+    #include <boost/thread/thread.hpp>
+  #endif
+#endif
 
 // CEGUI 0.8 helper: recursive child search by name (avoids getChild which throws/logs on miss)
+// Not available on Android (SMC_NO_CEGUI)
+#if !defined(__ANDROID__) && !defined(SMC_NO_CEGUI)
 inline CEGUI::Window* CEGUI_GetChild( CEGUI::Window* parent, const CEGUI::String& name )
 {
 	if( !parent ) return nullptr;
@@ -69,6 +86,7 @@ inline CEGUI::Window* CEGUI_GetChild( CEGUI::Window* parent, const CEGUI::String
 	}
 	return nullptr;
 }
+#endif // !__ANDROID__ && !SMC_NO_CEGUI
 
 namespace SMC
 {

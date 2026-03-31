@@ -46,10 +46,8 @@ public:
 	// Set the game mode to return on exit
 	void Set_Exit_To_Game_Mode( GameMode gamemode );
 
-	// gui layout filename
+	// gui layout filename (kept for reference; no longer used to load CEGUI layouts)
 	std::string m_layout_file;
-	// CEGUI window
-	CEGUI::Window *m_gui_window;
 
 	// if button/key action
 	bool m_action;
@@ -97,73 +95,21 @@ public:
 	virtual void Update( void );
 	virtual void Draw( void );
 
-	// Get all levels from the given directory
-	void Get_Levels( std::string dir, CEGUI::Colour color );
-
-	/* Highlight the given level
-	 * and activates level tab if needed
+	/* Highlight the given level (selects level tab and item).
+	 * Called from game_core.cpp when returning to start menu after a level.
+	 * Returns true if the level was found.
 	*/
 	bool Highlight_Level( std::string lvl_name );
-	/* Load the Selected Listbox item
-	 * and exit if successful
-	*/
-	void Load_Selected( void );
 
-	// Load the item at idx in the current tab; no-op if idx is out of range
+	/* Load the item at idx in the current tab; no-op if idx is out of range */
 	void Load_Item( int idx );
 
-	/* Load the Campaign
-	 * and exit if successful
-	*/
+	/* Load the Campaign and exit if successful */
 	void Load_Campaign( std::string name );
-	/* Load the World
-	 * and exit if successful
-	*/
+	/* Load the World and exit if successful */
 	void Load_World( std::string name );
-	/* Load the Level
-	 * and exit if successful
-	*/
+	/* Load the Level and exit if successful */
 	bool Load_Level( std::string name );
-
-	// tabcontrol selection changed event
-	bool TabControl_Selection_Changed( const CEGUI::EventArgs &event );
-	// key down event
-	bool TabControl_Keydown( const CEGUI::EventArgs &event );
-	// listbox level/world key down event
-	bool Listbox_Keydown( const CEGUI::EventArgs &event );
-	// listbox level/world character key event
-	bool Listbox_Character_Key( const CEGUI::EventArgs &event );
-
-	// campaign selected event
-	bool Campaign_Select( const CEGUI::EventArgs &event );
-	// campaign selected for entering event
-	bool Campaign_Select_final_list( const CEGUI::EventArgs &event );
-
-	// world selected event
-	bool World_Select( const CEGUI::EventArgs &event );
-	// world selected for entering event
-	bool World_Select_final_list( const CEGUI::EventArgs &event );
-
-	// level selected event
-	bool Level_Select( const CEGUI::EventArgs &event );
-	// level selected for entering event
-	bool Level_Select_Final_List( const CEGUI::EventArgs &event );
-
-	// level new button event
-	bool Button_Level_New_Clicked( const CEGUI::EventArgs &event );
-	// level edit button event
-	bool Button_Level_Edit_Clicked( const CEGUI::EventArgs &event );
-	// level delete button event
-	bool Button_Level_Delete_Clicked( const CEGUI::EventArgs &event );
-	// enter button event
-	bool Button_Enter_Clicked( const CEGUI::EventArgs &event );
-	// back button event
-	bool Button_Back_Clicked( const CEGUI::EventArgs &event );
-
-	// buffer if user types characters in the listbox
-	CEGUI::String m_listbox_search_buffer;
-	// counter until buffer is cleared
-	float m_listbox_search_buffer_counter;
 
 	// ModernUI state
 	std::vector<std::string> m_campaign_names;
@@ -218,72 +164,33 @@ public:
 	// Disable Joystick
 	void Joy_Disable( void );
 
-	bool Button_Back_Click( const CEGUI::EventArgs &event );
-	// game
-	bool Game_Always_Run_Select( const CEGUI::EventArgs &event );
-	bool Game_Camera_Hor_Select( const CEGUI::EventArgs &event );
-	bool Game_Camera_Ver_Select( const CEGUI::EventArgs &event );
-	bool Game_Language_Select( const CEGUI::EventArgs &event );
-	bool Game_Menu_Level_Select( const CEGUI::EventArgs &event );
-	bool Game_Menu_Level_Text_Changed( const CEGUI::EventArgs &event );
-	bool Game_Button_Reset_Game_Clicked( const CEGUI::EventArgs &event );
-	// video
-	bool Video_Resolution_Select( const CEGUI::EventArgs &event );
-	bool Video_Bpp_Select( const CEGUI::EventArgs &event );
-	bool Video_Fullscreen_Select( const CEGUI::EventArgs &event );
-	bool Video_Vsync_Select( const CEGUI::EventArgs &event );
-	bool Video_FPS_Limit_Select( const CEGUI::EventArgs &event );
-	bool Video_Slider_Geometry_Quality_Changed( const CEGUI::EventArgs &event );
-	bool Video_Slider_Texture_Quality_Changed( const CEGUI::EventArgs &event );
-	bool Video_Button_Reset_Clicked( const CEGUI::EventArgs &event );
-	bool Video_Button_Apply_Clicked( const CEGUI::EventArgs &event );
-	bool Video_Button_Recreate_Cache_Clicked( const CEGUI::EventArgs &event );
-	// audio
-	bool Audio_Hz_Select( const CEGUI::EventArgs &event );
-	bool Audio_Music_Select( const CEGUI::EventArgs &event );
-	bool Audio_Music_Volume_Changed( const CEGUI::EventArgs &event );
-	bool Audio_Sound_Select( const CEGUI::EventArgs &event );
-	bool Audio_Sound_Volume_Changed( const CEGUI::EventArgs &event );
-	bool Audio_Button_Reset_Clicked( const CEGUI::EventArgs &event );
-	bool Keyboard_List_Double_Click( const CEGUI::EventArgs &event );
-	// keyboard
-	bool Keyboard_Slider_Scroll_Speed_Changed( const CEGUI::EventArgs &event );
-	bool Keyboard_Button_Reset_Clicked( const CEGUI::EventArgs &event );
-	// joystick
-	bool Joystick_Name_Click( const CEGUI::EventArgs &event );
-	bool Joystick_Name_Select( const CEGUI::EventArgs &event );
-	bool Joystick_Sensitivity_Changed( const CEGUI::EventArgs &event );
-	bool Joystick_Analog_Jump_Select( const CEGUI::EventArgs &event );
-	bool Joystick_Spinner_Axis_Hor_Changed( const CEGUI::EventArgs &event );
-	bool Joystick_Spinner_Axis_Ver_Changed( const CEGUI::EventArgs &event );
-	bool Joystick_List_Double_Click( const CEGUI::EventArgs &event );
-	bool Joystick_Button_Reset_Clicked( const CEGUI::EventArgs &event );
-	// editor
-	bool Game_Editor_Show_Item_Images_Select( const CEGUI::EventArgs &event );
-	bool Game_Editor_Item_Image_Size_Select( const CEGUI::EventArgs &event );
-	bool Game_Editor_Auto_Hide_Mouse_Select( const CEGUI::EventArgs &event );
-	bool Game_Button_Reset_Editor_Clicked( const CEGUI::EventArgs &event );
+	// ModernUI tab index: 0=Game 1=Video 2=Audio 3=Keyboard 4=Joystick 5=Editor
+	int m_active_tab;
 
-	CEGUI::TabControl *m_tabcontrol;
-	// game
-	CEGUI::Combobox *m_game_combo_always_run;
-	CEGUI::Spinner *m_game_spinner_camera_hor_speed;
-	CEGUI::Spinner *m_game_spinner_camera_ver_speed;
-	CEGUI::Combobox *m_game_combo_language;
-	CEGUI::Combobox *m_game_combo_menu_level;
-	// game editor
-	CEGUI::Combobox *m_game_combo_editor_show_item_images;
-	CEGUI::Spinner *m_game_spinner_editor_item_image_size;
-	CEGUI::Combobox *m_game_combo_editor_mouse_auto_hide;
-	// video
-	CEGUI::Combobox *m_video_combo_resolution;
-	CEGUI::Combobox *m_video_combo_bpp;
-	CEGUI::Combobox *m_video_combo_fullscreen;
-	CEGUI::Combobox *m_video_combo_vsync;
-	CEGUI::Spinner *m_video_spinner_fps_limit;
-	CEGUI::Slider *m_video_slider_geometry_quality;
-	CEGUI::Slider *m_video_slider_texture_quality;
-	// video settings (shared between CEGUI and ModernUI paths)
+	// ModernUI Game tab state
+	std::vector<std::string> m_game_languages;   // language codes (first entry = "default")
+	int m_game_language_idx;                     // selected index in m_game_languages
+	std::vector<std::string> m_game_menu_levels; // menu level names
+	int m_game_menu_level_idx;                   // selected index in m_game_menu_levels
+	float m_game_camera_hor_speed;               // cached camera hor speed
+	float m_game_camera_ver_speed;               // cached camera ver speed
+	// ModernUI Keyboard tab state
+	std::vector<std::string> m_kbd_items;  // "Name  [Key]" display strings
+	int m_kbd_selected;                    // selected row index (-1 = none)
+	int m_kbd_scroll;                      // scroll offset
+	float m_kbd_scroll_speed;             // cached scroll speed
+	// ModernUI Joystick tab state
+	std::vector<std::string> m_joy_names_list; // "None" + joystick names
+	int m_joy_selected_idx;                    // selected joystick index in m_joy_names_list
+	std::vector<std::string> m_joy_items;      // "Name  [Btn]" display strings
+	int m_joy_btn_selected;                    // selected button row (-1 = none)
+	int m_joy_btn_scroll;                      // scroll offset
+	float m_joy_sensitivity;                   // cached axis threshold (0-32767)
+	int m_joy_axis_hor;                        // cached horizontal axis
+	int m_joy_axis_ver;                        // cached vertical axis
+	// ModernUI Editor tab state
+	unsigned int m_editor_item_image_size;     // cached item image size (5-60)
+	// video settings
 	unsigned int m_vid_w;
 	unsigned int m_vid_h;
 	unsigned int m_vid_bpp;
@@ -294,12 +201,6 @@ public:
 	// ModernUI Video tab state
 	std::vector<std::string> m_vid_resolutions;  // "WxH" strings
 	int m_vid_res_idx;                            // selected index in m_vid_resolutions
-	// audio
-	CEGUI::Combobox *m_audio_combo_hz;
-	CEGUI::Combobox *m_audio_combo_music;
-	CEGUI::Slider *m_audio_slider_music;
-	CEGUI::Combobox *m_audio_combo_sounds;
-	CEGUI::Slider *m_audio_slider_sound;
 	// ModernUI Audio tab state
 	int   m_audio_hz_idx;     // 0=22050, 1=44100, 2=48000
 	float m_audio_music_vol;  // 0–128
@@ -310,18 +211,18 @@ public:
 	void Post_GUI_Draw( void );
 	static void S_Post_GUI_Draw( void );
 
-	// Shortcut item
+	// Shortcut item (used by Build_Shortcut_List — now dead code, kept for reference)
 	class cShortcut_item
 	{
 	public:
-		cShortcut_item( const CEGUI::String &name, void *key, const void *key_default )
+		cShortcut_item( const std::string &name, void *key, const void *key_default )
 		{
 			m_name = name;
 			m_key = key;
 			m_key_default = key_default;
 		}
 
-		CEGUI::String m_name;
+		std::string m_name;
 		void *m_key;
 		const void *m_key_default;
 	};

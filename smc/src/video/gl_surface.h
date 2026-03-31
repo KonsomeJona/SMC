@@ -19,8 +19,11 @@
 #include "../core/global_basic.h"
 #include "../core/math/point.h"
 // SDL
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include "core/sdl2_compat.h"
+#ifndef __ANDROID__
+  #include <GL/glew.h>
+  #include <SDL2/SDL_opengl.h>
+#endif
 
 namespace SMC
 {

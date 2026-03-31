@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
+
+# Android uses android/app/jni/CMakeLists.txt — do not use this file for Android builds.
+if(ANDROID)
+    return()
+endif()
+
 project(smc VERSION 2.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)

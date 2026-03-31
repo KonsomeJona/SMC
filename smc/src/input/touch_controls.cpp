@@ -449,6 +449,7 @@ void cTouchControls :: Draw( void )
 {
 	if( !m_visible ) return;
 
+#ifndef __ANDROID__
 	glPushAttrib( GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT );
 	glDisable( GL_TEXTURE_2D );
 	glEnable( GL_BLEND );
@@ -462,6 +463,7 @@ void cTouchControls :: Draw( void )
 	glMatrixMode( GL_MODELVIEW );
 	glPushMatrix();
 	glLoadIdentity();
+#endif
 
 	Uint8 base_a = static_cast<Uint8>( m_opacity * 255.0f );
 	Uint8 press_a = base_a * 2 > 240 ? 240 : base_a * 2;
@@ -537,14 +539,19 @@ void cTouchControls :: Draw( void )
 			Draw_Triangle( cx - ts, cy - ts, cx - ts, cy + ts, cx + ts, cy, 220, 220, 220, la );
 	}
 
+#ifndef __ANDROID__
 	glMatrixMode( GL_MODELVIEW );
 	glPopMatrix();
 	glMatrixMode( GL_PROJECTION );
 	glPopMatrix();
 	glMatrixMode( GL_MODELVIEW );
 	glPopAttrib();
+#endif
 }
 
+#ifndef __ANDROID__
+
+// Desktop: immediate-mode OpenGL drawing helpers
 void cTouchControls :: Draw_Circle( float cx, float cy, float radius, Uint8 r, Uint8 g, Uint8 b, Uint8 a )
 {
 	const int seg = 32;
@@ -599,5 +606,36 @@ void cTouchControls :: Draw_Triangle( float x1, float y1, float x2, float y2, fl
 	glVertex2f( x3, y3 );
 	glEnd();
 }
+
+#else // __ANDROID__ — GLES2: use pVideo queue-based renderer
+
+#include "../video/video.h"
+#include "../video/color.h"
+
+void cTouchControls :: Draw_Circle( float cx, float cy, float radius, Uint8 r, Uint8 g, Uint8 b, Uint8 a )
+{
+	Color col( r, g, b, a );
+	pVideo->Draw_Circle( cx, cy, radius, 0.95f, &col );
+}
+
+void cTouchControls :: Draw_Rounded_Rect( float x, float y, float w, float h, Uint8 r, Uint8 g, Uint8 b, Uint8 a )
+{
+	Color col( r, g, b, a );
+	pVideo->Draw_Rect( x, y, w, h, 0.95f, &col );
+}
+
+void cTouchControls :: Draw_Triangle( float x1, float y1, float x2, float y2, float x3, float y3,
+	Uint8 r, Uint8 g, Uint8 b, Uint8 a )
+{
+	// Approximate with bounding-box rect (no immediate-mode triangle in GLES2)
+	float bx = fminf( fminf(x1,x2), x3 );
+	float by = fminf( fminf(y1,y2), y3 );
+	float bw = fmaxf( fmaxf(x1,x2), x3 ) - bx;
+	float bh = fmaxf( fmaxf(y1,y2), y3 ) - by;
+	Color col( r, g, b, a );
+	pVideo->Draw_Rect( bx, by, bw, bh, 0.95f, &col );
+}
+
+#endif // __ANDROID__
 
 } // namespace SMC

@@ -23,9 +23,9 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/resource_manager.h"
 #include "../core/filesystem/filesystem.h"
-// CEGUI
-#include "CEGUIXMLParser.h"
-#include "CEGUIExceptions.h"
+#include "../core/debug_log.h"
+// TinyXML2 (bundled)
+#include "../core/tinyxml2.h"
 
 namespace SMC
 {
@@ -138,20 +138,37 @@ bool cPreferences :: Load( const std::string &filename /* = "" */ )
 		}
 	}
 
-	try
+	tinyxml2::XMLDocument doc;
+	tinyxml2::XMLError err = doc.LoadFile( m_config_filename.c_str() );
+	if( err != tinyxml2::XML_SUCCESS )
 	{
-	// fixme : Workaround for std::string to CEGUI::String utf8 conversion. Check again if CEGUI 0.8 works with std::string utf8
-	#ifdef _WIN32
-		CEGUI::System::getSingleton().getXMLParser()->parseXMLFile( *this, (const CEGUI::utf8*)m_config_filename.c_str(), DATA_DIR "/" GAME_SCHEMA_DIR "/Config.xsd", "" );
-	#else
-		CEGUI::System::getSingleton().getXMLParser()->parseXMLFile( *this, m_config_filename, DATA_DIR "/" GAME_SCHEMA_DIR "/Config.xsd", "" );
-	#endif
+		printf( "Preferences Loading failed: TinyXML2 error %d (%s)\n", (int)err, doc.ErrorStr() );
 	}
-	// catch CEGUI Exceptions
-	catch( CEGUI::Exception &ex )
+	else
 	{
-		printf( "Preferences Loading CEGUI Exception %s\n", ex.getMessage().c_str() );
-		pHud_Debug->Set_Text( _("Preferences Loading failed : ") + (const std::string)ex.getMessage().c_str() );
+		tinyxml2::XMLElement *root = doc.FirstChildElement( "config" );
+		if( root )
+		{
+			for( tinyxml2::XMLElement *el = root->FirstChildElement(); el; el = el->NextSiblingElement() )
+			{
+				const char *ename = el->Name();
+				if( ename && (strcmp(ename, "property") == 0 || strcmp(ename, "Item") == 0) )
+				{
+					const char *name  = el->Attribute( "name"  );
+					const char *value = el->Attribute( "value" );
+					if( !name )
+					{
+						// V.1.9 and lower used "Name"/"Value"
+						name  = el->Attribute( "Name"  );
+						value = el->Attribute( "Value" );
+					}
+					if( name && value )
+					{
+						handle_item( name, value );
+					}
+				}
+			}
+		}
 	}
 
 	// if user data dir is set
@@ -160,6 +177,15 @@ bool cPreferences :: Load( const std::string &filename /* = "" */ )
 		pResource_Manager->Set_User_Directory( m_force_user_data_dir );
 	}
 
+	LOG_DEBUG(GAME, "Preferences loaded: resolution=%dx%dx%d fullscreen=%d vsync=%d fps_limit=%d",
+		m_video_screen_w, m_video_screen_h, m_video_screen_bpp, m_video_fullscreen, m_video_vsync, m_video_fps_limit);
+	LOG_DEBUG(GAME, "Preferences audio: music=%d sound=%d hz=%d",
+		m_audio_music, m_audio_sound, m_audio_hz);
+	LOG_DEBUG(GAME, "Preferences keys: up=%d down=%d left=%d right=%d jump=%d shoot=%d action=%d",
+		m_key_up, m_key_down, m_key_left, m_key_right, m_key_jump, m_key_shoot, m_key_action);
+	LOG_DEBUG(GAME, "Preferences misc: language=%s always_run=%d camera_hor=%.1f camera_ver=%.1f",
+		m_language.c_str(), m_always_run, m_camera_hor_speed, m_camera_ver_speed);
+
 	return 1;
 }
 
@@ -167,88 +193,106 @@ void cPreferences :: Save( void )
 {
 	Update();
 
-// fixme : Check if there is a more portable way f.e. with imbue()
-#ifdef _WIN32
-	ofstream file( utf8_to_ucs2( m_config_filename ).c_str(), ios::out | ios::trunc );
-#else
-	ofstream file( m_config_filename.c_str(), ios::out | ios::trunc );
-#endif
+	tinyxml2::XMLDocument doc;
+	doc.InsertFirstChild( doc.NewDeclaration() );
 
-	if( !file.is_open() )
+	tinyxml2::XMLElement *root = doc.NewElement( "config" );
+	doc.InsertEndChild( root );
+
+	// Helper lambdas to append <property name="..." value="..."> children
+	auto add_str = [&]( const char *name, const std::string &val )
 	{
-		printf( "Error : couldn't open config %s for saving. Is the file read-only ?\n", m_config_filename.c_str() );
-		return;
-	}
+		tinyxml2::XMLElement *el = doc.NewElement( "property" );
+		el->SetAttribute( "name", name );
+		el->SetAttribute( "value", val.c_str() );
+		root->InsertEndChild( el );
+	};
+	auto add_int = [&]( const char *name, int val )
+	{
+		tinyxml2::XMLElement *el = doc.NewElement( "property" );
+		el->SetAttribute( "name", name );
+		el->SetAttribute( "value", val );
+		root->InsertEndChild( el );
+	};
+	auto add_float = [&]( const char *name, float val )
+	{
+		tinyxml2::XMLElement *el = doc.NewElement( "property" );
+		el->SetAttribute( "name", name );
+		el->SetAttribute( "value", val );
+		root->InsertEndChild( el );
+	};
+	auto add_bool = [&]( const char *name, bool val )
+	{
+		add_int( name, val ? 1 : 0 );
+	};
 
-	CEGUI::XMLSerializer stream( file );
-
-	// begin
-	stream.openTag( "config" );
 	// Game
-	Write_Property( stream, "game_version", int_to_string(SMC_VERSION_MAJOR) + "." + int_to_string(SMC_VERSION_MINOR) + "." + int_to_string(SMC_VERSION_PATCH) );
-	Write_Property( stream, "game_language", m_language );
-	Write_Property( stream, "game_always_run", m_always_run );
-	Write_Property( stream, "game_menu_level", m_menu_level );
-	Write_Property( stream, "game_user_data_dir", m_force_user_data_dir );
-	Write_Property( stream, "game_camera_hor_speed", m_camera_hor_speed );
-	Write_Property( stream, "game_camera_ver_speed", m_camera_ver_speed );
+	add_str  ( "game_version",          int_to_string(SMC_VERSION_MAJOR) + "." + int_to_string(SMC_VERSION_MINOR) + "." + int_to_string(SMC_VERSION_PATCH) );
+	add_str  ( "game_language",         m_language );
+	add_bool ( "game_always_run",       m_always_run );
+	add_str  ( "game_menu_level",       m_menu_level );
+	add_str  ( "game_user_data_dir",    m_force_user_data_dir );
+	add_float( "game_camera_hor_speed", m_camera_hor_speed );
+	add_float( "game_camera_ver_speed", m_camera_ver_speed );
 	// Video
-	Write_Property( stream, "video_fullscreen", m_video_fullscreen );
-	Write_Property( stream, "video_screen_w", m_video_screen_w );
-	Write_Property( stream, "video_screen_h", m_video_screen_h );
-	Write_Property( stream, "video_screen_bpp", static_cast<int>(m_video_screen_bpp) );
-	Write_Property( stream, "video_vsync", m_video_vsync );
-	Write_Property( stream, "video_fps_limit", m_video_fps_limit );
-	Write_Property( stream, "video_geometry_quality", pVideo->m_geometry_quality );
-	Write_Property( stream, "video_texture_quality", pVideo->m_texture_quality );
+	add_bool ( "video_fullscreen",       m_video_fullscreen );
+	add_int  ( "video_screen_w",         m_video_screen_w );
+	add_int  ( "video_screen_h",         m_video_screen_h );
+	add_int  ( "video_screen_bpp",       static_cast<int>(m_video_screen_bpp) );
+	add_bool ( "video_vsync",            m_video_vsync );
+	add_int  ( "video_fps_limit",        m_video_fps_limit );
+	add_float( "video_geometry_quality", pVideo->m_geometry_quality );
+	add_float( "video_texture_quality",  pVideo->m_texture_quality );
 	// Audio
-	Write_Property( stream, "audio_music", m_audio_music );
-	Write_Property( stream, "audio_sound", m_audio_sound );
-	Write_Property( stream, "audio_sound_volume", static_cast<int>(pAudio->m_sound_volume) );
-	Write_Property( stream, "audio_music_volume", static_cast<int>(pAudio->m_music_volume) );
-	Write_Property( stream, "audio_hz", m_audio_hz );
+	add_bool ( "audio_music",        m_audio_music );
+	add_bool ( "audio_sound",        m_audio_sound );
+	add_int  ( "audio_sound_volume", static_cast<int>(pAudio->m_sound_volume) );
+	add_int  ( "audio_music_volume", static_cast<int>(pAudio->m_music_volume) );
+	add_int  ( "audio_hz",           m_audio_hz );
 	// Keyboard
-	Write_Property( stream, "keyboard_key_up", m_key_up );
-	Write_Property( stream, "keyboard_key_down", m_key_down );
-	Write_Property( stream, "keyboard_key_left", m_key_left );
-	Write_Property( stream, "keyboard_key_right", m_key_right );
-	Write_Property( stream, "keyboard_key_jump", m_key_jump );
-	Write_Property( stream, "keyboard_key_shoot", m_key_shoot );
-	Write_Property( stream, "keyboard_key_item", m_key_item );
-	Write_Property( stream, "keyboard_key_action", m_key_action );
-	Write_Property( stream, "keyboard_scroll_speed", m_scroll_speed );
-	Write_Property( stream, "keyboard_key_screenshot", m_key_screenshot );
-	Write_Property( stream, "keyboard_key_editor_fast_copy_up", m_key_editor_fast_copy_up );
-	Write_Property( stream, "keyboard_key_editor_fast_copy_down", m_key_editor_fast_copy_down );
-	Write_Property( stream, "keyboard_key_editor_fast_copy_left", m_key_editor_fast_copy_left );
-	Write_Property( stream, "keyboard_key_editor_fast_copy_right", m_key_editor_fast_copy_right );
-	Write_Property( stream, "keyboard_key_editor_pixel_move_up", m_key_editor_pixel_move_up );
-	Write_Property( stream, "keyboard_key_editor_pixel_move_down", m_key_editor_pixel_move_down );
-	Write_Property( stream, "keyboard_key_editor_pixel_move_left", m_key_editor_pixel_move_left );
-	Write_Property( stream, "keyboard_key_editor_pixel_move_right", m_key_editor_pixel_move_right );
+	add_int  ( "keyboard_key_up",                    m_key_up );
+	add_int  ( "keyboard_key_down",                  m_key_down );
+	add_int  ( "keyboard_key_left",                  m_key_left );
+	add_int  ( "keyboard_key_right",                 m_key_right );
+	add_int  ( "keyboard_key_jump",                  m_key_jump );
+	add_int  ( "keyboard_key_shoot",                 m_key_shoot );
+	add_int  ( "keyboard_key_item",                  m_key_item );
+	add_int  ( "keyboard_key_action",                m_key_action );
+	add_float( "keyboard_scroll_speed",              m_scroll_speed );
+	add_int  ( "keyboard_key_screenshot",            m_key_screenshot );
+	add_int  ( "keyboard_key_editor_fast_copy_up",   m_key_editor_fast_copy_up );
+	add_int  ( "keyboard_key_editor_fast_copy_down", m_key_editor_fast_copy_down );
+	add_int  ( "keyboard_key_editor_fast_copy_left", m_key_editor_fast_copy_left );
+	add_int  ( "keyboard_key_editor_fast_copy_right",m_key_editor_fast_copy_right );
+	add_int  ( "keyboard_key_editor_pixel_move_up",  m_key_editor_pixel_move_up );
+	add_int  ( "keyboard_key_editor_pixel_move_down",m_key_editor_pixel_move_down );
+	add_int  ( "keyboard_key_editor_pixel_move_left",m_key_editor_pixel_move_left );
+	add_int  ( "keyboard_key_editor_pixel_move_right",m_key_editor_pixel_move_right );
 	// Joystick/Gamepad
-	Write_Property( stream, "joy_enabled", m_joy_enabled );
-	Write_Property( stream, "joy_name", m_joy_name );
-	Write_Property( stream, "joy_analog_jump", m_joy_analog_jump );
-	Write_Property( stream, "joy_axis_hor", m_joy_axis_hor );
-	Write_Property( stream, "joy_axis_ver", m_joy_axis_ver );
-	Write_Property( stream, "joy_axis_threshold", m_joy_axis_threshold );
-	Write_Property( stream, "joy_button_jump", static_cast<int>(m_joy_button_jump) );
-	Write_Property( stream, "joy_button_item", static_cast<int>(m_joy_button_item) );
-	Write_Property( stream, "joy_button_shoot", static_cast<int>(m_joy_button_shoot) );
-	Write_Property( stream, "joy_button_action", static_cast<int>(m_joy_button_action) );
-	Write_Property( stream, "joy_button_exit", static_cast<int>(m_joy_button_exit) );
+	add_bool ( "joy_enabled",        m_joy_enabled );
+	add_str  ( "joy_name",           m_joy_name );
+	add_bool ( "joy_analog_jump",    m_joy_analog_jump );
+	add_int  ( "joy_axis_hor",       m_joy_axis_hor );
+	add_int  ( "joy_axis_ver",       m_joy_axis_ver );
+	add_int  ( "joy_axis_threshold", m_joy_axis_threshold );
+	add_int  ( "joy_button_jump",    static_cast<int>(m_joy_button_jump) );
+	add_int  ( "joy_button_item",    static_cast<int>(m_joy_button_item) );
+	add_int  ( "joy_button_shoot",   static_cast<int>(m_joy_button_shoot) );
+	add_int  ( "joy_button_action",  static_cast<int>(m_joy_button_action) );
+	add_int  ( "joy_button_exit",    static_cast<int>(m_joy_button_exit) );
 	// Special
-	Write_Property( stream, "level_background_images", m_level_background_images );
-	Write_Property( stream, "image_cache_enabled", m_image_cache_enabled );
+	add_bool( "level_background_images", m_level_background_images );
+	add_bool( "image_cache_enabled",     m_image_cache_enabled );
 	// Editor
-	Write_Property( stream, "editor_mouse_auto_hide", m_editor_mouse_auto_hide );
-	Write_Property( stream, "editor_show_item_images", m_editor_show_item_images );
-	Write_Property( stream, "editor_item_image_size", m_editor_item_image_size );
-	// end config
-	stream.closeTag();
+	add_bool( "editor_mouse_auto_hide",    m_editor_mouse_auto_hide );
+	add_bool( "editor_show_item_images",   m_editor_show_item_images );
+	add_int ( "editor_item_image_size",    m_editor_item_image_size );
 
-	file.close();
+	tinyxml2::XMLError err = doc.SaveFile( m_config_filename.c_str() );
+	if( err != tinyxml2::XML_SUCCESS )
+	{
+		printf( "Error : couldn't save config %s (TinyXML2 error %d)\n", m_config_filename.c_str(), (int)err );
+	}
 }
 
 void cPreferences :: Reset_All( void )
@@ -438,54 +482,28 @@ void cPreferences :: Apply_Audio( bool sound, bool music )
 	pAudio->Init();
 }
 
-void cPreferences :: elementStart( const CEGUI::String &element, const CEGUI::XMLAttributes &attributes )
+void cPreferences :: handle_item( const char *name, const char *value )
 {
-	if( element == "property" || element == "Item" )
-	{
-		handle_item( attributes );
-	}
-}
-
-void cPreferences :: elementEnd( const CEGUI::String &element )
-{
-	
-}
-
-void cPreferences :: handle_item( CEGUI::XMLAttributes attributes )
-{
-	std::string name;
-
-	if( attributes.exists( "name" ) )
-	{
-		name = attributes.getValueAsString( "name" ).c_str();
-	}
-	// V.1.9 and lower
-	else
-	{
-		name = attributes.getValueAsString( "Name" ).c_str();
-		attributes.add( "value", attributes.getValueAsString( "Value" ) );
-	}
-
 	// Game
-	if( name.compare( "game_version" ) == 0 )
+	if( strcmp( name, "game_version" ) == 0 )
 	{
-		m_game_version = string_to_version_number( attributes.getValueAsString( "value" ).c_str() );
+		m_game_version = string_to_version_number( value );
 	}
-	else if( name.compare( "game_language" ) == 0 )
+	else if( strcmp( name, "game_language" ) == 0 )
 	{
-		m_language = attributes.getValueAsString( "value" ).c_str();
+		m_language = value;
 	}
-	else if( name.compare( "game_always_run" ) == 0 || name.compare( "always_run" ) == 0 )
+	else if( strcmp( name, "game_always_run" ) == 0 || strcmp( name, "always_run" ) == 0 )
 	{
-		m_always_run = attributes.getValueAsBool( "value" );
+		m_always_run = atoi( value ) != 0;
 	}
-	else if( name.compare( "game_menu_level" ) == 0 )
+	else if( strcmp( name, "game_menu_level" ) == 0 )
 	{
-		m_menu_level = attributes.getValueAsString( "value" ).c_str();
+		m_menu_level = value;
 	}
-	else if( name.compare( "game_user_data_dir" ) == 0 || name.compare( "user_data_dir" ) == 0 )
+	else if( strcmp( name, "game_user_data_dir" ) == 0 || strcmp( name, "user_data_dir" ) == 0 )
 	{
-		m_force_user_data_dir = attributes.getValueAsString( "value" ).c_str();
+		m_force_user_data_dir = value;
 
 		// if user data dir is set
 		if( !m_force_user_data_dir.empty() ) 
@@ -499,380 +517,247 @@ void cPreferences :: handle_item( CEGUI::XMLAttributes attributes )
 			}
 		}
 	}
-	else if( name.compare( "game_camera_hor_speed" ) == 0 || name.compare( "camera_hor_speed" ) == 0 )
+	else if( strcmp( name, "game_camera_hor_speed" ) == 0 || strcmp( name, "camera_hor_speed" ) == 0 )
 	{
-		m_camera_hor_speed = attributes.getValueAsFloat( "value" );
+		m_camera_hor_speed = (float)atof( value );
 	}
-	else if( name.compare( "game_camera_ver_speed" ) == 0 || name.compare( "camera_ver_speed" ) == 0 )
+	else if( strcmp( name, "game_camera_ver_speed" ) == 0 || strcmp( name, "camera_ver_speed" ) == 0 )
 	{
-		m_camera_ver_speed = attributes.getValueAsFloat( "value" );
+		m_camera_ver_speed = (float)atof( value );
 	}
 	// Video
-	else if( name.compare( "video_screen_h" ) == 0 )
+	else if( strcmp( name, "video_screen_h" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val < 200 )
-		{
-			val = 200;
-		}
-		else if( val > 2560 )
-		{
-			val = 2560;
-		}
-		
+		int val = atoi( value );
+		if( val < 200 ) val = 200;
+		else if( val > 2560 ) val = 2560;
 		m_video_screen_h = val;
 	}
-	else if( name.compare( "video_screen_w" ) == 0 )
+	else if( strcmp( name, "video_screen_w" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val < 200 )
-		{
-			val = 200;
-		}
-		else if( val > 2560 )
-		{
-			val = 2560;
-		}
-
+		int val = atoi( value );
+		if( val < 200 ) val = 200;
+		else if( val > 2560 ) val = 2560;
 		m_video_screen_w = val;
 	}
-	else if( name.compare( "video_screen_bpp" ) == 0 )
+	else if( strcmp( name, "video_screen_bpp" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val < 8 )
-		{
-			val = 8;
-		}
-		else if( val > 32 )
-		{
-			val = 32;
-		}
-
+		int val = atoi( value );
+		if( val < 8 ) val = 8;
+		else if( val > 32 ) val = 32;
 		m_video_screen_bpp = val;
 	}
-	else if( name.compare( "video_vsync" ) == 0 )
+	else if( strcmp( name, "video_vsync" ) == 0 )
 	{
-		m_video_vsync = attributes.getValueAsBool( "value" );
+		m_video_vsync = atoi( value ) != 0;
 	}
-	else if( name.compare( "video_fps_limit" ) == 0 )
+	else if( strcmp( name, "video_fps_limit" ) == 0 )
 	{
-		m_video_fps_limit = attributes.getValueAsInteger( "value" );
+		m_video_fps_limit = atoi( value );
 	}
-	else if( name.compare( "video_fullscreen" ) == 0 )
+	else if( strcmp( name, "video_fullscreen" ) == 0 )
 	{
-		m_video_fullscreen = attributes.getValueAsBool( "value" );
+		m_video_fullscreen = atoi( value ) != 0;
 	}
-	else if( name.compare( "video_geometry_detail" ) == 0 || name.compare( "video_geometry_quality" ) == 0 )
+	else if( strcmp( name, "video_geometry_detail" ) == 0 || strcmp( name, "video_geometry_quality" ) == 0 )
 	{
-		pVideo->m_geometry_quality = attributes.getValueAsFloat( "value" );
+		pVideo->m_geometry_quality = (float)atof( value );
 	}
-	else if( name.compare( "video_texture_detail" ) == 0 || name.compare( "video_texture_quality" ) == 0 )
+	else if( strcmp( name, "video_texture_detail" ) == 0 || strcmp( name, "video_texture_quality" ) == 0 )
 	{
-		pVideo->m_texture_quality = attributes.getValueAsFloat( "value" );
+		pVideo->m_texture_quality = (float)atof( value );
 	}
 	// Audio
-	else if( name.compare( "audio_music" ) == 0 )
+	else if( strcmp( name, "audio_music" ) == 0 )
 	{
-		m_audio_music = attributes.getValueAsBool( "value" );
+		m_audio_music = atoi( value ) != 0;
 	}
-	else if( name.compare( "audio_sound" ) == 0 )
+	else if( strcmp( name, "audio_sound" ) == 0 )
 	{
-		m_audio_sound = attributes.getValueAsBool( "value" );
+		m_audio_sound = atoi( value ) != 0;
 	}
-	if( name.compare( "audio_music_volume" ) == 0 )
+	else if( strcmp( name, "audio_music_volume" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
+		int val = atoi( value );
 		if( val >= 0 && val <= MIX_MAX_VOLUME )
-		{
 			pAudio->m_music_volume = val;
-		}
 	}
-	else if( name.compare( "audio_sound_volume" ) == 0 )
+	else if( strcmp( name, "audio_sound_volume" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
+		int val = atoi( value );
 		if( val >= 0 && val <= MIX_MAX_VOLUME )
-		{
 			pAudio->m_sound_volume = val;
-		}
 	}
-	else if( name.compare( "audio_hz" ) == 0 )
+	else if( strcmp( name, "audio_hz" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
+		int val = atoi( value );
 		if( val >= 0 && val <= 96000 )
-		{
 			m_audio_hz = val;
-		}
 	}
 	// Keyboard
-	else if( name.compare( "keyboard_key_up" ) == 0 )
+	else if( strcmp( name, "keyboard_key_up" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_up = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_up = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_down" ) == 0 )
+	else if( strcmp( name, "keyboard_key_down" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_down = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_down = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_left" ) == 0 )
+	else if( strcmp( name, "keyboard_key_left" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_left = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_left = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_right" ) == 0 )
+	else if( strcmp( name, "keyboard_key_right" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_right = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_right = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_jump" ) == 0 )
+	else if( strcmp( name, "keyboard_key_jump" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_jump = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_jump = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_shoot" ) == 0 )
+	else if( strcmp( name, "keyboard_key_shoot" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_shoot = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_shoot = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_item" ) == 0 )
+	else if( strcmp( name, "keyboard_key_item" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_item = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_item = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_action" ) == 0 )
+	else if( strcmp( name, "keyboard_key_action" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_action = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_action = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_scroll_speed" ) == 0 )
+	else if( strcmp( name, "keyboard_scroll_speed" ) == 0 )
 	{
-		m_scroll_speed = attributes.getValueAsFloat( "value" );
+		m_scroll_speed = (float)atof( value );
 	}
-	else if( name.compare( "keyboard_key_screenshot" ) == 0 )
+	else if( strcmp( name, "keyboard_key_screenshot" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_screenshot = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_screenshot = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_editor_fast_copy_up" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_fast_copy_up" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_fast_copy_up = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_fast_copy_up = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_editor_fast_copy_down" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_fast_copy_down" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_fast_copy_down = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_fast_copy_down = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_editor_fast_copy_left" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_fast_copy_left" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_fast_copy_left = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_fast_copy_left = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_editor_fast_copy_right" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_fast_copy_right" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_fast_copy_right = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_fast_copy_right = static_cast<SDLKey>(val);
 	}
-		else if( name.compare( "keyboard_key_editor_pixel_move_up" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_pixel_move_up" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_pixel_move_up = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_pixel_move_up = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_editor_pixel_move_down" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_pixel_move_down" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_pixel_move_down = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_pixel_move_down = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_editor_pixel_move_left" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_pixel_move_left" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_pixel_move_left = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_pixel_move_left = static_cast<SDLKey>(val);
 	}
-	else if( name.compare( "keyboard_key_editor_pixel_move_right" ) == 0 )
+	else if( strcmp( name, "keyboard_key_editor_pixel_move_right" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= SDLK_LAST )
-		{
-			m_key_editor_pixel_move_right = static_cast<SDLKey>(val);
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= SDLK_LAST ) m_key_editor_pixel_move_right = static_cast<SDLKey>(val);
 	}
 	// Joypad
-	else if( name.compare( "joy_enabled" ) == 0 )
+	else if( strcmp( name, "joy_enabled" ) == 0 )
 	{
-		m_joy_enabled = attributes.getValueAsBool( "value" );
+		m_joy_enabled = atoi( value ) != 0;
 	}
-	else if( name.compare( "joy_name" ) == 0 )
+	else if( strcmp( name, "joy_name" ) == 0 )
 	{
-		m_joy_name = attributes.getValueAsString( "value" ).c_str();
+		m_joy_name = value;
 	}
-	else if( name.compare( "joy_analog_jump" ) == 0 )
+	else if( strcmp( name, "joy_analog_jump" ) == 0 )
 	{
-		m_joy_analog_jump = attributes.getValueAsBool( "value" );
+		m_joy_analog_jump = atoi( value ) != 0;
 	}
-	else if( name.compare( "joy_axis_hor" ) == 0 )
+	else if( strcmp( name, "joy_axis_hor" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 256 )
-		{
-			m_joy_axis_hor = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 256 ) m_joy_axis_hor = val;
 	}
-	else if( name.compare( "joy_axis_ver" ) == 0 )
+	else if( strcmp( name, "joy_axis_ver" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 256 )
-		{
-			m_joy_axis_ver = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 256 ) m_joy_axis_ver = val;
 	}
-	else if( name.compare( "joy_axis_threshold" ) == 0 )
+	else if( strcmp( name, "joy_axis_threshold" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 32767 )
-		{
-			m_joy_axis_threshold = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 32767 ) m_joy_axis_threshold = val;
 	}
-	else if( name.compare( "joy_button_jump" ) == 0 )
+	else if( strcmp( name, "joy_button_jump" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 256 )
-		{
-			m_joy_button_jump = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 256 ) m_joy_button_jump = val;
 	}
-	else if( name.compare( "joy_button_item" ) == 0 )
+	else if( strcmp( name, "joy_button_item" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 256 )
-		{
-			m_joy_button_item = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 256 ) m_joy_button_item = val;
 	}
-	else if( name.compare( "joy_button_shoot" ) == 0 )
+	else if( strcmp( name, "joy_button_shoot" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 256 )
-		{
-			m_joy_button_shoot = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 256 ) m_joy_button_shoot = val;
 	}
-	else if( name.compare( "joy_button_action" ) == 0 )
+	else if( strcmp( name, "joy_button_action" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 256 )
-		{
-			m_joy_button_action = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 256 ) m_joy_button_action = val;
 	}
-	else if( name.compare( "joy_button_exit" ) == 0 )
+	else if( strcmp( name, "joy_button_exit" ) == 0 )
 	{
-		int val = attributes.getValueAsInteger( "value" );
-
-		if( val >= 0 && val <= 256 )
-		{
-			m_joy_button_exit = val;
-		}
+		int val = atoi( value );
+		if( val >= 0 && val <= 256 ) m_joy_button_exit = val;
 	}
 	// Special
-	else if( name.compare( "level_background_images" ) == 0 )
+	else if( strcmp( name, "level_background_images" ) == 0 )
 	{
-		m_level_background_images = attributes.getValueAsBool( "value" );
+		m_level_background_images = atoi( value ) != 0;
 	}
-	else if( name.compare( "image_cache_enabled" ) == 0 )
+	else if( strcmp( name, "image_cache_enabled" ) == 0 )
 	{
-		m_image_cache_enabled = attributes.getValueAsBool( "value" );
+		m_image_cache_enabled = atoi( value ) != 0;
 	}
 	// Editor
-	else if( name.compare( "editor_mouse_auto_hide" ) == 0 )
+	else if( strcmp( name, "editor_mouse_auto_hide" ) == 0 )
 	{
-		m_editor_mouse_auto_hide = attributes.getValueAsBool( "value" );
+		m_editor_mouse_auto_hide = atoi( value ) != 0;
 	}
-	else if( name.compare( "editor_show_item_images" ) == 0 )
+	else if( strcmp( name, "editor_show_item_images" ) == 0 )
 	{
-		m_editor_show_item_images = attributes.getValueAsBool( "value" );
+		m_editor_show_item_images = atoi( value ) != 0;
 	}
-	else if( name.compare( "editor_item_image_size" ) == 0 )
+	else if( strcmp( name, "editor_item_image_size" ) == 0 )
 	{
-		m_editor_item_image_size = attributes.getValueAsInteger( "value" );
+		m_editor_item_image_size = atoi( value );
 	}
 }
 

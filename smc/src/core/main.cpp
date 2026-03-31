@@ -36,8 +36,10 @@
 #include "../input/keyboard.h"
 #include "../input/touch_controls.h"
 #include "../video/renderer.h"
+#include "../video/gles2_renderer.h"
 #include "../core/i18n.h"
 #include "../gui/generic.h"
+#include "../gui/modern_ui.h"
 #include "core/sdl2_compat.h"
 #include "../core/debug_log.h"
 #include <signal.h>
@@ -61,8 +63,7 @@ static void crash_handler(int sig)
 #include <unistd.h>
 #endif
 
-// CEGUI
-#include <CEGUI/DefaultLogger.h>
+// CEGUI include removed in M12 (Init_CEGUI stubbed; remaining uses guarded with null checks)
 
 // SMC namespace is set later to exclude main() from it
 using namespace SMC;
@@ -229,9 +230,9 @@ int main( int argc, char **argv )
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	}
 
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
+	Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_BLACK ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 
 	// game loop
@@ -284,23 +285,12 @@ void Init_Game( void )
 	 * can get overridden later from the preferences
 	*/
 	pResource_Manager->Set_User_Directory( Get_User_Directory() );
-	/* Initialize the fake CEGUI renderer and system for the pPreferences XMLParser,
-	 * because CEGUI creates the system normally with the OpenGL-Renderer and OpenGL calls may 
-	 * only be made with a valid OpenGL-context, which we would get only by setting 
-	 * the videomode first. That would mean we need to init the videomode twice.
-	 *
-	 * The XMLParser can not be used without an initialized CEGUI::System because the XMLParser
-	 * uses the CEGUI::System internally. Tested with CEGUI 0.7.4.
-	*/
-	pVideo->Init_CEGUI_Fake();
-	// load user data
+	// load user data (preferences now parsed with TinyXML2, no CEGUI needed)
 	pPreferences->Load();
 	// set game language
 	I18N_Set_Language( pPreferences->m_language );
 	// init translation support
 	I18N_Init();
-	// delete CEGUI System fake
-	pVideo->Delete_CEGUI_Fake();
 
 	// init user dir directory
 	pResource_Manager->Init_User_Directory();
@@ -489,19 +479,15 @@ void Exit_Game( void )
 		pRenderer_current = NULL;
 	}
 
+	// pGuiSystem / pGuiRenderer are NULL (Init_CEGUI is a stub since M12).
+	// No cleanup needed; guards remain in case CEGUI is re-enabled later.
 	if( pGuiSystem )
 	{
-		CEGUI::ResourceProvider* rp = pGuiSystem->getResourceProvider();
-		CEGUI::Logger *logger = CEGUI::Logger::getSingletonPtr();
-		pGuiSystem->destroy();
+		// pGuiSystem->destroy() would need CEGUI headers — keep guard but skip if NULL.
 		pGuiSystem = NULL;
-		delete rp;
-		delete logger;
 	}
-
 	if( pGuiRenderer )
 	{
-		pGuiRenderer->destroy( *pGuiRenderer );
 		pGuiRenderer = NULL;
 	}
 
@@ -571,8 +557,11 @@ bool Handle_Input_Global( SDL_Event *ev )
 				int draw_w, draw_h;
 				SDL_GL_GetDrawableSize( g_sdl_window, &draw_w, &draw_h );
 				glViewport( 0, 0, draw_w, draw_h );
-				// CEGUI uses the window size (matches our glOrtho projection)
-				pGuiSystem->notifyDisplaySizeChanged( CEGUI::Sizef( static_cast<float>(ev->window.data1), static_cast<float>(ev->window.data2) ) );
+				// CEGUI resize notification — no-op when CEGUI is not initialised (M12)
+#ifdef __ANDROID__
+				GLES2::Set_Projection( static_cast<float>(draw_w),
+				                       static_cast<float>(draw_h) );
+#endif
 			}
 			else if( ev->window.event == SDL_WINDOWEVENT_FOCUS_LOST )
 			{
@@ -623,28 +612,35 @@ bool Handle_Input_Global( SDL_Event *ev )
 		}
 		case SDL_TEXTINPUT:
 		{
-			// Inject text characters to CEGUI for editbox input
-			const char *text = ev->text.text;
-			for( int i = 0; text[i]; )
+			// Text input was forwarded to CEGUI for editbox input.
+			// CEGUI is not initialised in M12; the editor (which uses CEGUI editboxes)
+			// handles its own text input internally via pGuiSystem when it is active.
+			if( pGuiSystem )
 			{
-				// Decode UTF-8 to UTF-32 code point
-				Uint32 cp = 0;
-				unsigned char c = text[i];
-				if( c < 0x80 ) { cp = c; i += 1; }
-				else if( c < 0xE0 ) { cp = (c & 0x1F) << 6 | (text[i+1] & 0x3F); i += 2; }
-				else if( c < 0xF0 ) { cp = (c & 0x0F) << 12 | (text[i+1] & 0x3F) << 6 | (text[i+2] & 0x3F); i += 3; }
-				else { cp = (c & 0x07) << 18 | (text[i+1] & 0x3F) << 12 | (text[i+2] & 0x3F) << 6 | (text[i+3] & 0x3F); i += 4; }
-				pGuiSystem->getDefaultGUIContext().injectChar( cp );
+				const char *text = ev->text.text;
+				for( int i = 0; text[i]; )
+				{
+					Uint32 cp = 0;
+					unsigned char c = text[i];
+					if( c < 0x80 ) { cp = c; i += 1; }
+					else if( c < 0xE0 ) { cp = (c & 0x1F) << 6 | (text[i+1] & 0x3F); i += 2; }
+					else if( c < 0xF0 ) { cp = (c & 0x0F) << 12 | (text[i+1] & 0x3F) << 6 | (text[i+2] & 0x3F); i += 3; }
+					else { cp = (c & 0x07) << 18 | (text[i+1] & 0x3F) << 12 | (text[i+2] & 0x3F) << 6 | (text[i+3] & 0x3F); i += 4; }
+					pGuiSystem->getDefaultGUIContext().injectChar( cp );
+				}
 			}
 			break;
 		}
 		case SDL_MOUSEWHEEL:
 		{
-			// SDL2 mouse wheel events
-			if( ev->wheel.y > 0 )
-				pGuiSystem->getDefaultGUIContext().injectMouseWheelChange( 1.0f );
-			else if( ev->wheel.y < 0 )
-				pGuiSystem->getDefaultGUIContext().injectMouseWheelChange( -1.0f );
+			// SDL2 mouse wheel events — forward to CEGUI only when it is initialised
+			if( pGuiSystem )
+			{
+				if( ev->wheel.y > 0 )
+					pGuiSystem->getDefaultGUIContext().injectMouseWheelChange( 1.0f );
+				else if( ev->wheel.y < 0 )
+					pGuiSystem->getDefaultGUIContext().injectMouseWheelChange( -1.0f );
+			}
 			break;
 		}
 		case SDL_JOYBUTTONDOWN:
@@ -791,6 +787,7 @@ void Update_Game( void )
 	Handle_Game_Events();
 
 	// ## input
+	ModernUI::Begin_Frame();
 	while( SDL_PollEvent( &input_event ) )
 	{
 		// handle
@@ -868,6 +865,12 @@ void Draw_Game( void )
 
 	// Mouse
 	pMouseCursor->Draw();
+
+	// Touch controls overlay (drawn on top of everything, direct GL)
+	if( pTouchControls && pTouchControls->m_visible )
+	{
+		pTouchControls->Draw();
+	}
 
 	// update performance timer
 	pFramerate->m_perf_timer[PERF_DRAW_MOUSE]->Update();

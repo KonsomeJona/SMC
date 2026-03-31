@@ -1,0 +1,81 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'org.smc'
+    compileSdk 34
+    ndkVersion "25.2.9519653"
+
+    defaultConfig {
+        applicationId "org.smc"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "2.0.0"
+
+        // NDK ABI filters — arm64-v8a for modern devices; add armeabi-v7a if needed
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+
+        externalNativeBuild {
+            cmake {
+                // Passed to the NDK CMakeLists.txt
+                arguments "-DANDROID_STL=c++_shared",
+                          "-DANDROID_CPP_FEATURES=rtti exceptions"
+                cppFlags "-std=c++17"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "jni/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            jniDebuggable true
+        }
+    }
+
+    sourceSets {
+        main {
+            // Bundle smc/data/ as APK assets so extractAssets() can copy them
+            // to internal storage at runtime.  The path is relative to the
+            // app/ module directory (android/app/).
+            //
+            // Gradle merges multiple srcDirs, so any files placed manually
+            // under src/main/assets/ also remain in the APK.
+            assets.srcDirs = [
+                'src/main/assets',
+                '../../../../smc/data'
+            ]
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    // SDL2 Android AAR — place the SDL2.aar (and SDL2_image, SDL2_mixer, SDL2_ttf AARs)
+    // in android/app/libs/ and uncomment:
+    //
+    // implementation fileTree(dir: 'libs', include: ['*.aar'])
+    //
+    // Alternatively, if using local Maven repo built from SDL2 source:
+    // implementation 'org.libsdl.app:SDL2:2.30.0@aar'
+    // implementation 'org.libsdl.app:SDL2_image:2.8.0@aar'
+    // implementation 'org.libsdl.app:SDL2_mixer:2.8.0@aar'
+    // implementation 'org.libsdl.app:SDL2_ttf:2.22.0@aar'
+}

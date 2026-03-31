@@ -22,6 +22,7 @@
 #include "../video/img_settings.h"
 #include "../input/mouse.h"
 #include "../video/renderer.h"
+#include "../video/gles2_renderer.h"
 #include "../core/main.h"
 #include "../core/math/utilities.h"
 #include "../core/i18n.h"
@@ -32,9 +33,14 @@
 #include "../input/touch_controls.h"
 // SDL
 #include "core/sdl2_compat.h"
-#include <GL/glew.h>
-#include <SDL2/SDL_opengl.h>
-// CEGUI
+#ifndef __ANDROID__
+  #include <GL/glew.h>
+  #include <SDL2/SDL_opengl.h>
+#else
+  #include "core/glu_android.h"
+#endif
+// CEGUI — still included for loading screen, editor, and Init_Video reinit paths.
+// Init_CEGUI() and Init_CEGUI_Data() are now stubs (M12).
 #include <CEGUI/DefaultResourceProvider.h>
 #include <CEGUI/DefaultLogger.h>
 #include <CEGUI/Exceptions.h>
@@ -98,132 +104,24 @@ cVideo :: ~cVideo( void )
 
 void cVideo :: Init_CEGUI_Fake( void ) const
 {
-	// create fake Resource Provider
-	CEGUI::DefaultResourceProvider *rp = new CEGUI::DefaultResourceProvider();
-	// set Resource Provider directories
-	if( CEGUI::System::getDefaultXMLParserName().compare( "XercesParser" ) == 0 )
-	{
-		// This is needed for Xerces to specify the schemas location
-		rp->setResourceGroupDirectory( "schemas", DATA_DIR "/" GAME_SCHEMA_DIR "/" );
-	}
-	// get a directory to dump the CEGUI log
-#ifdef _WIN32
-	// fixme : Workaround for std::string to CEGUI::String utf8 conversion. Check again if CEGUI 0.8 works with std::string utf8
-	CEGUI::String log_dump_dir = (const CEGUI::utf8*)((Get_Temp_Directory() + "cegui.log").c_str());
-#else
-	CEGUI::String log_dump_dir = "/dev/null";
-#endif
-	// create fake system and renderer
-	pGuiSystem = &CEGUI::System::create( CEGUI::NullRenderer::create(), rp, NULL, NULL, NULL, "", log_dump_dir );
+	// No longer needed: preferences XML parsing now uses TinyXML2 directly.
 }
 
 void cVideo :: Delete_CEGUI_Fake( void ) const
 {
-	CEGUI::Renderer *renderer = pGuiSystem->getRenderer();
-	CEGUI::System::destroy();
-	pGuiSystem = NULL;
-	CEGUI::NullRenderer::destroy( static_cast<CEGUI::NullRenderer&>(*renderer) );
+	// No longer needed: preferences XML parsing now uses TinyXML2 directly.
 }
 
 void cVideo :: Init_CEGUI( void ) const
 {
-	// create renderer
-	try
-	{
-		// Use preference resolution for CEGUI (matches our glOrtho projection)
-		pGuiRenderer = &CEGUI::OpenGLRenderer::create( CEGUI::Sizef( (float)pPreferences->m_video_screen_w, (float)pPreferences->m_video_screen_h ) );
-	}
-	// catch CEGUI Exceptions
-	catch( CEGUI::Exception &ex )
-	{
-		printf( "CEGUI Exception occurred : %s\n", ex.getMessage().c_str() );
-		exit( EXIT_FAILURE );
-	}
-
-	pGuiRenderer->enableExtraStateSettings( 1 );
-
-	// create Resource Provider
-	CEGUI::DefaultResourceProvider *rp = new CEGUI::DefaultResourceProvider();
-
-	// set Resource Provider directories
-	rp->setResourceGroupDirectory( "schemes", DATA_DIR "/" GUI_SCHEME_DIR "/" );
-	rp->setResourceGroupDirectory( "imagesets", DATA_DIR "/" GUI_IMAGESET_DIR "/" );
-	rp->setResourceGroupDirectory( "fonts", DATA_DIR "/" GUI_FONT_DIR "/" );
-	rp->setResourceGroupDirectory( "looknfeels", DATA_DIR "/" GUI_LOOKNFEEL_DIR "/" );
-	rp->setResourceGroupDirectory( "layouts", DATA_DIR "/" GUI_LAYOUT_DIR "/" );
-	if( CEGUI::System::getDefaultXMLParserName().compare( "XercesParser" ) == 0 )
-	{
-		// Needed for Xerces to specify the schemas location
-		rp->setResourceGroupDirectory( "schemas", DATA_DIR "/" GAME_SCHEMA_DIR "/" );
-	}
-
-	// create logger
-	CEGUI::Logger *logger = new CEGUI::DefaultLogger();
-	// set logging level
-#ifdef _DEBUG
-	logger->setLoggingLevel( CEGUI::Informative );
-#else
-	logger->setLoggingLevel( CEGUI::Errors );
-#endif
-
-	// set initial mouse position (scaled to preference resolution which matches our projection)
-	int mouse_x, mouse_y;
-	SDL_GetMouseState( &mouse_x, &mouse_y );
-	CEGUI::MouseCursor::setInitialMousePosition( CEGUI::Vector2f( static_cast<float>(mouse_x), static_cast<float>(mouse_y) ) );
-	// add custom widgets
-	CEGUI::WindowFactoryManager::addFactory<CEGUI::SMC_SpinnerFactory>();
-
-	// create system
-	try
-	{
-	// fixme : Workaround for std::string to CEGUI::String utf8 conversion. Check again if CEGUI 0.8 works with std::string utf8
-	#ifdef _WIN32
-		pGuiSystem = &CEGUI::System::create( *pGuiRenderer, rp, NULL, NULL, NULL, "", (const CEGUI::utf8*)((pResource_Manager->user_data_dir + "cegui.log").c_str()) );
-	#else
-		pGuiSystem = &CEGUI::System::create( *pGuiRenderer, rp, NULL, NULL, NULL, "", pResource_Manager->user_data_dir + "cegui.log" );
-	#endif
-	}
-	// catch CEGUI Exceptions
-	catch( CEGUI::Exception &ex )
-	{
-		printf( "CEGUI Exception occurred : %s\n", ex.getMessage().c_str() );
-		exit( EXIT_FAILURE );
-	}
+	// M12: Stubbed out. CEGUI is no longer initialised at startup.
+	// pGuiRenderer and pGuiSystem remain NULL; code that still uses them (editor,
+	// loading screen) is guarded with null-checks or will be converted in a future milestone.
 }
 
 void cVideo :: Init_CEGUI_Data( void ) const
 {
-	// set the default resource groups to be used
-	CEGUI::Scheme::setDefaultResourceGroup( "schemes" );
-	CEGUI::ImageManager::setImagesetDefaultResourceGroup( "imagesets" );
-	CEGUI::Font::setDefaultResourceGroup( "fonts" );
-	CEGUI::WidgetLookManager::setDefaultResourceGroup( "looknfeels" );
-	CEGUI::WindowManager::setDefaultResourceGroup( "layouts" );
-
-	// load the scheme file, which auto-loads the imageset
-	printf("DEBUG: Loading scheme from resource group 'schemes'\n");
-	printf("DEBUG: DATA_DIR = %s\n", DATA_DIR);
-	printf("DEBUG: GUI_SCHEME_DIR = %s\n", GUI_SCHEME_DIR);
-	try
-	{
-		CEGUI::SchemeManager::getSingleton().createFromFile( "TaharezLook.scheme" );
-	}
-	// catch CEGUI Exceptions
-	catch( CEGUI::Exception &ex )
-	{
-		printf( "CEGUI Scheme Exception occurred : %s\n", ex.getMessage().c_str() );
-		exit( EXIT_FAILURE );
-	}
-
-	// default mouse cursor
-	CEGUI::System::getSingleton().getDefaultGUIContext().getMouseCursor().setImage( "TaharezLook/MouseArrow" );
-	// default tooltip
-	pGuiSystem->getDefaultGUIContext().setDefaultTooltipType( "TaharezLook/Tooltip" );
-
-	// create default root window
-	CEGUI::Window *window_root = CEGUI::WindowManager::getSingleton().loadLayoutFromFile( "default.layout" );
-	pGuiSystem->getDefaultGUIContext().setRootWindow( window_root );
-	window_root->activate();
+	// M12: Stubbed out — depends on Init_CEGUI which is now a no-op.
 }
 
 void cVideo :: Init_SDL( void )
@@ -374,11 +272,21 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	// not yet needed
 	//SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 16 );
 	SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
+	// set OpenGL context version — ES 2.0 on Android, desktop 2.1 elsewhere
+#ifdef __ANDROID__
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 2 );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 0 );
+#else
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 2 );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
+#endif
 	// if reinitialization
 	if( m_initialised )
 	{
-		// check if CEGUI is initialized
-		bool cegui_initialized = pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL;
+		// CEGUI is not initialised in M12; skip CEGUI-specific texture saving
+		bool cegui_initialized = ( pGuiSystem != NULL ) &&
+		                         ( pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL );
 
 		// show loading screen
 		if( cegui_initialized )
@@ -389,7 +297,7 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		// save textures
 		pImage_Manager->Grab_Textures( reload_textures_from_file, cegui_initialized );
 		pFont->Grab_Textures();
-		pGuiRenderer->grabTextures();
+		if( pGuiRenderer ) pGuiRenderer->grabTextures();
 		pImage_Manager->Delete_Hardware_Textures();
 
 		// exit loading screen
@@ -414,6 +322,15 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 			printf( "Error : GL context creation failed\nReason : %s\n", SDL_GetError() );
 			exit( EXIT_FAILURE );
 		}
+		// initialize GLEW after context creation (desktop only; GLES2 needs no loader)
+#ifndef __ANDROID__
+		GLenum glew_err = glewInit();
+		if( glew_err != GLEW_OK )
+		{
+			printf( "Error : GLEW initialization failed : %s\n", glewGetErrorString( glew_err ) );
+			exit( EXIT_FAILURE );
+		}
+#endif
 		// Set icon after window creation
 		std::string filename_icon2 = DATA_DIR "/" GAME_ICON_DIR "/window_32.png";
 		if( File_Exists( filename_icon2 ) )
@@ -503,8 +420,12 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		}
 	}
 
-	// remember default buffer
+	// remember default buffer (GL_DRAW_BUFFER not available in OpenGL ES 2.0)
+#ifndef __ANDROID__
 	glGetIntegerv( GL_DRAW_BUFFER, &m_default_buffer );
+#else
+	m_default_buffer = GL_BACK; // GLES2 always renders to back buffer
+#endif
 	// get maximum texture size
 	glGetIntegerv( GL_MAX_TEXTURE_SIZE, &m_max_texture_size );
 
@@ -534,15 +455,18 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 
 		/* restore GUI textures
 		 * must be the first CEGUI call after the grabTextures function
+		 * Skip if CEGUI is not initialised (M12 stub)
 		*/
-		pGuiRenderer->restoreTextures();
+		if( pGuiRenderer ) pGuiRenderer->restoreTextures();
 		pFont->Restore_Textures();
 
-		// send preference resolution to CEGUI (matches our glOrtho projection)
-		pGuiSystem->notifyDisplaySizeChanged( CEGUI::Sizef( static_cast<float>(screen_w), static_cast<float>(screen_h) ) );
+		// send preference resolution to CEGUI (no-op when CEGUI is not initialised)
+		if( pGuiSystem )
+			pGuiSystem->notifyDisplaySizeChanged( CEGUI::Sizef( static_cast<float>(screen_w), static_cast<float>(screen_h) ) );
 
 		// check if CEGUI is initialized
-		bool cegui_initialized = pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL;
+		bool cegui_initialized = ( pGuiSystem != NULL ) &&
+		                         ( pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL );
 
 		// show loading screen
 		if( cegui_initialized )
@@ -568,7 +492,8 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	// finished first initialization
 	else
 	{
-		// get opengl version
+#ifndef __ANDROID__
+		// get opengl version — desktop GL version string is "X.Y ..."
 		std::string version_str = reinterpret_cast<const char *>(glGetString( GL_VERSION ));
 		// erase everything after X.X
 		version_str.erase( 3 );
@@ -588,6 +513,11 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 			}
 
 		}
+#else
+		// GLES2: version string is "OpenGL ES 2.0 ..." — skip desktop parsing.
+		m_opengl_version = 2.0f;
+		printf( "Info : OpenGL ES 2.0 context created\n" );
+#endif
 
 		m_initialised = 1;
 	}
@@ -614,6 +544,8 @@ void cVideo :: Init_OpenGL( void )
 	LOG_DEBUG(VIDEO, "Init_OpenGL: glViewport(0, 0, %d, %d)", draw_w, draw_h);
 	glViewport( 0, 0, draw_w, draw_h );
 
+	// fixed-function matrix stack is not available on OpenGL ES 2.0
+#ifndef __ANDROID__
 	// select the projection matrix
 	glMatrixMode( GL_PROJECTION );
 	// clear it
@@ -621,14 +553,22 @@ void cVideo :: Init_OpenGL( void )
 	// Use preference resolution for projection — determines how much of the game world is visible
 	LOG_DEBUG(VIDEO, "Init_OpenGL: glOrtho(0, %d, %d, 0, -1, 1)", pPreferences->m_video_screen_w, pPreferences->m_video_screen_h);
 	glOrtho( 0, static_cast<float>(pPreferences->m_video_screen_w), static_cast<float>(pPreferences->m_video_screen_h), 0, -1, 1 );
-	
-	// select the orthographic projection matrix
+
+	// select the modelview matrix
 	glMatrixMode( GL_MODELVIEW );
 	// clear it
 	glLoadIdentity();
 
 	// set the smooth shading model
 	glShadeModel( GL_SMOOTH );
+#else
+	// GLES2: initialize shader programs and set orthographic projection.
+	LOG_DEBUG(VIDEO, "Init_OpenGL: GLES2 ortho(0, %d, %d, 0) stored for shader uniforms",
+		pPreferences->m_video_screen_w, pPreferences->m_video_screen_h);
+	GLES2::Init();
+	GLES2::Set_Projection( static_cast<float>(pPreferences->m_video_screen_w),
+	                       static_cast<float>(pPreferences->m_video_screen_h) );
+#endif
 
 	// set clear color to black
 	glClearColor( 0, 0, 0, 1 );
@@ -638,18 +578,23 @@ void cVideo :: Init_OpenGL( void )
 
 	// Depth function
 	glDepthFunc( GL_LEQUAL );
-	// Depth Buffer Setup
+	// Depth Buffer Setup — glClearDepth takes double on desktop, float on GLES2
+#ifndef __ANDROID__
 	glClearDepth( 1 );
+#else
+	glClearDepthf( 1.0f );
+#endif
 
 	// Blending
 	glEnable( GL_BLEND );
 	// Blending function
 	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-	// Alpha
+	// Alpha test — not available in OpenGL ES 2.0 (handled per-fragment in shader)
+#ifndef __ANDROID__
 	glEnable( GL_ALPHA_TEST );
-	// Alpha function
 	glAlphaFunc( GL_GREATER, 0.01f );
+#endif
 
 	// Geometry
 	Init_Geometry();
@@ -668,6 +613,9 @@ void cVideo :: Init_Geometry( void )
 {
 	Render_Finish();
 
+	// GL_POINT_SMOOTH, GL_LINE_SMOOTH, GL_PERSPECTIVE_CORRECTION_HINT
+	// are not available in OpenGL ES 2.0.
+#ifndef __ANDROID__
 	// Geometry Anti-Aliasing
 	if( m_geometry_quality > 0.5f )
 	{
@@ -705,6 +653,7 @@ void cVideo :: Init_Geometry( void )
 		// low quality
 		glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST );
 	}
+#endif // !__ANDROID__
 }
 
 void cVideo :: Init_Texture_Detail( void )
@@ -712,8 +661,19 @@ void cVideo :: Init_Texture_Detail( void )
 	Render_Finish();
 
 	/* filter quality of generated mipmap images
-	 * only available if OpenGL version is 1.4 or greater
+	 * On desktop: only available if OpenGL version is 1.4 or greater.
+	 * On GLES2: GL_GENERATE_MIPMAP_HINT is always available.
 	*/
+#ifdef __ANDROID__
+	if( m_texture_quality > 0.2f )
+	{
+		glHint( GL_GENERATE_MIPMAP_HINT, GL_NICEST );
+	}
+	else
+	{
+		glHint( GL_GENERATE_MIPMAP_HINT, GL_FASTEST );
+	}
+#else
 	if( m_opengl_version >= 1.4f )
 	{
 		if( m_texture_quality > 0.2f )
@@ -725,6 +685,7 @@ void cVideo :: Init_Texture_Detail( void )
 			glHint( GL_GENERATE_MIPMAP_HINT, GL_FASTEST );
 		}
 	}
+#endif
 }
 
 void cVideo :: Init_Resolution_Scale( void ) const
@@ -794,11 +755,11 @@ void cVideo :: Init_Image_Cache( bool recreate /* = 0 */, bool draw_gui /* = 0 *
 
 	CEGUI::ProgressBar *progress_bar = NULL;
 
-	if( draw_gui )
+	if( draw_gui && pGuiSystem )
 	{
 		// get progress bar
 		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
-		progress_bar->setProgress( 0 );
+		if( progress_bar ) progress_bar->setProgress( 0 );
 
 		// set loading screen text
 		Loading_Screen_Draw_Text( _("Caching Images") );
@@ -1025,7 +986,7 @@ void cVideo :: Render( bool threaded /* = 0 */ )
 
 	if( threaded )
 	{
-		pGuiSystem->renderAllGUIContexts();
+		if( pGuiSystem ) pGuiSystem->renderAllGUIContexts();
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GUI]->Update();
@@ -1060,7 +1021,7 @@ void cVideo :: Render( bool threaded /* = 0 */ )
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GAME]->Update();
 
-		pGuiSystem->renderAllGUIContexts();
+		if( pGuiSystem ) pGuiSystem->renderAllGUIContexts();
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GUI]->Update();
@@ -1071,7 +1032,7 @@ void cVideo :: Render( bool threaded /* = 0 */ )
 			pTouchControls->Draw();
 		}
 
-		// Post-CEGUI hook (used by menus that need to draw on top of CEGUI widgets)
+		// Post-render hook (no longer used by menus since M12; may still be used by other systems)
 		if( m_post_gui_render )
 			m_post_gui_render();
 
@@ -1385,9 +1346,12 @@ cGL_Surface *cVideo :: Create_Texture( SDL_Surface *surface, bool mipmap /* = 0 
 		surface->pixels = new_pixels;
 	}
 	// set SDL_image pixel store mode
+	// GL_UNPACK_ROW_LENGTH is not available in OpenGL ES 2.0 core
 	else
 	{
+#ifndef __ANDROID__
 		glPixelStorei( GL_UNPACK_ROW_LENGTH, surface->pitch / surface->format->BytesPerPixel );
+#endif
 	}
 
 	// use the generated texture
@@ -1401,8 +1365,10 @@ cGL_Surface *cVideo :: Create_Texture( SDL_Surface *surface, bool mipmap /* = 0 
 	// upload to OpenGL texture
 	Create_GL_Texture( texture_width, texture_height, surface->pixels, mipmap );
 
-	// unset pixel store mode
+	// unset pixel store mode (desktop only — GLES2 does not support GL_UNPACK_ROW_LENGTH)
+#ifndef __ANDROID__
 	glPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
+#endif
 
 	SDL_FreeSurface( surface );
 
@@ -1441,10 +1407,11 @@ void cVideo :: Create_GL_Texture( unsigned int width, unsigned int height, const
 		// enable mipmap filter
 		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
 
+#ifndef __ANDROID__
 		// if OpenGL 1.4 or higher
 		if( m_opengl_version >= 1.4f )
 		{
-			// use glTexImage2D to create Mipmaps
+			// use glTexImage2D + driver auto-mipmap (GL_GENERATE_MIPMAP is a per-texture param in GL 1.4)
 			glTexParameteri( GL_TEXTURE_2D, GL_GENERATE_MIPMAP, 1 );
 			// copy the software bitmap into the opengl texture
 			glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels );
@@ -1455,6 +1422,11 @@ void cVideo :: Create_GL_Texture( unsigned int width, unsigned int height, const
 			// use glu to create Mipmaps
 			gluBuild2DMipmaps( GL_TEXTURE_2D, GL_RGBA, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels );
 		}
+#else
+		// OpenGL ES 2.0: upload base level then let the driver generate mipmaps
+		glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels );
+		glGenerateMipmap( GL_TEXTURE_2D );
+#endif
 	}
 	// no mipmaps
 	else
@@ -2416,6 +2388,12 @@ void Draw_Effect_In( Effect_Fadein effect /* = EFFECT_IN_RANDOM */, float speed 
 
 void Loading_Screen_Init( void )
 {
+	if( !pGuiSystem )
+	{
+		// CEGUI not initialised (M12 stub) — loading screen is a no-op
+		return;
+	}
+
 	if( pGuiSystem->getDefaultGUIContext().getRootWindow()->isChild( "loading" ) )
 	{
 		printf( "Warning: Loading Screen already initialized." );
@@ -2441,6 +2419,8 @@ void Loading_Screen_Init( void )
 
 void Loading_Screen_Draw_Text( const std::string &str_info /* = "Loading" */ )
 {
+	if( !pGuiSystem ) return;
+
 	// set info text
 	CEGUI::Window *text_default = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "text_loading" ));
 	if( !text_default )
@@ -2468,12 +2448,14 @@ void Loading_Screen_Draw( void )
 
 	// Render
 	pRenderer->Render();
-	pGuiSystem->renderAllGUIContexts();
+	if( pGuiSystem ) pGuiSystem->renderAllGUIContexts();
 	SDL_GL_SwapWindow( g_sdl_window );
 }
 
 void Loading_Screen_Exit( void )
 {
+	if( !pGuiSystem ) return;
+
 	CEGUI::Window *loading_window = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "loading" );
 
 	// loading window is present

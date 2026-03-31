@@ -36,21 +36,7 @@
 #include "../core/filesystem/filesystem.h"
 #include "../core/filesystem/resource_manager.h"
 #include "../gui/modern_ui.h"
-// CEGUI
-#include <CEGUI/WindowManager.h>
-#include <CEGUI/FontManager.h>
-#include <CEGUI/widgets/TabControl.h>
-#include <CEGUI/widgets/PushButton.h>
-#include <CEGUI/widgets/Editbox.h>
-#include <CEGUI/widgets/Combobox.h>
-#include <CEGUI/widgets/Spinner.h>
-#include <CEGUI/widgets/MultiLineEditbox.h>
-#include <CEGUI/widgets/Slider.h>
-// unix hackfix : undef None from SDL_syswm.h
-#ifdef None
-	#undef None
-#endif
-#include <CEGUI/widgets/MultiColumnList.h>
+// (CEGUI includes removed in M12 — menu shell now uses ModernUI exclusively)
 
 namespace SMC
 {
@@ -61,7 +47,6 @@ namespace SMC
 
 cMenu_Base :: cMenu_Base( void )
 {
-	m_gui_window = NULL;
 	m_action = 0;
 	m_menu_pos_y = 140.0f;
 	m_text_color = Color( static_cast<Uint8>(255), 251, 98 );
@@ -72,12 +57,6 @@ cMenu_Base :: cMenu_Base( void )
 
 cMenu_Base :: ~cMenu_Base( void )
 {
-	if( m_gui_window )
-	{
-		pGuiSystem->getDefaultGUIContext().getRootWindow()->removeChild( m_gui_window );
-		CEGUI::WindowManager::getSingleton().destroyWindow( m_gui_window );
-	}
-
 	for( HudSpriteList::iterator itr = m_draw_list.begin(); itr != m_draw_list.end(); ++itr )
 	{
 		delete *itr;
@@ -93,13 +72,7 @@ void cMenu_Base :: Init( void )
 
 void cMenu_Base :: Init_GUI( void )
 {
-	if( m_layout_file.empty() )
-	{
-		return;
-	}
-
-	m_gui_window = CEGUI::WindowManager::getSingleton().loadLayoutFromFile( m_layout_file.c_str() );
-	pGuiSystem->getDefaultGUIContext().getRootWindow()->addChild( m_gui_window );
+	// All screens now use ModernUI; CEGUI layout loading removed in M12.
 }
 
 void cMenu_Base :: Enter( const GameMode old_mode /* = MODE_NOTHING */ )
@@ -200,7 +173,8 @@ void cMenu_Main :: Init( void )
 
 	cMenu_Item *temp_item = NULL;
 
-	m_layout_file = "menu/main.layout";
+	// No CEGUI layout — version text is rendered directly in Init_GUI
+	m_layout_file = "";
 
 	// Start
 	temp_item = pMenuCore->Auto_Menu( "start.png", "start.png", m_menu_pos_y );
@@ -252,16 +226,23 @@ void cMenu_Main :: Init( void )
 
 void cMenu_Main :: Init_GUI( void )
 {
-	cMenu_Base::Init_GUI();
+	// No CEGUI layout — render version text and website URL as HUD sprites
 
-	CEGUI::Window *text_version = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "text_version" );
-	text_version->setProperty( "Text", UTF8_("Version ") + CEGUI::PropertyHelper<int>::toString(SMC_VERSION_MAJOR) + "." + CEGUI::PropertyHelper<int>::toString(SMC_VERSION_MINOR) + "." + CEGUI::PropertyHelper<int>::toString(SMC_VERSION_PATCH) );
+	std::string version_str = std::string("Version ") + int_to_string(SMC_VERSION_MAJOR) + "." + int_to_string(SMC_VERSION_MINOR) + "." + int_to_string(SMC_VERSION_PATCH);
+	cGL_Surface *version_surf = pFont->Render_Text( pFont->m_font_small, version_str, green );
+	cHudSprite *version_sprite = new cHudSprite( pMenuCore->m_handler->m_level->m_sprite_manager );
+	version_sprite->Set_Image( version_surf, 1, 1 );
+	version_sprite->Set_Pos( static_cast<float>(game_res_w) * 0.80f, static_cast<float>(game_res_h) * 0.945f );
+	m_draw_list.push_back( version_sprite );
 
-	// if in a level/world
-	if( m_exit_to_gamemode != MODE_NOTHING )
+	// website URL — only shown when not in a level/world
+	if( m_exit_to_gamemode == MODE_NOTHING )
 	{
-		CEGUI::Window *text_website = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "text_website" );
-		text_website->hide();
+		cGL_Surface *website_surf = pFont->Render_Text( pFont->m_font_small, "www.secretmaryo.org", orange );
+		cHudSprite *website_sprite = new cHudSprite( pMenuCore->m_handler->m_level->m_sprite_manager );
+		website_sprite->Set_Image( website_surf, 1, 1 );
+		website_sprite->Set_Pos( static_cast<float>(game_res_w) * 0.70f, static_cast<float>(game_res_h) * 0.135f );
+		m_draw_list.push_back( website_sprite );
 	}
 }
 
@@ -357,8 +338,6 @@ cMenu_Start :: ~cMenu_Start( void )
 
 void cMenu_Start :: Init( void )
 {
-	m_listbox_search_buffer_counter = 0.0f;
-
 	cMenu_Base::Init();
 
 	// m_layout_file left empty — ModernUI replaces the CEGUI layout (see Init_GUI)
@@ -509,117 +488,31 @@ void cMenu_Start :: Draw( void )
 	Draw_End();
 }
 
-void cMenu_Start :: Get_Levels( std::string dir, CEGUI::Colour color )
-{
-	// Level Listbox
-	CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" ));
-
-	// get directory length for erasing
-	int dir_length = dir.length() + 1;
-	// get all files
-	vector<std::string> lvl_files = Get_Directory_Files( dir, "smclvl", 0, 0 );
-
-	// list all available levels
-	for( vector<std::string>::iterator itr = lvl_files.begin(); itr != lvl_files.end(); ++itr )
-	{
-		// get filename
-		std::string lvl_name = (*itr);
-		// remove base directory
-		lvl_name.erase( 0, dir_length );
-
-		// erase file type only if smclvl
-		if( lvl_name.rfind( ".smclvl" ) != std::string::npos )
-		{
-			lvl_name.erase( lvl_name.rfind( ".smclvl" ) );
-		}
-
-		// create listbox item
-		CEGUI::ListboxTextItem *item = new CEGUI::ListboxTextItem( reinterpret_cast<const CEGUI::utf8*>(lvl_name.c_str()) );
-		item->setTextColours( color );
-
-		// check if item with the same name already exists
-		CEGUI::ListboxTextItem *item_old = static_cast<CEGUI::ListboxTextItem *>(listbox_levels->findItemWithText( lvl_name, NULL ));
-		
-		if( item_old )
-		{
-			// mix colors
-			item->setTextColours( item->getTextColours().d_top_left, item->getTextColours().d_top_right, item_old->getTextColours().d_bottom_left, item_old->getTextColours().d_bottom_right );
-			// remove old item
-			listbox_levels->removeItem( item_old );
-		}
-
-
-		item->setSelectionColours( CEGUI::Colour( 0.33f, 0.33f, 0.33f ) );
-		item->setSelectionBrushImage( "TaharezLook/ListboxSelectionBrush" );
-		listbox_levels->addItem( item );
-	}
-}
-
 bool cMenu_Start :: Highlight_Level( std::string lvl_name )
 {
 	if( lvl_name.empty() )
 	{
 		return 0;
 	}
-	
-	// get tab control
-	CEGUI::TabControl *tabcontrol = static_cast<CEGUI::TabControl *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "tabcontrol_main" ));
-	// select level tab
-	tabcontrol->setSelectedTab( "tab_level" );
 
-	// get levels listbox
-	CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" ));
-	// get item
-	CEGUI::ListboxItem *list_item = listbox_levels->findItemWithText( lvl_name, NULL );
-	// select level
-	if( list_item )
+	// Switch to Level tab (tab index 2)
+	m_active_tab    = 2;
+	m_scroll_offset = 0;
+	m_selected_item = -1;
+
+	// Find the level in the list and select it
+	for( int i = 0; i < static_cast<int>(m_level_names.size()); i++ )
 	{
-		listbox_levels->setItemSelectState( list_item, 1 );
-		listbox_levels->ensureItemIsVisible( list_item );
-	}
-	else
-	{
-		return 0;
-	}
-
-	return 1;
-}
-
-void cMenu_Start :: Load_Selected( void )
-{
-	// Get Tab Control
-	CEGUI::TabControl *tabcontrol = static_cast<CEGUI::TabControl *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "tabcontrol_main" ));
-
-	// Campaign
-	if( tabcontrol->getSelectedTabIndex() == 0 )
-	{
-		CEGUI::ListboxItem *item = (static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_campaigns" )))->getFirstSelectedItem();
-
-		if( item )
+		if( m_level_names[i] == lvl_name )
 		{
-			Load_Campaign( item->getText().c_str() );
+			m_selected_item = i;
+			// Scroll so the item is visible (approximate: items are ~26px each)
+			m_scroll_offset = ( i > 3 ) ? ( i - 2 ) : 0;
+			return 1;
 		}
 	}
-	// World
-	else if( tabcontrol->getSelectedTabIndex() == 1 )
-	{
-		CEGUI::ListboxItem *item = (static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_worlds" )))->getFirstSelectedItem();
 
-		if( item )
-		{
-			Load_World( item->getText().c_str() );
-		}
-	}
-	// Level
-	else
-	{
-		CEGUI::ListboxItem *item = (static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" )))->getFirstSelectedItem();
-
-		if( item )
-		{
-			Load_Level( item->getText().c_str() );
-		}
-	}
+	return 0;
 }
 
 void cMenu_Start :: Load_Campaign( std::string name )
@@ -653,11 +546,11 @@ void cMenu_Start :: Load_Campaign( std::string name )
 		}
 
 		Game_Action_Data_Start.add( "music_fadeout", "1000" );
-		Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
+		Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 		Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 		Game_Action_Data_Middle.add( "unload_menu", "1" );
 		Game_Action_Data_Middle.add( "reset_save", "1" );
-		Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_RANDOM ) );
+		Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_RANDOM ) );
 		Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 	}
 }
@@ -681,12 +574,12 @@ void cMenu_Start :: Load_World( std::string name )
 		// enter world
 		Game_Action = GA_ENTER_WORLD;
 		Game_Action_Data_Start.add( "music_fadeout", "1000" );
-		Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
+		Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 		Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 		Game_Action_Data_Middle.add( "enter_world", name.c_str() );
 		Game_Action_Data_Middle.add( "unload_menu", "1" );
 		Game_Action_Data_Middle.add( "reset_save", "1" );
-		Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_RANDOM ) );
+		Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_RANDOM ) );
 		Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 	}
 }
@@ -710,418 +603,19 @@ bool cMenu_Start :: Load_Level( std::string level_name )
 	Game_Action = GA_ENTER_LEVEL;
 	Game_Mode_Type = MODE_TYPE_LEVEL_CUSTOM;
 	Game_Action_Data_Start.add( "music_fadeout", "1000" );
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 	Game_Action_Data_Middle.add( "load_level", level_name.c_str() );
 	Game_Action_Data_Middle.add( "unload_menu", "1" );
 	Game_Action_Data_Middle.add( "reset_save", "1" );
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_RANDOM ) );
+	Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_RANDOM ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 
 	return 1;
 }
 
-bool cMenu_Start :: TabControl_Selection_Changed( const CEGUI::EventArgs &e )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( e );
-	CEGUI::TabControl *tabcontrol = static_cast<CEGUI::TabControl *>( windowEventArgs.window );
-
-	if( tabcontrol->getSelectedTabIndex() == 0 )
-	{
-		static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_campaigns" ))->activate();
-	}
-	else if( tabcontrol->getSelectedTabIndex() == 1 )
-	{
-		static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_worlds" ))->activate();
-	}
-	else if( tabcontrol->getSelectedTabIndex() == 2 )
-	{
-		static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" ))->activate();
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: TabControl_Keydown( const CEGUI::EventArgs &e )
-{
-	const CEGUI::KeyEventArgs &ke = static_cast<const CEGUI::KeyEventArgs &>(e);
-
-	// Return
-	if( ke.scancode == CEGUI::Key::Return || ke.scancode == CEGUI::Key::NumpadEnter )
-	{
-		Load_Selected();
-		return 1;
-	}
-	// Left (todo: only for joystick when CEGUI supports these events)
-	else if( ke.scancode == pKeyboard->SDLKey_to_CEGUIKey( pPreferences->m_key_left ) )
-	{
-		// Get Tab Control
-		CEGUI::TabControl *tabcontrol = static_cast<CEGUI::TabControl *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "tabcontrol_main" ));
-
-		// if not first tab
-		if( tabcontrol->getSelectedTabIndex() != 0 )
-		{
-			tabcontrol->setSelectedTabAtIndex( tabcontrol->getSelectedTabIndex() - 1 );
-		}
-
-		return 1;
-	}
-	// Right (todo: only for joystick when CEGUI supports these events)
-	else if( ke.scancode == pKeyboard->SDLKey_to_CEGUIKey( pPreferences->m_key_right ) )
-	{
-		// Get Tab Control
-		CEGUI::TabControl *tabcontrol = static_cast<CEGUI::TabControl *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "tabcontrol_main" ));
-
-		// if not last tab
-		if( tabcontrol->getSelectedTabIndex() + 1 != tabcontrol->getTabCount() )
-		{
-			tabcontrol->setSelectedTabAtIndex( tabcontrol->getSelectedTabIndex() + 1 );
-		}
-
-		return 1;
-	}
-	// Shift Tab
-	else if( pKeyboard->Is_Shift_Down() && ke.scancode == CEGUI::Key::Tab )
-	{
-		// Get Tab Control
-		CEGUI::TabControl *tabcontrol = static_cast<CEGUI::TabControl *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "tabcontrol_main" ));
-
-		// if last tab
-		if( tabcontrol->getSelectedTabIndex() + 1 == tabcontrol->getTabCount() )
-		{
-			tabcontrol->setSelectedTabAtIndex( 0 );
-		}
-		// select next tab
-		else
-		{
-			tabcontrol->setSelectedTabAtIndex( tabcontrol->getSelectedTabIndex() + 1 );
-		}
-
-		return 1;
-	}
-
-	return 0;
-}
-
-bool cMenu_Start :: Listbox_Keydown( const CEGUI::EventArgs &e )
-{
-	const CEGUI::KeyEventArgs &ke = static_cast<const CEGUI::KeyEventArgs &>(e);
-
-	// Get the Listbox
-	CEGUI::Listbox *listbox = static_cast<CEGUI::Listbox *>(ke.window);
-
-	// Down/Up (todo: detect event for joystick properly when CEGUI supports these events)
-	if( ke.scancode == CEGUI::Key::ArrowDown || ke.scancode == CEGUI::Key::ArrowUp || ke.scancode == CEGUI::Key::PageDown || ke.scancode == CEGUI::Key::PageUp ||
-		ke.scancode == CEGUI::Key::Home || ke.scancode == CEGUI::Key::End ||
-		ke.scancode == pKeyboard->SDLKey_to_CEGUIKey(pPreferences->m_key_up) || ke.scancode == pKeyboard->SDLKey_to_CEGUIKey(pPreferences->m_key_down) )
-	{
-		int new_selected = 0;
-		int last_selected = 0;
-
-		// get selected item
-		CEGUI::ListboxItem *last_selected_item = listbox->getFirstSelectedItem();
-
-		// if something is selected
-		if( last_selected_item != NULL )
-		{
-			last_selected = listbox->getItemIndex( last_selected_item );
-		}
-
-		// down (todo: detect event for joystick properly when CEGUI supports these events)
-		if( ke.scancode == CEGUI::Key::ArrowDown || ke.scancode == pKeyboard->SDLKey_to_CEGUIKey(pPreferences->m_key_down) )
-		{
-			new_selected = last_selected + 1;
-		}
-		// up (todo: detect event for joystick properly when CEGUI supports these events)
-		else if( ke.scancode == CEGUI::Key::ArrowUp || ke.scancode == pKeyboard->SDLKey_to_CEGUIKey(pPreferences->m_key_up) )
-		{
-			new_selected = last_selected - 1;
-		}
-		// page down
-		else if( ke.scancode == CEGUI::Key::PageDown )
-		{
-			// todo : should skip all visible items
-			new_selected = last_selected + 10;
-		}
-		// page up
-		else if( ke.scancode == CEGUI::Key::PageUp )
-		{
-			// todo : should skip all visible items
-			new_selected = last_selected - 10;
-		}
-		// home
-		else if( ke.scancode == CEGUI::Key::Home )
-		{
-			new_selected = 0;
-		}
-		// end
-		else if( ke.scancode == CEGUI::Key::End )
-		{
-			new_selected = listbox->getItemCount() - 1;
-		}
-
-		// if after last item
-		if( new_selected >= static_cast<int>(listbox->getItemCount()) )
-		{
-			// select first
-			if( last_selected == static_cast<int>(listbox->getItemCount()) - 1 )
-			{
-				new_selected = 0;
-			}
-			// select last
-			else
-			{
-				new_selected = listbox->getItemCount() - 1;
-			}
-		}
-		// if before first item
-		else if( new_selected < 0 )
-		{
-			// select last
-			if( last_selected == 0 )
-			{
-				new_selected = listbox->getItemCount() - 1;
-			}
-			// select first
-			else
-			{
-				new_selected = 0;
-			}
-		}
-
-		listbox->setItemSelectState( new_selected, 1 );
-		listbox->ensureItemIsVisible( new_selected );
-
-		return 1;
-	}
-
-	return 0;
-}
-
-bool cMenu_Start :: Listbox_Character_Key( const CEGUI::EventArgs &e )
-{
-	const CEGUI::KeyEventArgs &ke = static_cast<const CEGUI::KeyEventArgs &>(e);
-
-	// Get the Listbox
-	CEGUI::Listbox *listbox = static_cast<CEGUI::Listbox *>(ke.window);
-
-	if( listbox->getFont()->isCodepointAvailable( ke.codepoint ) )
-	{
-		m_listbox_search_buffer_counter = speedfactor_fps;
-		m_listbox_search_buffer.insert( m_listbox_search_buffer.end(), 1, ke.codepoint );
-
-		// new selected if found
-		CEGUI::ListboxItem *new_selected = NULL;
-
-		// search the list
-		size_t index = 0;
-
-		while( index < listbox->getItemCount() )
-		{
-			CEGUI::ListboxItem *item = listbox->getListboxItemFromIndex( index );
-
-			// found
-			if( item->getText().substr( 0, m_listbox_search_buffer.length() ).compare( m_listbox_search_buffer ) == 0 )
-			{
-				new_selected = item;
-				break;
-			}
-			// no match
-			else
-			{
-				index++;
-			}
-		}
-
-		// set new item selected
-		if( new_selected )
-		{
-			listbox->setItemSelectState( new_selected, 1 );
-			listbox->ensureItemIsVisible( new_selected );
-		}
-	}
-
-	return 0;
-}
-
-bool cMenu_Start :: Campaign_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Listbox *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// description
-	CEGUI::Editbox *editbox_campaign_description = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editbox_campaign_description" ));
-
-	// set description
-	if( item )
-	{
-		// todo : should be from the filename not name (more unique)
-		editbox_campaign_description->setText( reinterpret_cast<const CEGUI::utf8*>(pCampaign_Manager->Get_from_Name( item->getText().c_str() )->m_description.c_str()) );
-	}
-	// clear
-	else
-	{
-		editbox_campaign_description->setText( "" );
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: Campaign_Select_final_list( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Listbox *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// load campaign
-	if( item )
-	{
-		Load_Campaign( item->getText().c_str() );
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: World_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Listbox *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// description
-	CEGUI::Editbox *editbox_world_description = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editbox_world_description" ));
-
-	// set description
-	if( item )
-	{
-		// todo : should be from the path not name (more unique)
-		editbox_world_description->setText( reinterpret_cast<const CEGUI::utf8*>(pOverworld_Manager->Get_from_Name( item->getText().c_str() )->m_description->m_comment.c_str()) );
-	}
-	// clear
-	else
-	{
-		editbox_world_description->setText( "" );
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: World_Select_final_list( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Listbox *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// load world
-	if( item )
-	{
-		Load_World( item->getText().c_str() );
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: Level_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Listbox *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// set level something
-	if( item )
-	{
-		// todo : needs level manager
-	}
-	// clear
-	else
-	{
-		// todo : needs level manager
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: Level_Select_Final_List( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Listbox *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// load level
-	if( item )
-	{
-		Load_Level( item->getText().c_str() );
-	}
-
-	return 1;
-}
-
-
-bool cMenu_Start :: Button_Level_New_Clicked( const CEGUI::EventArgs &event )
-{
-	if( !pLevel_Editor->Function_New() )
-	{
-		// aborted/failed
-		return 0;
-	}
-
-	Game_Mode_Type = MODE_TYPE_LEVEL_CUSTOM;
-	Game_Action_Data_Middle.add( "unload_menu", "1" );
-	Game_Action_Data_Middle.add( "reset_save", "1" );
-	Game_Action_Data_End.add( "activate_editor", "1" );
-
-	return 1;
-}
-
-bool cMenu_Start :: Button_Level_Edit_Clicked( const CEGUI::EventArgs &event )
-{
-	// Get Selected Level
-	CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" ));
-	CEGUI::ListboxItem *item = listbox_levels->getFirstSelectedItem();
-
-	// load level
-	if( item && Load_Level( item->getText().c_str() ) )
-	{
-		Game_Action_Data_End.add( "activate_editor", "1" );
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: Button_Level_Delete_Clicked( const CEGUI::EventArgs &event )
-{
-	// Get Selected Level
-	CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" ));
-	CEGUI::ListboxItem *item = listbox_levels->getFirstSelectedItem();
-
-	// load level
-	if( item )
-	{
-		std::string filename = item->getText().c_str();
-
-		// if denied
-		if( !Box_Question( _("Delete ") + filename + " ?" ) )
-		{
-			return 1;
-		}
-
-		// only user directory
-		if( pLevel_Manager->Get_Path( filename, 1 ) )
-		{
-			Delete_File( filename );
-			listbox_levels->removeItem( item );
-		}
-	}
-
-	return 1;
-}
-
-bool cMenu_Start :: Button_Enter_Clicked( const CEGUI::EventArgs &event )
-{
-	Load_Selected();
-	return 1;
-}
-
-bool cMenu_Start :: Button_Back_Clicked( const CEGUI::EventArgs &event )
-{
-	Exit();
-	return 1;
-}
+// Note: All CEGUI event handlers for cMenu_Start were removed in M7.
+// The screen is fully rendered via ModernUI; see Draw() above.
 
 /* *** *** *** *** *** *** *** *** cMenu_Options *** *** *** *** *** *** *** *** *** */
 
@@ -1130,24 +624,26 @@ static cMenu_Options *s_active_opts = NULL;
 
 cMenu_Options :: cMenu_Options( void )
 : cMenu_Base()
+, m_active_tab( 0 )
 , m_vid_res_idx( 0 )
 , m_audio_hz_idx( 1 )
 , m_audio_music_vol( 0.0f )
 , m_audio_sound_vol( 0.0f )
+, m_game_language_idx( 0 )
+, m_game_menu_level_idx( 0 )
+, m_game_camera_hor_speed( 0.0f )
+, m_game_camera_ver_speed( 0.0f )
+, m_kbd_selected( -1 )
+, m_kbd_scroll( 0 )
+, m_kbd_scroll_speed( 1.0f )
+, m_joy_selected_idx( 0 )
+, m_joy_btn_selected( -1 )
+, m_joy_btn_scroll( 0 )
+, m_joy_sensitivity( 10000.0f )
+, m_joy_axis_hor( 0 )
+, m_joy_axis_ver( 1 )
+, m_editor_item_image_size( 50 )
 {
-	// null-initialize CEGUI widget pointers so they are safe to ignore if not created
-	m_video_combo_resolution = NULL;
-	m_video_combo_bpp        = NULL;
-	m_video_combo_fullscreen = NULL;
-	m_video_combo_vsync      = NULL;
-	m_video_spinner_fps_limit        = NULL;
-	m_video_slider_geometry_quality  = NULL;
-	m_video_slider_texture_quality   = NULL;
-	m_audio_combo_hz     = NULL;
-	m_audio_combo_music  = NULL;
-	m_audio_slider_music = NULL;
-	m_audio_combo_sounds = NULL;
-	m_audio_slider_sound = NULL;
 }
 
 cMenu_Options :: ~cMenu_Options( void )
@@ -1165,7 +661,7 @@ cMenu_Options :: ~cMenu_Options( void )
 void cMenu_Options :: Init( void )
 {
 	cMenu_Base::Init();
-	m_layout_file = "menu/options_main.layout";
+	m_layout_file = "";  // no CEGUI layout
 
 	// video settings
 	m_vid_w = pPreferences->m_video_screen_w;
@@ -1191,36 +687,7 @@ void cMenu_Options :: Init( void )
 void cMenu_Options :: Init_GUI( void )
 {
 	cMenu_Base::Init_GUI();
-
-	// get the CEGUI window manager
-	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
-
-	// back button
-	CEGUI::PushButton *button_back = static_cast<CEGUI::PushButton *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "button_back" ));
-	button_back->setText( UTF8_("Back") );
-	button_back->subscribeEvent( CEGUI::PushButton::EventClicked, CEGUI::Event::Subscriber( &cMenu_Options::Button_Back_Click, this ) );
-
-	// Tab Control
-	m_tabcontrol = static_cast<CEGUI::TabControl *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "tabcontrol_main" ));
-	// tab game
-	CEGUI::Window *tabwindow = wmgr.loadLayoutFromFile( "menu/tab_game.layout" );
-	m_tabcontrol->addTab( tabwindow );
-	// tab video
-	tabwindow = wmgr.loadLayoutFromFile( "menu/tab_video.layout" );
-	m_tabcontrol->addTab( tabwindow );
-	// tab audio
-	tabwindow = wmgr.loadLayoutFromFile( "menu/tab_audio.layout" );
-	m_tabcontrol->addTab( tabwindow );
-	// tab keyboard
-	tabwindow = wmgr.loadLayoutFromFile( "menu/tab_keyboard.layout" );
-	m_tabcontrol->addTab( tabwindow );
-	// tab joystick
-	tabwindow = wmgr.loadLayoutFromFile( "menu/tab_joystick.layout" );
-	m_tabcontrol->addTab( tabwindow );
-	// tab editor
-	tabwindow = wmgr.loadLayoutFromFile( "menu/tab_editor.layout" );
-	m_tabcontrol->addTab( tabwindow );
-
+	// Populate ModernUI state for all tabs — no CEGUI layouts loaded
 	Init_GUI_Game();
 	Init_GUI_Video();
 	Init_GUI_Audio();
@@ -1231,114 +698,46 @@ void cMenu_Options :: Init_GUI( void )
 
 void cMenu_Options :: Init_GUI_Game( void )
 {
-	// get the CEGUI window manager
-	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
+	// Populate ModernUI state for Game tab (no CEGUI widgets created)
 
-	// always run
-	CEGUI::Window *text_always_run = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_text_always_run" ));
-	text_always_run->setText( UTF8_("Always Run") );
+	// Camera speeds
+	m_game_camera_hor_speed = pLevel_Manager->m_camera->m_hor_offset_speed;
+	m_game_camera_ver_speed = pLevel_Manager->m_camera->m_ver_offset_speed;
 
-	m_game_combo_always_run = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_combo_always_run" ));
-
-	CEGUI::ListboxTextItem *item = new CEGUI::ListboxTextItem( UTF8_("On") );
-	item->setTextColours( CEGUI::Colour( 0, 1, 0 ) );
-	m_game_combo_always_run->addItem( item );
-	item = new CEGUI::ListboxTextItem( UTF8_("Off") );
-	item->setTextColours( CEGUI::Colour( 0, 0, 1 ) );
-	m_game_combo_always_run->addItem( item );
-
-	if( pPreferences->m_always_run )
-	{
-		m_game_combo_always_run->setText( UTF8_("On") );
-	}
-	else
-	{
-		m_game_combo_always_run->setText( UTF8_("Off") );
-	}
-
-	m_game_combo_always_run->subscribeEvent( CEGUI::Combobox::EventListSelectionAccepted, CEGUI::Event::Subscriber( &cMenu_Options::Game_Always_Run_Select, this ) );
-
-	// Camera Horizontal Speed
-	CEGUI::Window *text_camera_hor_speed = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_text_camera_hor_speed" ));
-	text_camera_hor_speed->setText( UTF8_("Camera Hor Speed") );
-
-	m_game_spinner_camera_hor_speed = static_cast<CEGUI::Spinner *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_spinner_camera_hor_speed" ));
-	m_game_spinner_camera_hor_speed->setCurrentValue( pLevel_Manager->m_camera->m_hor_offset_speed );
-
-	m_game_spinner_camera_hor_speed->subscribeEvent( CEGUI::Spinner::EventValueChanged, CEGUI::Event::Subscriber( &cMenu_Options::Game_Camera_Hor_Select, this ) );
-
-	// Camera Vertical Speed
-	CEGUI::Window *text_camera_ver_speed = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_text_camera_ver_speed" ));
-	text_camera_ver_speed->setText( UTF8_("Camera Ver Speed") );
-
-	m_game_spinner_camera_ver_speed = static_cast<CEGUI::Spinner *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_spinner_camera_ver_speed" ));
-	m_game_spinner_camera_ver_speed->setCurrentValue( pLevel_Manager->m_camera->m_ver_offset_speed );
-
-	m_game_spinner_camera_ver_speed->subscribeEvent( CEGUI::Spinner::EventValueChanged, CEGUI::Event::Subscriber( &cMenu_Options::Game_Camera_Ver_Select, this ) );
-
-	// language
-	CEGUI::Window *text_language = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_text_language" ));
-	text_language->setText( UTF8_("Language") );
-
-	m_game_combo_language = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_combo_language" ));
-
-	item = new CEGUI::ListboxTextItem( UTF8_("default") );
-	item->setTextColours( CEGUI::Colour( 0, 1, 0 ) );
-	m_game_combo_language->addItem( item );
-
-	// get available languages
+	// Language list — "default" first, then discovered locale directories
+	m_game_languages.clear();
+	m_game_languages.push_back( "default" );
 	vector<std::string> language_files = Get_Directory_Files( DATA_DIR "/" GAME_TRANSLATION_DIR, ".none", 1, 0 );
-	// add english as it is the base language and not in the translation directory
 	language_files.push_back( DATA_DIR "/" GAME_TRANSLATION_DIR "/" "en" );
-
 	for( vector<std::string>::iterator itr = language_files.begin(); itr != language_files.end(); ++itr )
 	{
-		// get filename
 		std::string filename = (*itr);
-
-		// if not directory
 		if( filename.rfind( "." ) != std::string::npos )
-		{
 			continue;
-		}
-
-		// remove data dir
 		filename.erase( 0, strlen( DATA_DIR "/" GAME_TRANSLATION_DIR "/" ) );
-
-		item = new CEGUI::ListboxTextItem( filename );
-		item->setTextColours( CEGUI::Colour( 0, 0, 1 ) );
-		m_game_combo_language->addItem( item );
+		m_game_languages.push_back( filename );
 	}
-
-	if( pPreferences->m_language.empty() )
+	// find current language in list
+	m_game_language_idx = 0;
+	if( !pPreferences->m_language.empty() )
 	{
-		m_game_combo_language->setText( UTF8_("default") );
+		for( int i = 0; i < static_cast<int>( m_game_languages.size() ); i++ )
+		{
+			if( m_game_languages[i] == pPreferences->m_language )
+			{ m_game_language_idx = i; break; }
+		}
 	}
-	else
+
+	// Menu level list
+	m_game_menu_levels.clear();
+	m_game_menu_levels.push_back( "menu_green_1" );
+	m_game_menu_levels.push_back( "menu_blue_1" );
+	m_game_menu_level_idx = 0;
+	for( int i = 0; i < static_cast<int>( m_game_menu_levels.size() ); i++ )
 	{
-		m_game_combo_language->setText( pPreferences->m_language );
+		if( m_game_menu_levels[i] == pPreferences->m_menu_level )
+		{ m_game_menu_level_idx = i; break; }
 	}
-
-	m_game_combo_language->subscribeEvent( CEGUI::Combobox::EventListSelectionAccepted, CEGUI::Event::Subscriber( &cMenu_Options::Game_Language_Select, this ) );
-
-	// menu level
-	CEGUI::Window *text_menu_level = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_text_menu_level" ));
-	text_menu_level->setText( UTF8_("Menu Level") );
-
-	m_game_combo_menu_level = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_combo_menu_level" ));
-
-	m_game_combo_menu_level->addItem( new CEGUI::ListboxTextItem( "menu_green_1" ) );
-	m_game_combo_menu_level->addItem( new CEGUI::ListboxTextItem( "menu_blue_1" ) );
-
-	m_game_combo_menu_level->setText( pPreferences->m_menu_level );
-
-	m_game_combo_menu_level->subscribeEvent( CEGUI::Combobox::EventListSelectionAccepted, CEGUI::Event::Subscriber( &cMenu_Options::Game_Menu_Level_Select, this ) );
-	m_game_combo_menu_level->getEditbox()->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cMenu_Options::Game_Menu_Level_Text_Changed, this ) );
-
-	// Reset Game
-	CEGUI::PushButton *button_reset_game = static_cast<CEGUI::PushButton *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "game_button_reset" ));
-	button_reset_game->subscribeEvent( CEGUI::PushButton::EventClicked, CEGUI::Event::Subscriber( &cMenu_Options::Game_Button_Reset_Game_Clicked, this ) );
-	button_reset_game->setText( UTF8_("Reset") );
 }
 
 void cMenu_Options :: Init_GUI_Video( void )
@@ -1374,217 +773,140 @@ void cMenu_Options :: Init_GUI_Audio( void )
 	m_audio_sound_vol = static_cast<float>( pAudio->m_sound_volume );
 }
 
+// Helper: rebuild the keyboard shortcut display list (name + current key name)
+static void Build_Kbd_Items( std::vector<std::string> &out )
+{
+	out.clear();
+	// pairs of (display name, SDL key pointer) — same order as the old CEGUI list
+	struct KbdEntry { const char *name; SDLKey *key; };
+	KbdEntry entries[] = {
+		{ "Up",                    &pPreferences->m_key_up },
+		{ "Down",                  &pPreferences->m_key_down },
+		{ "Left",                  &pPreferences->m_key_left },
+		{ "Right",                 &pPreferences->m_key_right },
+		{ "Jump",                  &pPreferences->m_key_jump },
+		{ "Shoot",                 &pPreferences->m_key_shoot },
+		{ "Item",                  &pPreferences->m_key_item },
+		{ "Action",                &pPreferences->m_key_action },
+		{ "Screenshot",            &pPreferences->m_key_screenshot },
+		{ "Editor copy up",        &pPreferences->m_key_editor_fast_copy_up },
+		{ "Editor copy down",      &pPreferences->m_key_editor_fast_copy_down },
+		{ "Editor copy left",      &pPreferences->m_key_editor_fast_copy_left },
+		{ "Editor copy right",     &pPreferences->m_key_editor_fast_copy_right },
+		{ "Editor pixel up",       &pPreferences->m_key_editor_pixel_move_up },
+		{ "Editor pixel down",     &pPreferences->m_key_editor_pixel_move_down },
+		{ "Editor pixel left",     &pPreferences->m_key_editor_pixel_move_left },
+		{ "Editor pixel right",    &pPreferences->m_key_editor_pixel_move_right },
+	};
+	for( unsigned int i = 0; i < sizeof(entries)/sizeof(entries[0]); i++ )
+	{
+		std::string key_name = SDL_GetKeyName( *entries[i].key );
+		out.push_back( std::string(entries[i].name) + "  [" + key_name + "]" );
+	}
+}
+
+// Helper: get the SDL key pointer for keyboard shortcut at index idx
+static SDLKey* Kbd_Entry_Ptr( int idx )
+{
+	SDLKey *ptrs[] = {
+		&pPreferences->m_key_up,
+		&pPreferences->m_key_down,
+		&pPreferences->m_key_left,
+		&pPreferences->m_key_right,
+		&pPreferences->m_key_jump,
+		&pPreferences->m_key_shoot,
+		&pPreferences->m_key_item,
+		&pPreferences->m_key_action,
+		&pPreferences->m_key_screenshot,
+		&pPreferences->m_key_editor_fast_copy_up,
+		&pPreferences->m_key_editor_fast_copy_down,
+		&pPreferences->m_key_editor_fast_copy_left,
+		&pPreferences->m_key_editor_fast_copy_right,
+		&pPreferences->m_key_editor_pixel_move_up,
+		&pPreferences->m_key_editor_pixel_move_down,
+		&pPreferences->m_key_editor_pixel_move_left,
+		&pPreferences->m_key_editor_pixel_move_right,
+	};
+	int n = static_cast<int>( sizeof(ptrs)/sizeof(ptrs[0]) );
+	if( idx < 0 || idx >= n ) return NULL;
+	return ptrs[idx];
+}
+
 void cMenu_Options :: Init_GUI_Keyboard( void )
 {
-	// get the CEGUI window manager
-	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
+	// Populate ModernUI state for Keyboard tab (no CEGUI widgets created)
+	m_kbd_scroll_speed = pPreferences->m_scroll_speed;
+	m_kbd_selected = -1;
+	m_kbd_scroll   = 0;
+	Build_Kbd_Items( m_kbd_items );
+}
 
-	// Keyboard listbox
-	CEGUI::Window *text_keyboard_shortcuts = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "keyboard_text_shortcuts" );
-	text_keyboard_shortcuts->setText( UTF8_("Shortcuts") );
+// Helper: rebuild the joystick button display list
+static void Build_Joy_Items( std::vector<std::string> &out )
+{
+	out.clear();
+	struct JoyEntry { const char *name; Uint8 *btn; };
+	JoyEntry entries[] = {
+		{ "Jump",   &pPreferences->m_joy_button_jump },
+		{ "Shoot",  &pPreferences->m_joy_button_shoot },
+		{ "Action", &pPreferences->m_joy_button_action },
+		{ "Item",   &pPreferences->m_joy_button_item },
+		{ "Exit",   &pPreferences->m_joy_button_exit },
+	};
+	for( unsigned int i = 0; i < sizeof(entries)/sizeof(entries[0]); i++ )
+		out.push_back( std::string(entries[i].name) + "  [" + int_to_string( *entries[i].btn ) + "]" );
+}
 
-	CEGUI::MultiColumnList *listbox_keyboard = static_cast<CEGUI::MultiColumnList *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "keyboard_listbox" ));
-
-	listbox_keyboard->addColumn( UTF8_("Name"), 0, CEGUI::UDim( 0.47f, 0 ) );
-	listbox_keyboard->addColumn( UTF8_("Key"), 1, CEGUI::UDim( 0.47f, 0 ) );
-	Build_Shortcut_List();
-
-	listbox_keyboard->subscribeEvent( CEGUI::MultiColumnList::EventMouseDoubleClick, CEGUI::Event::Subscriber( &cMenu_Options::Keyboard_List_Double_Click, this ) );
-
-	// Keyboard scroll speed
-	CEGUI::Window *text_keyboard_scroll_speed = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "keyboard_text_scroll_speed" );
-	text_keyboard_scroll_speed->setText( UTF8_("Scroll Speed") );
-
-	CEGUI::Slider *slider_scoll_speed = static_cast<CEGUI::Slider *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "keyboard_slider_scroll_speed" ));
-	slider_scoll_speed->setCurrentValue( pPreferences->m_scroll_speed );
-	slider_scoll_speed->subscribeEvent( CEGUI::Slider::EventValueChanged, CEGUI::Event::Subscriber( &cMenu_Options::Keyboard_Slider_Scroll_Speed_Changed, this ) );
-
-	// Reset Keyboard
-	CEGUI::PushButton *button_reset_keyboard = static_cast<CEGUI::PushButton *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "keyboard_button_reset" ));
-	button_reset_keyboard->subscribeEvent( CEGUI::PushButton::EventClicked, CEGUI::Event::Subscriber( &cMenu_Options::Keyboard_Button_Reset_Clicked, this ) );
-	button_reset_keyboard->setText( UTF8_("Reset") );
+// Helper: get joystick button pointer for index idx
+static Uint8* Joy_Entry_Ptr( int idx )
+{
+	Uint8 *ptrs[] = {
+		&pPreferences->m_joy_button_jump,
+		&pPreferences->m_joy_button_shoot,
+		&pPreferences->m_joy_button_action,
+		&pPreferences->m_joy_button_item,
+		&pPreferences->m_joy_button_exit,
+	};
+	int n = static_cast<int>( sizeof(ptrs)/sizeof(ptrs[0]) );
+	if( idx < 0 || idx >= n ) return NULL;
+	return ptrs[idx];
 }
 
 void cMenu_Options :: Init_GUI_Joystick( void )
 {
-	// get the CEGUI window manager
-	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
+	// Populate ModernUI state for Joystick tab (no CEGUI widgets created)
 
-	// Joystick sensitivity text
-	CEGUI::Window *text_joystick_sensitivity = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_text_sensitivity" );
-	text_joystick_sensitivity->setText( UTF8_("Sensitivity") );	
+	// Build joystick name list: "None" first, then actual joystick names
+	m_joy_names_list.clear();
+	m_joy_names_list.push_back( _("None") );
+	vector<std::string> hw_names = pJoystick->Get_Names();
+	for( unsigned int i = 0; i < hw_names.size(); i++ )
+		m_joy_names_list.push_back( hw_names[i] );
 
-	// Joystick analog jump text
-	CEGUI::Window *text_joystick_analog_jump = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_text_analog_jump" );
-	text_joystick_analog_jump->setText( UTF8_("Analog Jump") );
-	
-	// Joystick name
-	CEGUI::Window *text_joystick_name = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_text_name" );
-	text_joystick_name->setText( UTF8_("Joystick") );
-
-	text_joystick_name->subscribeEvent( CEGUI::Window::EventMouseClick, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_Name_Click, this ) );
-
-	CEGUI::Combobox *combo_joy = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_combo" ));
-
-	// Add None
-	CEGUI::ListboxTextItem *item = new CEGUI::ListboxTextItem( UTF8_("None") );
-	item->setTextColours( CEGUI::Colour( 0, 0, 1 ) );
-	combo_joy->addItem( item );
-
-	// Add all Joy names
-	vector<std::string> joy_names = pJoystick->Get_Names();
-
-	for( unsigned int i = 0; i < joy_names.size(); i++ )
-	{
-		item = new CEGUI::ListboxTextItem( joy_names[i] );
-		item->setTextColours( CEGUI::Colour( 0.3f, 1, 0.3f ) );
-		combo_joy->addItem( item );
-	}
-
-	// Selected Item
-	CEGUI::ListboxTextItem *selected_item = NULL;
-
-	// Set current Joy name
+	// Find current selection
+	m_joy_selected_idx = 0;
 	if( pPreferences->m_joy_enabled )
 	{
-		selected_item = static_cast<CEGUI::ListboxTextItem *>( combo_joy->findItemWithText( pJoystick->Get_Name(), NULL ) );
-	}
-	// disabled
-	else
-	{
-		selected_item = static_cast<CEGUI::ListboxTextItem *>( combo_joy->getListboxItemFromIndex( 0 ) );
-	}
-	// set Item
-	combo_joy->setText( selected_item->getText() );
-
-	combo_joy->subscribeEvent( CEGUI::Combobox::EventListSelectionAccepted, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_Name_Select, this ) );
-
-	// Joystick Sensitivity
-	CEGUI::Slider *slider_joy_sensitivity = static_cast<CEGUI::Slider *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_slider_sensitivity" ));
-	slider_joy_sensitivity->setCurrentValue( pPreferences->m_joy_axis_threshold );
-	slider_joy_sensitivity->subscribeEvent( CEGUI::Slider::EventValueChanged, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_Sensitivity_Changed, this ) );
-
-	// Joystick analog jump
-	CEGUI::Combobox *combo_joy_analog_jump = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_combo_analog_jump" ));
-
-	item = new CEGUI::ListboxTextItem( UTF8_("On") );
-	item->setTextColours( CEGUI::Colour( 0, 0, 1 ) );
-	combo_joy_analog_jump->addItem( item );
-	item = new CEGUI::ListboxTextItem( UTF8_("Off") );
-	item->setTextColours( CEGUI::Colour( 0, 1, 0 ) );
-	combo_joy_analog_jump->addItem( item );
-
-	if( pPreferences->m_joy_analog_jump )
-	{
-		combo_joy_analog_jump->setText( UTF8_("On") );
-	}
-	else
-	{
-		combo_joy_analog_jump->setText( UTF8_("Off") );
+		std::string cur = pJoystick->Get_Name();
+		for( int i = 1; i < static_cast<int>( m_joy_names_list.size() ); i++ )
+		{
+			if( m_joy_names_list[i] == cur )
+			{ m_joy_selected_idx = i; break; }
+		}
 	}
 
-	combo_joy_analog_jump->subscribeEvent( CEGUI::Combobox::EventListSelectionAccepted, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_Analog_Jump_Select, this ) );
-
-	// Joystick axis horizontal
-	CEGUI::Window *text_joystick_axis_hor = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_text_axis_hor" );
-	text_joystick_axis_hor->setText( UTF8_("Axis Hor") );
-
-	CEGUI::Spinner *spinner_joystick_axis_hor = static_cast<CEGUI::Spinner *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_spinner_axis_hor" ));
-	spinner_joystick_axis_hor->setCurrentValue( static_cast<float>(pPreferences->m_joy_axis_hor) );
-	spinner_joystick_axis_hor->subscribeEvent( CEGUI::Spinner::EventValueChanged, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_Spinner_Axis_Hor_Changed, this ) );
-
-	// Joystick axis vertical
-	CEGUI::Window *text_joystick_axis_ver = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_text_axis_ver" );
-	text_joystick_axis_ver->setText( UTF8_("Ver") );
-
-	CEGUI::Spinner *spinner_joystick_axis_ver = static_cast<CEGUI::Spinner *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_spinner_axis_ver" ));
-	spinner_joystick_axis_ver->setCurrentValue( static_cast<float>(pPreferences->m_joy_axis_ver) );
-	spinner_joystick_axis_ver->subscribeEvent( CEGUI::Spinner::EventValueChanged, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_Spinner_Axis_Ver_Changed, this ) );
-
-	// Joystick shortcut listbox
-	CEGUI::Window *text_joystick_shortcuts = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_text_shortcuts" );
-	text_joystick_shortcuts->setText( UTF8_("Shortcuts") );
-
-	CEGUI::MultiColumnList *listbox_joystick = static_cast<CEGUI::MultiColumnList *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_listbox" ));
-
-	listbox_joystick->addColumn( UTF8_("Name"), 0, CEGUI::UDim( 0.47f, 0 ) );
-	listbox_joystick->addColumn( UTF8_("Button"), 1, CEGUI::UDim( 0.47f, 0 ) );
-	Build_Shortcut_List( 1 );
-
-	listbox_joystick->subscribeEvent( CEGUI::MultiColumnList::EventMouseDoubleClick, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_List_Double_Click, this ) );
-
-	// Reset Joystick
-	CEGUI::PushButton *button_reset_joystick = static_cast<CEGUI::PushButton *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_button_reset" ));
-	button_reset_joystick->subscribeEvent( CEGUI::PushButton::EventClicked, CEGUI::Event::Subscriber( &cMenu_Options::Joystick_Button_Reset_Clicked, this ) );
-	button_reset_joystick->setText( UTF8_("Reset") );
+	m_joy_sensitivity = static_cast<float>( pPreferences->m_joy_axis_threshold );
+	m_joy_axis_hor    = pPreferences->m_joy_axis_hor;
+	m_joy_axis_ver    = pPreferences->m_joy_axis_ver;
+	m_joy_btn_selected = -1;
+	m_joy_btn_scroll   = 0;
+	Build_Joy_Items( m_joy_items );
 }
 
 void cMenu_Options :: Init_GUI_Editor( void )
 {
-	// get the CEGUI window manager
-	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
-
-	// show item images
-	CEGUI::Window *text_editor_show_item_images = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_text_show_item_images" ));
-	text_editor_show_item_images->setText( UTF8_("Show images") );
-
-	m_game_combo_editor_show_item_images = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_combo_show_item_images" ));
-
-	CEGUI::ListboxTextItem *item = new CEGUI::ListboxTextItem( UTF8_("On") );
-	item->setTextColours( CEGUI::Colour( 0, 1, 0 ) );
-	m_game_combo_editor_show_item_images->addItem( item );
-	item = new CEGUI::ListboxTextItem( UTF8_("Off") );
-	item->setTextColours( CEGUI::Colour( 0, 0, 1 ) );
-	m_game_combo_editor_show_item_images->addItem( item );
-
-	if( pPreferences->m_editor_show_item_images )
-	{
-		m_game_combo_editor_show_item_images->setText( UTF8_("On") );
-	}
-	else
-	{
-		m_game_combo_editor_show_item_images->setText( UTF8_("Off") );
-	}
-
-	m_game_combo_editor_show_item_images->subscribeEvent( CEGUI::Combobox::EventListSelectionAccepted, CEGUI::Event::Subscriber( &cMenu_Options::Game_Editor_Show_Item_Images_Select, this ) );
-
-	// item image size
-	CEGUI::Window *text_editor_item_image_size = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_text_item_image_size" ));
-	text_editor_item_image_size->setText( UTF8_("Item image size") );
-
-	m_game_spinner_editor_item_image_size = static_cast<CEGUI::Spinner *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_spinner_item_image_size" ));
-	m_game_spinner_editor_item_image_size->setCurrentValue( static_cast<float>(pPreferences->m_editor_item_image_size) );
-
-	m_game_spinner_editor_item_image_size->subscribeEvent( CEGUI::Spinner::EventValueChanged, CEGUI::Event::Subscriber( &cMenu_Options::Game_Editor_Item_Image_Size_Select, this ) );
-
-	// editor mouse auto hide
-	CEGUI::Window *text_editor_mouse_auto_hide = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_text_mouse_auto_hide" ));
-	text_editor_mouse_auto_hide->setText( UTF8_("Auto-Hide Mouse") );
-
-	m_game_combo_editor_mouse_auto_hide = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_combo_mouse_auto_hide" ));
-
-	item = new CEGUI::ListboxTextItem( UTF8_("On") );
-	item->setTextColours( CEGUI::Colour( 0, 1, 0 ) );
-	m_game_combo_editor_mouse_auto_hide->addItem( item );
-	item = new CEGUI::ListboxTextItem( UTF8_("Off") );
-	item->setTextColours( CEGUI::Colour( 0, 0, 1 ) );
-	m_game_combo_editor_mouse_auto_hide->addItem( item );
-
-	if( pPreferences->m_editor_mouse_auto_hide )
-	{
-		m_game_combo_editor_mouse_auto_hide->setText( UTF8_("On") );
-	}
-	else
-	{
-		m_game_combo_editor_mouse_auto_hide->setText( UTF8_("Off") );
-	}
-
-	m_game_combo_editor_mouse_auto_hide->subscribeEvent( CEGUI::Combobox::EventListSelectionAccepted, CEGUI::Event::Subscriber( &cMenu_Options::Game_Editor_Auto_Hide_Mouse_Select, this ) );
-
-	// Reset Editor
-	CEGUI::PushButton *button_reset_editor = static_cast<CEGUI::PushButton *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_button_reset" ));
-	button_reset_editor->subscribeEvent( CEGUI::PushButton::EventClicked, CEGUI::Event::Subscriber( &cMenu_Options::Game_Button_Reset_Editor_Clicked, this ) );
-	button_reset_editor->setText( UTF8_("Reset") );
+	// Populate ModernUI state for Editor tab (no CEGUI widgets created)
+	m_editor_item_image_size = pPreferences->m_editor_item_image_size;
 }
 
 void cMenu_Options :: Exit( void )
@@ -1627,249 +949,32 @@ void cMenu_Options :: Update( void )
 
 void cMenu_Options :: Change_Game_Setting( int setting )
 {
-	// always run
-	if( pMenuCore->m_handler->m_active == 5 )
-	{
-		pPreferences->m_always_run = !pPreferences->m_always_run;
-
-		if( pPreferences->m_always_run )
-		{
-			m_game_combo_always_run->setText( UTF8_("On") );
-		}
-		else
-		{
-			m_game_combo_always_run->setText( UTF8_("Off") );
-		}
-	}
-	// Camera Horizontal
-	else if( pMenuCore->m_handler->m_active == 6 )
-	{
-		// nothing
-	}
-	// Camera Vertical
-	else if( pMenuCore->m_handler->m_active == 7 )
-	{
-		// nothing
-	}
-	// language
-	else if( pMenuCore->m_handler->m_active == 8 )
-	{
-		unsigned int selected = m_game_combo_language->getItemIndex( m_game_combo_language->findItemWithText( m_game_combo_language->getText(), NULL ) );
-
-		CEGUI::ListboxItem *new_selected = NULL;
-
-		// last item selected
-		if( selected == m_game_combo_language->getItemCount() - 1 )
-		{
-			new_selected = m_game_combo_language->getListboxItemFromIndex( 0 );
-		}
-		// select next item
-		else
-		{
-			new_selected = m_game_combo_language->getListboxItemFromIndex( selected + 1 );
-		}
-		
-		m_game_combo_language->setText( new_selected->getText() );
-		m_game_combo_language->setItemSelectState( new_selected, 1 );
-		Game_Language_Select( CEGUI::WindowEventArgs( m_game_combo_language ) );
-	}
-	// menu level
-	else if( pMenuCore->m_handler->m_active == 9 )
-	{
-		unsigned int selected = m_game_combo_menu_level->getItemIndex( m_game_combo_menu_level->findItemWithText( m_game_combo_menu_level->getText(), NULL ) );
-
-		CEGUI::ListboxItem *new_selected = NULL;
-
-		// last item selected
-		if( selected == m_game_combo_menu_level->getItemCount() - 1 )
-		{
-			new_selected = m_game_combo_menu_level->getListboxItemFromIndex( 0 );
-		}
-		// select next item
-		else
-		{
-			new_selected = m_game_combo_menu_level->getListboxItemFromIndex( selected + 1 );
-		}
-		
-		m_game_combo_menu_level->setText( new_selected->getText() );
-		m_game_combo_menu_level->setItemSelectState( new_selected, 1 );
-		Game_Menu_Level_Select( CEGUI::WindowEventArgs( m_game_combo_menu_level ) );
-	}
+	// No-op: settings handled by ModernUI widgets in Post_GUI_Draw (M12).
 }
 
 void cMenu_Options :: Change_Video_Setting( int setting )
 {
-	// Resolution
-	if( pMenuCore->m_handler->m_active == 5 )
-	{
-		// Resolution
-		unsigned int selected = m_video_combo_resolution->getItemIndex( m_video_combo_resolution->findItemWithText( m_video_combo_resolution->getText(), NULL ) );
-
-		CEGUI::ListboxItem *new_selected = NULL;
-
-		// last item selected
-		if( selected == m_video_combo_resolution->getItemCount() - 1 )
-		{
-			new_selected = m_video_combo_resolution->getListboxItemFromIndex( 0 );
-		}
-		// select next item
-		else
-		{
-			new_selected = m_video_combo_resolution->getListboxItemFromIndex( selected + 1 );
-		}
-		
-		m_video_combo_resolution->setText( new_selected->getText() );
-		m_video_combo_resolution->setItemSelectState( new_selected, 1 );
-		Video_Resolution_Select( CEGUI::WindowEventArgs( m_video_combo_resolution ) );
-	}
-	// BPP
-	else if( pMenuCore->m_handler->m_active == 6 )
-	{
-		if( m_vid_bpp == 16 )
-		{
-			m_vid_bpp = 32;
-		}
-		else if( m_vid_bpp == 32 )
-		{
-			m_vid_bpp = 16;
-		}
-
-		m_video_combo_bpp->setText( int_to_string( m_vid_bpp ).c_str() );	
-	}
-	// Fullscreen
-	else if( pMenuCore->m_handler->m_active == 7 )
-	{
-		m_vid_fullscreen = !m_vid_fullscreen;
-
-		if( m_vid_fullscreen )
-		{
-			m_video_combo_fullscreen->setText( UTF8_("On") );	
-		}
-		else
-		{
-			m_video_combo_fullscreen->setText( UTF8_("Off") );
-		}
-	}
-	// VSync
-	else if( pMenuCore->m_handler->m_active == 8 )
-	{
-		m_vid_vsync = !m_vid_vsync;
-
-		if( m_vid_vsync )
-		{
-			m_video_combo_vsync->setText( UTF8_("On") );	
-		}
-		else
-		{
-			m_video_combo_vsync->setText( UTF8_("Off") );
-		}
-	}
-	// FPS Limit
-	else if( pMenuCore->m_handler->m_active == 8 )
-	{
-		// nothing
-	}
+	// No-op: settings handled by ModernUI widgets in Post_GUI_Draw (M12).
 }
 
 void cMenu_Options :: Change_Audio_Setting( int setting )
 {
-	// Hz
-	if( pMenuCore->m_handler->m_active == 5 )
-	{
-		unsigned int selected = m_audio_combo_hz->getItemIndex( m_audio_combo_hz->findItemWithText( m_audio_combo_hz->getText(), NULL ) );
-
-		CEGUI::ListboxItem *new_selected = NULL;
-
-		// last item selected
-		if( selected == m_audio_combo_hz->getItemCount() - 1 )
-		{
-			new_selected = m_audio_combo_hz->getListboxItemFromIndex( 0 );
-		}
-		// select next item
-		else
-		{
-			new_selected = m_audio_combo_hz->getListboxItemFromIndex( selected + 1 );
-		}
-		
-		m_audio_combo_hz->setText( new_selected->getText() );
-		m_audio_combo_hz->setItemSelectState( new_selected, 1 );
-		Audio_Hz_Select( CEGUI::WindowEventArgs( m_audio_combo_hz ) );
-	}
-	// Music
-	else if( pMenuCore->m_handler->m_active == 6 )
-	{
-		pAudio->Toggle_Music();
-
-		if( pAudio->m_music_enabled )
-		{
-			m_audio_combo_music->setText( UTF8_("On") );
-		}
-		else
-		{
-			m_audio_combo_music->setText( UTF8_("Off") );
-		}
-	}
-	// Sounds
-	else if( pMenuCore->m_handler->m_active == 7 )
-	{
-		pAudio->Toggle_Sounds();
-
-		if( pAudio->m_sound_enabled )
-		{
-			m_audio_combo_sounds->setText( UTF8_("On") );
-		}
-		else
-		{
-			m_audio_combo_sounds->setText( UTF8_("Off") );
-		}
-	}
+	// No-op: settings handled by ModernUI widgets in Post_GUI_Draw (M12).
 }
 
 void cMenu_Options :: Change_Keyboard_Setting( int setting )
 {
-	// todo
+	// No-op: settings handled by ModernUI widgets in Post_GUI_Draw (M12).
 }
 
 void cMenu_Options :: Change_Joystick_Setting( int setting )
 {
-	// todo
+	// No-op: settings handled by ModernUI widgets in Post_GUI_Draw (M12).
 }
 
 void cMenu_Options :: Change_Editor_Setting( int setting )
 {
-	// editor show item images
-	if( pMenuCore->m_handler->m_active == 10 )
-	{
-		pPreferences->m_editor_show_item_images = !pPreferences->m_editor_show_item_images;
-
-		if( pPreferences->m_editor_show_item_images )
-		{
-			m_game_combo_editor_show_item_images->setText( UTF8_("On") );
-		}
-		else
-		{
-			m_game_combo_editor_show_item_images->setText( UTF8_("Off") );
-		}
-	}
-	// editor item image size
-	else if( pMenuCore->m_handler->m_active == 11 )
-	{
-		// nothing
-	}
-	// editor auto mouse hide
-	else if( pMenuCore->m_handler->m_active == 12 )
-	{
-		pPreferences->m_editor_mouse_auto_hide = !pPreferences->m_editor_mouse_auto_hide;
-
-		if( pPreferences->m_editor_mouse_auto_hide )
-		{
-			m_game_combo_editor_show_item_images->setText( UTF8_("On") );
-		}
-		else
-		{
-			m_game_combo_editor_show_item_images->setText( UTF8_("Off") );
-		}
-	}
+	// No-op: settings handled by ModernUI widgets in Post_GUI_Draw (M12).
 }
 
 void cMenu_Options :: Draw( void )
@@ -1881,45 +986,54 @@ void cMenu_Options :: Draw( void )
 
 	cMenu_Base::Draw();
 
-	// Register post-CEGUI callback for Video/Audio tabs; clear it for all others
-	int tab = m_tabcontrol ? static_cast<int>( m_tabcontrol->getSelectedTabIndex() ) : -1;
-	if( tab == 1 || tab == 2 )
-		pVideo->Set_Post_GUI_Render( S_Post_GUI_Draw );
-	else
-		pVideo->Set_Post_GUI_Render( NULL );
+	// Draw the options panel and all ModernUI tab content directly (no CEGUI)
+	Post_GUI_Draw();
 
 	Draw_End();
 }
 
 void cMenu_Options :: S_Post_GUI_Draw( void )
 {
-	if( s_active_opts )
-		s_active_opts->Post_GUI_Draw();
+	// No longer used as a CEGUI post-render callback; Post_GUI_Draw is called directly from Draw().
 }
 
 void cMenu_Options :: Post_GUI_Draw( void )
 {
-	// Restore the game's projection matrix — CEGUI may have changed it
-	glMatrixMode( GL_PROJECTION );
-	glLoadIdentity();
-	glOrtho( 0, static_cast<float>(pPreferences->m_video_screen_w),
-	         static_cast<float>(pPreferences->m_video_screen_h), 0, -1, 1 );
-	glMatrixMode( GL_MODELVIEW );
-	glLoadIdentity();
-
-	// window_options: {{0.05,0},{0.26,0},{0.95,0},{0.88,0}} → x=5%,y=26%,w=90%,h=62% of screen
-	// tabcontrol: 93% height of window; tab bar = 25 absolute screen px
-	float tab_bar_h = 25.0f * static_cast<float>(game_res_h) / static_cast<float>(pPreferences->m_video_screen_h);
+	// Panel layout (same geometry as before, without CEGUI frame)
+	const float TAB_BAR_H = 30.0f;
 	float content_x = 0.05f * game_res_w;
-	float content_y = 0.26f * game_res_h + tab_bar_h;
+	float content_y = 0.26f * game_res_h;
 	float content_w = 0.90f * game_res_w;
-	float content_h = 0.62f * game_res_h * 0.93f - tab_bar_h;
+	float content_h = 0.62f * game_res_h * 0.93f;
 
-	// Opaque panel to cover CEGUI tab content
+	// Background panel
 	Color bg = COL_CARD_BG;
 	pVideo->Draw_Rect( content_x, content_y, content_w, content_h, 0.851f, &bg );
+	Color border( static_cast<Uint8>(139), 90, 43, 200 );
+	pVideo->Draw_Rect( content_x - 2, content_y - 2, content_w + 4, content_h + 4, 0.8509f, &border );
 
-	int tab = m_tabcontrol ? static_cast<int>( m_tabcontrol->getSelectedTabIndex() ) : 1;
+	// Tab bar — 6 tabs, ModernUI handles click-to-switch
+	static const std::vector<std::string> opt_tab_labels = {
+		_("Game"), _("Video"), _("Audio"), _("Keyboard"), _("Joystick"), _("Editor")
+	};
+	int new_tab = ModernUI::Tab_Bar( content_x, content_y, content_w, TAB_BAR_H,
+	                                 opt_tab_labels, m_active_tab, m_opt_pending_delete );
+	if( new_tab != m_active_tab )
+		m_active_tab = new_tab;
+
+	// Back button — top-right of panel
+	float btn_back_w = 70.0f;
+	float btn_back_h = 24.0f;
+	float btn_back_x = content_x + content_w - btn_back_w - 4.0f;
+	float btn_back_y = content_y + content_h - btn_back_h - 4.0f;
+	if( ModernUI::Button( btn_back_x, btn_back_y, btn_back_w, btn_back_h, _("Back"), m_opt_pending_delete ) )
+		Exit();
+
+	int tab = m_active_tab;
+
+	// Shift content area below the tab bar
+	content_y += TAB_BAR_H;
+	content_h  -= TAB_BAR_H + btn_back_h + 8.0f;
 
 	float row_x    = content_x + 12.0f;
 	float row_w    = content_w - 24.0f;
@@ -2043,116 +1157,237 @@ void cMenu_Options :: Post_GUI_Draw( void )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
 		}
 	}
+	else if( tab == 0 )  // Game
+	{
+		bool new_always_run = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Always Run"), pPreferences->m_always_run, m_opt_pending_delete );
+		if( new_always_run != pPreferences->m_always_run )
+			pPreferences->m_always_run = new_always_run;
+		row_y += row_step;
 
-	// Flush the queued ModernUI geometry to screen (on top of CEGUI)
+		float new_hor = ModernUI::Slider_Row( row_x, row_y, row_w, _("Camera Hor Speed"), m_game_camera_hor_speed, 0.0f, 10.0f, m_opt_pending_delete );
+		if( new_hor != m_game_camera_hor_speed )
+		{
+			m_game_camera_hor_speed = new_hor;
+			pLevel_Manager->m_camera->m_hor_offset_speed = m_game_camera_hor_speed;
+			pPreferences->m_camera_hor_speed = m_game_camera_hor_speed;
+		}
+		row_y += row_step;
+
+		float new_ver = ModernUI::Slider_Row( row_x, row_y, row_w, _("Camera Ver Speed"), m_game_camera_ver_speed, 0.0f, 10.0f, m_opt_pending_delete );
+		if( new_ver != m_game_camera_ver_speed )
+		{
+			m_game_camera_ver_speed = new_ver;
+			pLevel_Manager->m_camera->m_ver_offset_speed = m_game_camera_ver_speed;
+			pPreferences->m_camera_ver_speed = m_game_camera_ver_speed;
+		}
+		row_y += row_step;
+
+		int new_lang = ModernUI::Select_Row( row_x, row_y, row_w, _("Language"), m_game_languages, m_game_language_idx, m_opt_pending_delete );
+		if( new_lang != m_game_language_idx )
+		{
+			m_game_language_idx = new_lang;
+			if( m_game_language_idx == 0 )
+				pPreferences->m_language = "";
+			else
+				pPreferences->m_language = m_game_languages[m_game_language_idx];
+		}
+		row_y += row_step;
+
+		int new_lvl = ModernUI::Select_Row( row_x, row_y, row_w, _("Menu Level"), m_game_menu_levels, m_game_menu_level_idx, m_opt_pending_delete );
+		if( new_lvl != m_game_menu_level_idx )
+		{
+			m_game_menu_level_idx = new_lvl;
+			pPreferences->m_menu_level = m_game_menu_levels[m_game_menu_level_idx];
+		}
+		row_y += row_step + 4.0f;
+
+		float btn_w_g = 100.0f;
+		float btn_x_g = content_x + (content_w - btn_w_g) * 0.5f;
+		if( ModernUI::Button( btn_x_g, row_y, btn_w_g, row_h, _("Reset"), m_opt_pending_delete ) )
+		{
+			pPreferences->Reset_Game();
+			Game_Action = GA_ENTER_MENU;
+			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
+			if( m_exit_to_gamemode != MODE_NOTHING )
+				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+		}
+	}
+	else if( tab == 3 )  // Keyboard
+	{
+		// Scroll speed slider at the top
+		float new_spd = ModernUI::Slider_Row( row_x, row_y, row_w, _("Scroll Speed"), m_kbd_scroll_speed, 0.0f, 2.0f, m_opt_pending_delete );
+		if( new_spd != m_kbd_scroll_speed )
+		{
+			m_kbd_scroll_speed = new_spd;
+			pPreferences->m_scroll_speed = m_kbd_scroll_speed;
+		}
+		row_y += row_step + 4.0f;
+
+		// Key bindings list
+		float list_h = content_h - (row_y - content_y) - row_step - 8.0f;
+		int result = ModernUI::Scroll_List( row_x, row_y, row_w, list_h, m_kbd_items, m_kbd_selected, m_kbd_scroll, m_opt_pending_delete );
+		if( result >= 0 )
+		{
+			int idx = result & ~ModernUI::SCROLL_LIST_DCLICK_FLAG;
+			m_kbd_selected = idx;
+			if( result & ModernUI::SCROLL_LIST_DCLICK_FLAG )
+			{
+				// Enter "press key" mode for the selected binding
+				SDLKey *key_ptr = Kbd_Entry_Ptr( idx );
+				if( key_ptr )
+				{
+					// Determine display name (everything before "  [")
+					std::string entry = m_kbd_items[idx];
+					std::string name = entry.substr( 0, entry.find( "  [" ) );
+					Set_Shortcut( name, key_ptr, false );
+					Build_Kbd_Items( m_kbd_items );
+					m_kbd_selected = -1;
+				}
+			}
+		}
+		row_y += list_h + 4.0f;
+
+		float btn_w_k = 100.0f;
+		float btn_x_k = content_x + (content_w - btn_w_k) * 0.5f;
+		if( ModernUI::Button( btn_x_k, row_y, btn_w_k, row_h, _("Reset"), m_opt_pending_delete ) )
+		{
+			pPreferences->Reset_Keyboard();
+			Game_Action = GA_ENTER_MENU;
+			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
+			if( m_exit_to_gamemode != MODE_NOTHING )
+				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+		}
+	}
+	else if( tab == 4 )  // Joystick
+	{
+		// Joystick device selection
+		int new_joy = ModernUI::Select_Row( row_x, row_y, row_w, _("Joystick"), m_joy_names_list, m_joy_selected_idx, m_opt_pending_delete );
+		if( new_joy != m_joy_selected_idx )
+		{
+			m_joy_selected_idx = new_joy;
+			if( m_joy_selected_idx == 0 )
+				Joy_Disable();
+			else
+				Joy_Default( m_joy_selected_idx - 1 );
+		}
+		row_y += row_step;
+
+		// Sensitivity slider (axis threshold 0–32767)
+		float new_sens = ModernUI::Slider_Row( row_x, row_y, row_w, _("Sensitivity"), m_joy_sensitivity, 0.0f, 32767.0f, m_opt_pending_delete );
+		if( new_sens != m_joy_sensitivity )
+		{
+			m_joy_sensitivity = new_sens;
+			pPreferences->m_joy_axis_threshold = static_cast<Sint16>( m_joy_sensitivity );
+		}
+		row_y += row_step;
+
+		// Analog Jump toggle
+		bool new_ajump = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Analog Jump"), pPreferences->m_joy_analog_jump, m_opt_pending_delete );
+		if( new_ajump != pPreferences->m_joy_analog_jump )
+			pPreferences->m_joy_analog_jump = new_ajump;
+		row_y += row_step;
+
+		// Axis indices — use Select_Row with numeric options 0-7
+		const std::vector<std::string> axis_opts = { "0","1","2","3","4","5","6","7" };
+		int new_axis_hor = ModernUI::Select_Row( row_x, row_y, row_w, _("Axis Horizontal"), axis_opts,
+		                                         (m_joy_axis_hor >= 0 && m_joy_axis_hor < 8) ? m_joy_axis_hor : 0,
+		                                         m_opt_pending_delete );
+		if( new_axis_hor != m_joy_axis_hor )
+		{
+			m_joy_axis_hor = new_axis_hor;
+			pPreferences->m_joy_axis_hor = m_joy_axis_hor;
+		}
+		row_y += row_step;
+
+		int new_axis_ver = ModernUI::Select_Row( row_x, row_y, row_w, _("Axis Vertical"), axis_opts,
+		                                         (m_joy_axis_ver >= 0 && m_joy_axis_ver < 8) ? m_joy_axis_ver : 1,
+		                                         m_opt_pending_delete );
+		if( new_axis_ver != m_joy_axis_ver )
+		{
+			m_joy_axis_ver = new_axis_ver;
+			pPreferences->m_joy_axis_ver = m_joy_axis_ver;
+		}
+		row_y += row_step + 4.0f;
+
+		// Button binding list
+		float list_h_j = content_h - (row_y - content_y) - row_step - 8.0f;
+		int result_j = ModernUI::Scroll_List( row_x, row_y, row_w, list_h_j, m_joy_items, m_joy_btn_selected, m_joy_btn_scroll, m_opt_pending_delete );
+		if( result_j >= 0 )
+		{
+			int idx = result_j & ~ModernUI::SCROLL_LIST_DCLICK_FLAG;
+			m_joy_btn_selected = idx;
+			if( result_j & ModernUI::SCROLL_LIST_DCLICK_FLAG )
+			{
+				Uint8 *btn_ptr = Joy_Entry_Ptr( idx );
+				if( btn_ptr )
+				{
+					std::string entry = m_joy_items[idx];
+					std::string name = entry.substr( 0, entry.find( "  [" ) );
+					Set_Shortcut( name, btn_ptr, true );
+					Build_Joy_Items( m_joy_items );
+					m_joy_btn_selected = -1;
+				}
+			}
+		}
+		row_y += list_h_j + 4.0f;
+
+		float btn_w_j = 100.0f;
+		float btn_x_j = content_x + (content_w - btn_w_j) * 0.5f;
+		if( ModernUI::Button( btn_x_j, row_y, btn_w_j, row_h, _("Reset"), m_opt_pending_delete ) )
+		{
+			pPreferences->Reset_Joystick();
+			Game_Action = GA_ENTER_MENU;
+			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
+			if( m_exit_to_gamemode != MODE_NOTHING )
+				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+		}
+	}
+	else if( tab == 5 )  // Editor
+	{
+		bool new_show_imgs = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Show Item Images"), pPreferences->m_editor_show_item_images, m_opt_pending_delete );
+		if( new_show_imgs != pPreferences->m_editor_show_item_images )
+			pPreferences->m_editor_show_item_images = new_show_imgs;
+		row_y += row_step;
+
+		bool new_auto_hide = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Auto-Hide Mouse"), pPreferences->m_editor_mouse_auto_hide, m_opt_pending_delete );
+		if( new_auto_hide != pPreferences->m_editor_mouse_auto_hide )
+			pPreferences->m_editor_mouse_auto_hide = new_auto_hide;
+		row_y += row_step;
+
+		// Item image size: 5–60 step 5, represented as a slider
+		float img_size_f = static_cast<float>( m_editor_item_image_size );
+		float new_img_size = ModernUI::Slider_Row( row_x, row_y, row_w, _("Item Image Size"), img_size_f, 5.0f, 60.0f, m_opt_pending_delete );
+		// snap to nearest 5
+		unsigned int snapped = static_cast<unsigned int>( (new_img_size + 2.5f) / 5.0f ) * 5;
+		if( snapped < 5 ) snapped = 5;
+		if( snapped > 60 ) snapped = 60;
+		if( snapped != m_editor_item_image_size )
+		{
+			m_editor_item_image_size = snapped;
+			pPreferences->m_editor_item_image_size = m_editor_item_image_size;
+		}
+		row_y += row_step + 4.0f;
+
+		float btn_w_e = 100.0f;
+		float btn_x_e = content_x + (content_w - btn_w_e) * 0.5f;
+		if( ModernUI::Button( btn_x_e, row_y, btn_w_e, row_h, _("Reset"), m_opt_pending_delete ) )
+		{
+			pPreferences->Reset_Editor();
+			Game_Action = GA_ENTER_MENU;
+			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
+			if( m_exit_to_gamemode != MODE_NOTHING )
+				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+		}
+	}
+
+	// Flush the queued ModernUI geometry to screen
 	pRenderer->Render();
 }
 
 void cMenu_Options :: Build_Shortcut_List( bool joystick /* = 0 */ )
 {
-	// Get Listbox
-	CEGUI::MultiColumnList *listbox = NULL;
-
-	// Keyboard
-	if( !joystick )
-	{
-		listbox = static_cast<CEGUI::MultiColumnList *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "keyboard_listbox" ));
-	}
-	// Joystick
-	else
-	{
-		listbox = static_cast<CEGUI::MultiColumnList *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "joystick_listbox" ));
-	}
-
-	listbox->resetList();
-
-	// build shortcut list
-	vector<cShortcut_item> shortcuts;
-
-	// Keyboard
-	if( !joystick )
-	{
-		shortcuts.push_back( cShortcut_item( UTF8_("Up"), &pPreferences->m_key_up, &pPreferences->m_key_up_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Down"), &pPreferences->m_key_down, &pPreferences->m_key_down_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Left"), &pPreferences->m_key_left, &pPreferences->m_key_left_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Right"), &pPreferences->m_key_right, &pPreferences->m_key_right_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Jump"), &pPreferences->m_key_jump, &pPreferences->m_key_jump_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Shoot"), &pPreferences->m_key_shoot, &pPreferences->m_key_shoot_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Item"), &pPreferences->m_key_item, &pPreferences->m_key_item_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Action"), &pPreferences->m_key_action, &pPreferences->m_key_action_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Screenshot"), &pPreferences->m_key_screenshot, &pPreferences->m_key_screenshot_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor fast copy up"), &pPreferences->m_key_editor_fast_copy_up, &pPreferences->m_key_editor_fast_copy_up_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor fast copy down"), &pPreferences->m_key_editor_fast_copy_down, &pPreferences->m_key_editor_fast_copy_down_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor fast copy left"), &pPreferences->m_key_editor_fast_copy_left, &pPreferences->m_key_editor_fast_copy_left_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor fast copy right"), &pPreferences->m_key_editor_fast_copy_right, &pPreferences->m_key_editor_fast_copy_right_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor pixel move up"), &pPreferences->m_key_editor_pixel_move_up, &pPreferences->m_key_editor_pixel_move_up_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor pixel move down"), &pPreferences->m_key_editor_pixel_move_down, &pPreferences->m_key_editor_pixel_move_down_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor pixel move left"), &pPreferences->m_key_editor_pixel_move_left, &pPreferences->m_key_editor_pixel_move_left_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Editor pixel move right"), &pPreferences->m_key_editor_pixel_move_right, &pPreferences->m_key_editor_pixel_move_right_default ) );
-	}
-	// Joystick
-	else
-	{
-		shortcuts.push_back( cShortcut_item( UTF8_("Jump"), &pPreferences->m_joy_button_jump, &pPreferences->m_joy_button_jump_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Shoot"), &pPreferences->m_joy_button_shoot, &pPreferences->m_joy_button_shoot_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Action"), &pPreferences->m_joy_button_action, &pPreferences->m_joy_button_action_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Item"), &pPreferences->m_joy_button_item, &pPreferences->m_joy_button_item_default ) );
-		shortcuts.push_back( cShortcut_item( UTF8_("Exit"), &pPreferences->m_joy_button_exit, &pPreferences->m_joy_button_exit_default ) );
-	}
-
-
-	// add all available shortcuts
-	for( vector<cShortcut_item>::iterator itr = shortcuts.begin(); itr != shortcuts.end(); ++itr )
-	{
-		cShortcut_item shortcut_item = (*itr);
-		
-		CEGUI::ListboxTextItem *item = new CEGUI::ListboxTextItem( shortcut_item.m_name, 0, shortcut_item.m_key );
-		item->setSelectionColours( CEGUI::Colour( 0.33f, 0.33f, 0.33f ) );
-		item->setSelectionBrushImage( "TaharezLook/ListboxSelectionBrush" );
-		unsigned int row_id = listbox->addRow( item, 0 );
-
-		// Get shortcut key name
-		std::string shortcut_key;
-		bool shortcut_not_the_default = 0;
-
-		// Keyboard
-		if( !joystick )
-		{
-			SDLKey *key = static_cast<SDLKey *>(shortcut_item.m_key);
-			const SDLKey *key_default = static_cast<const SDLKey *>(shortcut_item.m_key_default);
-			shortcut_key = SDL_GetKeyName( *key );
-
-			if( *key != *key_default )
-			{
-				shortcut_not_the_default = 1;
-			}
-		}
-		// Joystick
-		else
-		{
-			Uint8 *button = static_cast<Uint8 *>(shortcut_item.m_key);
-			const Uint8 *button_default = static_cast<const Uint8 *>(shortcut_item.m_key_default);
-			shortcut_key = int_to_string( *button );
-
-			if( *button != *button_default )
-			{
-				shortcut_not_the_default = 1;
-			}
-		}
-
-		// CEGUI eats [] if not escaped
-		string_replace_all( shortcut_key, "[", "\\[" );
-
-		item = new CEGUI::ListboxTextItem( shortcut_key );
-		// if not default
-		if( shortcut_not_the_default )
-		{
-			item->setTextColours( CEGUI::Colour( 0.9f, 0.6f, 0.0f ) );
-		}
-		item->setSelectionColours( CEGUI::Colour( 0.33f, 0.33f, 0.33f ) );
-		item->setSelectionBrushImage( "TaharezLook/ListboxSelectionBrush" );
-		listbox->setItem( item, 1, row_id );
-	}
+	// No-op: CEGUI MultiColumnList removed in M12.
+	// ModernUI keyboard/joystick tabs use Build_Kbd_Items / Build_Joy_Items directly.
 }
 
 void cMenu_Options :: Set_Shortcut( std::string name, void *data, bool joystick /* = 0 */ )
@@ -2232,654 +1467,8 @@ void cMenu_Options :: Joy_Disable( void )
 	pJoystick->Stick_Close();
 }
 
-bool cMenu_Options :: Button_Back_Click( const CEGUI::EventArgs &event )
-{
-	Exit();
-	return 1;
-}
-
-bool cMenu_Options :: Game_Always_Run_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox*>( windowEventArgs.window )->getSelectedItem();
-
-	bool always_run = 0;
-
-	if( item->getText().compare( UTF8_("On") ) == 0 )
-	{
-		always_run = 1;
-	}
-
-	pPreferences->m_always_run = always_run;
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Camera_Hor_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::Spinner *spinner_camera_hor = static_cast<CEGUI::Spinner *>( windowEventArgs.window );
-	
-	pLevel_Manager->m_camera->m_hor_offset_speed = spinner_camera_hor->getCurrentValue();
-	pPreferences->m_camera_hor_speed = spinner_camera_hor->getCurrentValue();
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Camera_Ver_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::Spinner *spinner_camera_ver = static_cast<CEGUI::Spinner *>( windowEventArgs.window );
-	
-	pLevel_Manager->m_camera->m_ver_offset_speed = spinner_camera_ver->getCurrentValue();
-	pPreferences->m_camera_ver_speed = spinner_camera_ver->getCurrentValue();
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Language_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox*>( windowEventArgs.window )->getSelectedItem();
-
-	// default
-	if( item->getText().compare( UTF8_("default") ) == 0 )
-	{
-		pPreferences->m_language = "";
-	}
-	// force
-	else
-	{
-		pPreferences->m_language = item->getText().c_str();
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Menu_Level_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox*>( windowEventArgs.window )->getSelectedItem();
-
-	pPreferences->m_menu_level = item->getText().c_str();
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Menu_Level_Text_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	pPreferences->m_menu_level = static_cast<CEGUI::Editbox *>( windowEventArgs.window )->getText().c_str();
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Button_Reset_Game_Clicked( const CEGUI::EventArgs &event )
-{
-	pPreferences->Reset_Game();
-
-	// clear
-	Game_Action = GA_ENTER_MENU;
-	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
-	if( m_exit_to_gamemode != MODE_NOTHING )
-	{
-		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Resolution_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox *>( windowEventArgs.window )->getSelectedItem();
-
-	std::string temp = item->getText().c_str();
-
-	// get end of height value if text is after resolution string
-	std::string::size_type height_end = temp.find( " " );
-
-	if( height_end == std::string::npos )
-	{
-		height_end = temp.length();
-	}
-
-	// get resolution
-	unsigned int w = string_to_int( temp.substr( 0, temp.find( "x" ) ) );
-	unsigned int h = string_to_int( temp.substr( temp.find( "x" ) + 1, height_end ) );
-
-	// is it supported
-	if( !pVideo->Test_Video( w, h, m_vid_bpp ) )
-	{
-		return 0;
-	}
-
-	// set new selected resolution
-	m_vid_w = w;
-	m_vid_h = h;
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Bpp_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox *>( windowEventArgs.window )->getSelectedItem();
-
-	unsigned int bpp = string_to_int( item->getText().c_str() );
-
-	if( !pVideo->Test_Video( m_vid_w, m_vid_h, bpp ) )
-	{
-		return 0;
-	}
-
-	m_vid_bpp = bpp;
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Fullscreen_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox *>( windowEventArgs.window )->getSelectedItem();
-
-	bool bfullscreen = 0;
-
-	if( item->getText().compare( UTF8_("On") ) == 0 )
-	{
-		bfullscreen = 1;
-	}
-
-	m_vid_fullscreen = bfullscreen;
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Vsync_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox *>( windowEventArgs.window )->getSelectedItem();
-
-	bool bvsync = 0;
-
-	if( item->getText().compare( UTF8_("On") ) == 0 )
-	{
-		bvsync = 1;
-	}
-
-	m_vid_vsync = bvsync;
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_FPS_Limit_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::Spinner *spinner_fps_limit = static_cast<CEGUI::Spinner *>( windowEventArgs.window );
-	
-	pPreferences->m_video_fps_limit = spinner_fps_limit->getCurrentValue();
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Slider_Geometry_Quality_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	// set new value
-	m_vid_geometry_detail = static_cast<CEGUI::Slider *>( windowEventArgs.window )->getCurrentValue();
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Slider_Texture_Quality_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	// set new value
-	m_vid_texture_detail = static_cast<CEGUI::Slider *>( windowEventArgs.window )->getCurrentValue();
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Button_Reset_Clicked( const CEGUI::EventArgs &event )
-{
-	CEGUI::ListboxItem *list_item = m_video_combo_resolution->findItemWithText( int_to_string( cPreferences::m_video_screen_w_default ) + "x" + int_to_string( cPreferences::m_video_screen_h_default ), NULL );
-	if( list_item )
-	{
-		m_video_combo_resolution->setItemSelectState( list_item, 1 );
-
-		m_vid_w = cPreferences::m_video_screen_w_default;
-		m_vid_h = cPreferences::m_video_screen_h_default;
-	}
-
-	list_item = m_video_combo_bpp->findItemWithText( int_to_string( cPreferences::m_video_screen_bpp_default ), NULL );
-	if( list_item )
-	{
-		m_video_combo_bpp->setItemSelectState( list_item, 1 );
-		m_vid_bpp = cPreferences::m_video_screen_bpp_default;
-	}
-
-	if( cPreferences::m_video_fullscreen_default )
-	{
-		m_video_combo_fullscreen->setText( UTF8_("On") );
-	}
-	else
-	{
-		m_video_combo_fullscreen->setText( UTF8_("Off") );
-	}
-	m_vid_fullscreen = cPreferences::m_video_fullscreen_default;
-
-	if( cPreferences::m_video_vsync_default )
-	{
-		m_video_combo_vsync->setText( UTF8_("On") );
-	}
-	else
-	{
-		m_video_combo_vsync->setText( UTF8_("Off") );
-	}
-	m_vid_vsync = cPreferences::m_video_vsync_default;
-
-	m_video_spinner_fps_limit->setCurrentValue( cPreferences::m_video_fps_limit_default );
-	pPreferences->m_video_fps_limit = cPreferences::m_video_fps_limit_default;
-
-	m_video_slider_geometry_quality->setCurrentValue( cPreferences::m_geometry_quality_default );
-	m_vid_geometry_detail = cPreferences::m_geometry_quality_default;
-
-	m_video_slider_texture_quality->setCurrentValue( cPreferences::m_texture_quality_default );
-	m_vid_texture_detail = cPreferences::m_texture_quality_default;
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Button_Apply_Clicked( const CEGUI::EventArgs &event )
-{
-	// draw reinitialization text
-	Draw_Static_Text( _("Reinitialization"), &green, NULL, 0 );
-
-	pGuiSystem->renderAllGUIContexts();
-	pRenderer->Render();
-	SDL_GL_SwapWindow(g_sdl_window);
-
-	// apply new settings
-	pPreferences->Apply_Video( m_vid_w, m_vid_h, m_vid_bpp, m_vid_fullscreen, m_vid_vsync, m_vid_geometry_detail, m_vid_texture_detail );
-
-	// clear
-	Game_Action = GA_ENTER_MENU;
-	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
-	if( m_exit_to_gamemode != MODE_NOTHING )
-	{
-		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Video_Button_Recreate_Cache_Clicked( const CEGUI::EventArgs &event )
-{
-	Loading_Screen_Init();
-
-	// save textures for reloading from file
-	pImage_Manager->Grab_Textures( 1, 1 );
-
-	// recreate cache
-	pVideo->Init_Image_Cache( 1, 1 );
-
-	// restore textures
-	pImage_Manager->Restore_Textures( 1 );
-
-	Loading_Screen_Exit();
-
-	return 1;
-}
-
-bool cMenu_Options :: Audio_Hz_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox *>( windowEventArgs.window )->getSelectedItem();
-
-	pPreferences->m_audio_hz = string_to_int( item->getText().c_str() );
-
-	// draw reloading text
-	Draw_Static_Text( _("Reloading"), &green, NULL, 0 );
-	// reload
-	pAudio->Close();
-	pSound_Manager->Delete_All();
-	pAudio->Init();
-	// todo : add sound manager function to reload sounds and music when needed
-	Preload_Sounds();
-
-	return 1;
-}
-
-bool cMenu_Options :: Audio_Music_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox *>( windowEventArgs.window )->getSelectedItem();
-
-	bool music_enabled = 0;
-
-	if( item->getText().compare( UTF8_("On") ) == 0 )
-	{
-		music_enabled = 1;
-	}
-
-	if( pAudio->m_music_enabled != music_enabled )
-	{
-		pAudio->Toggle_Music();
-
-		// Warning if no music pack is installed and music got enabled
-		if( pAudio->m_music_enabled && !File_Exists( std::string(DATA_DIR "/" GAME_MUSIC_DIR "/game/menu.ogg") ) && !File_Exists( std::string(DATA_DIR "/" GAME_MUSIC_DIR "/land/land_1.ogg") ) )
-		{
-			Draw_Static_Text( _("Music addon not detected.\nYou can download it from the Website."), &orange );
-		}
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Audio_Music_Volume_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	Uint8 val = static_cast<Uint8>(static_cast<CEGUI::Slider *>( windowEventArgs.window )->getCurrentValue());
-
-	pAudio->Set_Music_Volume( val );
-	// save volume
-	pAudio->m_music_volume = val;
-
-	return 1;
-}
-
-bool cMenu_Options :: Audio_Sound_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox *>( windowEventArgs.window )->getSelectedItem();
-
-	bool sound_enabled = 0;
-
-	if( item->getText().compare( UTF8_("On") ) == 0 )
-	{
-		sound_enabled = 1;
-	}
-
-	if( pAudio->m_sound_enabled != sound_enabled )
-	{
-		pAudio->Toggle_Sounds();
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Audio_Sound_Volume_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	Uint8 val = static_cast<Uint8>(static_cast<CEGUI::Slider *>( windowEventArgs.window )->getCurrentValue());
-
-	pAudio->Set_Sound_Volume( val );
-	// save volume
-	pAudio->m_sound_volume = val;
-
-	return 1;
-}
-
-bool cMenu_Options :: Audio_Button_Reset_Clicked( const CEGUI::EventArgs &event )
-{
-	pPreferences->Reset_Audio();
-
-	// clear
-	Game_Action = GA_ENTER_MENU;
-	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
-	if( m_exit_to_gamemode != MODE_NOTHING )
-	{
-		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Keyboard_List_Double_Click( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::MultiColumnList *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// set shortcut
-	if( item )
-	{
-		Set_Shortcut( item->getText().c_str(), item->getUserData() );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Keyboard_Slider_Scroll_Speed_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	// set new value
-	pPreferences->m_scroll_speed = static_cast<CEGUI::Slider *>( windowEventArgs.window )->getCurrentValue();
-
-	return 1;
-}
-
-bool cMenu_Options :: Keyboard_Button_Reset_Clicked( const CEGUI::EventArgs &event )
-{
-	pPreferences->Reset_Keyboard();
-
-	// clear
-	Game_Action = GA_ENTER_MENU;
-	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
-	if( m_exit_to_gamemode != MODE_NOTHING )
-	{
-		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_Name_Click( const CEGUI::EventArgs &event )
-{
-	// Get Joystick Combo
-	CEGUI::Combobox *combo_joy = static_cast<CEGUI::Combobox *>( CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "combo_joy" ) );
-	
-	// selected item id
-	int selected_item = 0;
-	// current list item
-	CEGUI::ListboxTextItem *list_item = static_cast<CEGUI::ListboxTextItem *>( combo_joy->findItemWithText( combo_joy->getText(), NULL ) );
-
-	// if selected
-	if( list_item )
-	{
-		selected_item = combo_joy->getItemIndex( list_item );
-	}
-
-	// select first
-	if( selected_item >= SDL_NumJoysticks() )
-	{
-		selected_item = 0;
-	}
-	// select next item
-	else
-	{
-		selected_item++;
-	}
-
-	// Disable Joy
-	if( selected_item == 0 )
-	{
-		Joy_Disable();
-	}
-	// Select Joy
-	else
-	{
-		Joy_Default( selected_item - 1 );
-	}
-
-	// check if initialization succeeded
-	if( selected_item )
-	{
-		// initialized
-		if( pPreferences->m_joy_enabled )
-		{
-			Draw_Static_Text( _("Enabled : ") + pJoystick->Get_Name(), &yellow );
-		}
-		// failed
-		else
-		{
-			selected_item = 0;
-		}
-	}
-
-	combo_joy->setText( combo_joy->getListboxItemFromIndex( selected_item )->getText() );
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_Name_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::Combobox *combo = static_cast<CEGUI::Combobox*>( windowEventArgs.window );
-	CEGUI::ListboxItem *item = combo->getSelectedItem();
-
-	if( item->getText().compare( _("None") ) == 0 )
-	{
-		Joy_Disable();
-	}
-	else
-	{
-		Joy_Default( combo->getItemIndex( item ) - 1 );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_Sensitivity_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	// set new value
-	pPreferences->m_joy_axis_threshold = static_cast<Sint16>(static_cast<CEGUI::Slider *>( windowEventArgs.window )->getCurrentValue());
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_Analog_Jump_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox*>( windowEventArgs.window )->getSelectedItem();
-
-	bool analog_jump = 0;
-
-	if( item->getText().compare( _("On") ) == 0 )
-	{
-		analog_jump = 1;
-	}
-
-	pPreferences->m_joy_analog_jump = analog_jump;
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_Spinner_Axis_Hor_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	// set new value
-	pPreferences->m_joy_axis_hor = static_cast<int>(static_cast<CEGUI::Spinner *>( windowEventArgs.window )->getCurrentValue());
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_Spinner_Axis_Ver_Changed( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	// set new value
-	pPreferences->m_joy_axis_ver = static_cast<int>(static_cast<CEGUI::Spinner *>( windowEventArgs.window )->getCurrentValue());
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_List_Double_Click( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::MultiColumnList *>( windowEventArgs.window )->getFirstSelectedItem();
-
-	// set shortcut
-	if( item )
-	{
-		Set_Shortcut( item->getText().c_str(), item->getUserData(), 1 );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Joystick_Button_Reset_Clicked( const CEGUI::EventArgs &event )
-{
-	pPreferences->Reset_Joystick();
-
-	// clear
-	Game_Action = GA_ENTER_MENU;
-	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
-	if( m_exit_to_gamemode != MODE_NOTHING )
-	{
-		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
-	}
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Editor_Show_Item_Images_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox*>( windowEventArgs.window )->getSelectedItem();
-
-	bool show_item_images = 0;
-
-	if( item->getText().compare( UTF8_("On") ) == 0 )
-	{
-		show_item_images = 1;
-	}
-
-	pPreferences->m_editor_show_item_images = show_item_images;
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Editor_Item_Image_Size_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::Spinner *spinner_item_image_size = static_cast<CEGUI::Spinner *>( windowEventArgs.window );
-
-	pPreferences->m_editor_item_image_size = static_cast<unsigned int>(spinner_item_image_size->getCurrentValue());
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Editor_Auto_Hide_Mouse_Select( const CEGUI::EventArgs &event )
-{
-	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	CEGUI::ListboxItem *item = static_cast<CEGUI::Combobox*>( windowEventArgs.window )->getSelectedItem();
-
-	bool auto_hide_mouse = 0;
-
-	if( item->getText().compare( UTF8_("On") ) == 0 )
-	{
-		auto_hide_mouse = 1;
-	}
-
-	pPreferences->m_editor_mouse_auto_hide = auto_hide_mouse;
-
-	return 1;
-}
-
-bool cMenu_Options :: Game_Button_Reset_Editor_Clicked( const CEGUI::EventArgs &event )
-{
-	pPreferences->Reset_Editor();
-
-	// clear
-	Game_Action = GA_ENTER_MENU;
-	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
-	if( m_exit_to_gamemode != MODE_NOTHING )
-	{
-		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
-	}
-
-	return 1;
-}
+// All CEGUI event handlers for cMenu_Options removed in M12.
+// Settings are now handled directly in Post_GUI_Draw() via ModernUI widgets.
 
 /* *** *** *** *** *** *** *** *** cMenu_Savegames *** *** *** *** *** *** *** *** *** */
 
@@ -3044,11 +1633,11 @@ void cMenu_Savegames :: Update_Load( void )
 		Game_Action_Data_Start.add( "music_fadeout", "1000" );
 	}
 
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 	Game_Action_Data_Middle.add( "unload_menu", "1" );
 	Game_Action_Data_Middle.add( "load_savegame", int_to_string( save_num ) );
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
+	Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_BLACK ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 }
 

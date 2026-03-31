@@ -18,22 +18,21 @@
 
 #include "../core/global_basic.h"
 // SDL
-#include "SDL.h"
-// CEGUI
-#include "CEGUIXMLHandler.h"
-#include "CEGUIXMLAttributes.h"
+#include "core/sdl2_compat.h"
+// TinyXML2
+#include "../core/tinyxml2.h"
 
 namespace SMC
 {
 
 /* *** *** *** *** *** cPreferences *** *** *** *** *** *** *** *** *** *** *** *** */
 
-class cPreferences : public CEGUI::XMLHandler
+class cPreferences
 {
 public:
 	cPreferences( void );
 	virtual ~cPreferences( void );
-	
+
 	// Load the preferences from a file
 	bool Load( const std::string &filename = "" );
 	// Save the preferences to a file
@@ -201,12 +200,8 @@ public:
 	static const unsigned int m_editor_item_image_size_default;
 
 private:
-	// XML element start
-	virtual void elementStart( const CEGUI::String &element, const CEGUI::XMLAttributes &attributes );
-	// XML element end
-	virtual void elementEnd( const CEGUI::String &element );
-	// handles an item
-	void handle_item( CEGUI::XMLAttributes attributes );
+	// handles a single <property name="..." value="..."> element
+	void handle_item( const char *name, const char *value );
 };
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
