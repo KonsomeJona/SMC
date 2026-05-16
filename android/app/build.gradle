@@ -11,8 +11,8 @@ android {
         applicationId "com.takohi.secretchronicles"
         minSdk 21
         targetSdk 34
-        versionCode 22
-        versionName "2.0.21"
+        versionCode 25
+        versionName "2.0.24"
 
         // NDK ABI filters — arm64-v8a for phones, armeabi-v7a for WearOS
         // (Pixel Watch 3 is 32-bit armv7), x86_64 for emulators.
