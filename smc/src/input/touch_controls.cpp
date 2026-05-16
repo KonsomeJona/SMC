@@ -183,16 +183,24 @@ void cTouchControls :: Init_Zones( void )
 	// perfect: visible icon is sysSize, but we extend the hit-test rect a
 	// bit further toward the corner so taps in the corner area also count.
 	float sysSize  = sh * 0.14f;   // square button, 14% of screen height (visible)
-	// Empirically validated: Android composites the SDL surface with a
-	// ~10% top inset (status-bar / cutout). Anything inside the first
-	// ~15% of the surface's reported height is clipped by the system bar
-	// on Pixel 4a. 20% puts the PAUSE plate cleanly in view.
-	float sysTop   = sh * 0.20f;
+	// Push PAUSE 30% down — on Pixel 4a the SDL surface composites with a
+	// ~12% top inset (status-bar / cutout). Anything inside the first
+	// ~18% of the reported surface height is clipped. 30% guarantees the
+	// plate sits fully in the visible area while still reading as "top".
+	float sysTop   = sh * 0.30f;
 	float sysLeft  = sw - marginR - sysSize;
-	m_zones[ZONE_BTN_BACK].x = sysLeft - sysSize * 0.30f;            // extend 30% to the left
-	m_zones[ZONE_BTN_BACK].y = sysTop;                               // start below the status-bar area
-	m_zones[ZONE_BTN_BACK].w = sysSize * 1.30f + marginR;            // extend right past the screen edge
-	m_zones[ZONE_BTN_BACK].h = sysSize * 1.30f;                      // generous tap zone
+	// PAUSE is placed at the bottom-center of the screen: between the
+	// D-pad and the action buttons, in the gap that gameplay leaves
+	// empty. The Android status-bar / display cutout overlay clips
+	// anything we try to draw in the upper ~20% of the SDL surface on
+	// Pixel-class devices (even though the hit-test there still works),
+	// so the top-right position used by classic console layouts is not
+	// usable. Bottom-center stays clear of all clipped zones and remains
+	// reachable for either thumb.
+	m_zones[ZONE_BTN_BACK].x = sw * 0.5f - sysSize * 0.65f;
+	m_zones[ZONE_BTN_BACK].y = sh - sysSize * 1.6f;
+	m_zones[ZONE_BTN_BACK].w = sysSize * 1.30f;
+	m_zones[ZONE_BTN_BACK].h = sysSize * 1.30f;
 	m_zones[ZONE_BTN_BACK].mapped_key = SDLK_ESCAPE;
 
 	// START (disabled — replaced by single PAUSE in top-left)
