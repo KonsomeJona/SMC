@@ -147,7 +147,10 @@ void cTouchControls :: Init_Zones( void )
 	// previous tight diagonal made the two buttons read as a single blob.
 	float abtn     = bs * 1.20f;     // slightly bigger than a D-pad arm
 	float agap     = abtn * 0.60f;
-	float marginR  = sw * 0.035f;
+	// Use a bigger right margin so the JUMP plate visibly clears the
+	// bezel / cutout area on Pixel-class devices. 8% pushes the brick
+	// well inside the safe rendering region.
+	float marginR  = sw * 0.08f;
 	float marginAB = sh * 0.07f;
 
 	// JUMP: bottom-right corner (the natural thumb rest)
