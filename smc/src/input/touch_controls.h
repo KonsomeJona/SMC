@@ -77,6 +77,22 @@ private:
 	void Draw_Rounded_Rect( float x, float y, float w, float h, Uint8 r, Uint8 g, Uint8 b, Uint8 a );
 	void Draw_Triangle( float x1, float y1, float x2, float y2, float x3, float y3, Uint8 r, Uint8 g, Uint8 b, Uint8 a );
 
+	// In-universe skin helpers — relief 3D pixel-art (highlight TL + shadow BR + black outline)
+	void Draw_Beveled_Plate( float x, float y, float w, float h,
+		Uint8 r, Uint8 g, Uint8 b, Uint8 a, bool pressed );
+	void Draw_Brick_Tile( float x, float y, float w, float h, Uint8 a, bool pressed );
+	void Draw_Itembox_Tile( float x, float y, float w, float h, Uint8 a, bool pressed );
+	void Draw_Metal_Plate( float x, float y, float w, float h, Uint8 a, bool pressed );
+	void Draw_Wood_Sign( float x, float y, float w, float h, Uint8 a, bool pressed );
+
+	// Glyphs drawn in pixel-art style on top of plates
+	void Draw_Arrow_Glyph( float cx, float cy, float size, int dir,
+		Uint8 r, Uint8 g, Uint8 b, Uint8 a );  // dir: 0=L 1=R 2=U 3=D
+	void Draw_QMark_Glyph( float cx, float cy, float size,
+		Uint8 r, Uint8 g, Uint8 b, Uint8 a );
+	void Draw_Pause_Glyph( float cx, float cy, float size,
+		Uint8 r, Uint8 g, Uint8 b, Uint8 a );
+
 	float m_screen_w;  // current glOrtho width
 	float m_screen_h;  // current glOrtho height
 	float m_opacity;   // base opacity 0-1

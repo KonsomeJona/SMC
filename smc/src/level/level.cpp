@@ -55,9 +55,15 @@
 #include "../core/filesystem/filesystem.h"
 #include "../core/filesystem/resource_manager.h"
 #include "../overworld/world_editor.h"
+#ifndef SMC_NO_CEGUI
 // CEGUI
 #include <CEGUI/XMLParser.h>
 #include <CEGUI/Exceptions.h>
+#else
+// Android: TinyXML2 parser + CEGUI compat shim
+#include "../core/tinyxml2.h"
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -191,6 +197,7 @@ bool cLevel :: Load( std::string filename )
 		pVideo->Render();
 		delete surf;
 
+#ifndef SMC_NO_CEGUI
 		try
 		{
 		// fixme : Workaround for std::string to CEGUI::String utf8 conversion. Check again if CEGUI 0.8 works with std::string utf8
@@ -207,6 +214,61 @@ bool cLevel :: Load( std::string filename )
 			pHud_Debug->Set_Text( _("Loading Level failed : ") + (const std::string)ex.getMessage().c_str() );
 			return 0;
 		}
+#else
+		// Android: use TinyXML2 to drive elementStart/elementEnd
+		try
+		{
+			using namespace tinyxml2;
+			XMLDocument doc;
+			if( doc.LoadFile( filename.c_str() ) != XML_SUCCESS )
+			{
+				printf( "TinyXML2: failed to load level '%s': %s\n", filename.c_str(), doc.ErrorStr() );
+				pHud_Debug->Set_Text( _("Level loading failed") );
+				return 0;
+			}
+			XMLElement *root = doc.FirstChildElement( "level" );
+			if( !root )
+			{
+				printf( "TinyXML2: no <level> root in '%s'\n", filename.c_str() );
+				return 0;
+			}
+			for( XMLElement *section = root->FirstChildElement(); section; section = section->NextSiblingElement() )
+			{
+				const char *sname = section->Name();
+				// Collect <Property name="..." value="..."> children
+				for( XMLElement *prop = section->FirstChildElement(); prop; prop = prop->NextSiblingElement() )
+				{
+					const char *pname = prop->Name();
+					if( pname && (strcmp( pname, "property" ) == 0 || strcmp( pname, "Property" ) == 0) )
+					{
+						const char *key = prop->Attribute( "name" );
+						const char *val = prop->Attribute( "value" );
+						if( key && val )
+						{
+							CEGUI::XMLAttributes pa;
+							pa.add( "name", key );
+							pa.add( "value", val );
+							elementStart( std::string( pname ), pa );
+						}
+					}
+				}
+				elementEnd( std::string( sname ) );
+			}
+			elementEnd( "level" );
+		}
+		catch( std::exception &ex )
+		{
+			printf( "Level load std::exception: %s\n", ex.what() );
+			pHud_Debug->Set_Text( _("Level loading failed") );
+			return 0;
+		}
+		catch( ... )
+		{
+			printf( "Level load unknown exception\n" );
+			pHud_Debug->Set_Text( _("Level loading failed") );
+			return 0;
+		}
+#endif // SMC_NO_CEGUI
 	}
 	// old level format
 	else
@@ -311,6 +373,7 @@ void cLevel :: Save( void )
 		return;
 	}
 
+#ifndef SMC_NO_CEGUI
 	CEGUI::XMLSerializer stream( file );
 
 	// begin
@@ -387,6 +450,10 @@ void cLevel :: Save( void )
 
 	file.close();
 	pHud_Debug->Set_Text( _("Level ") + Trim_Filename( m_level_filename, 0, 0 ) + _(" saved") );
+#else
+	file.close();
+	pHud_Debug->Set_Text( _("Level saving not supported (no CEGUI)") );
+#endif // SMC_NO_CEGUI
 }
 
 void cLevel :: Delete( void )
@@ -452,8 +519,10 @@ void cLevel :: Set_Sprite_Manager( void )
 {
 	pHud_Manager->Set_Sprite_Manager( m_sprite_manager );
 	pMouseCursor->Set_Sprite_Manager( m_sprite_manager );
+#ifndef SMC_NO_EDITOR
 	pLevel_Editor->Set_Sprite_Manager( m_sprite_manager );
 	pLevel_Editor->Set_Level( this );
+#endif
 	// camera
 	pLevel_Manager->m_camera->Set_Sprite_Manager( m_sprite_manager );
 	pLevel_Manager->m_camera->Set_Limits( m_camera_limits );
@@ -479,9 +548,12 @@ void cLevel :: Enter( const GameMode old_mode /* = MODE_NOTHING */ )
 	pActive_Animation_Manager = m_animation_manager;
 
 	// disable world editor
+#ifndef SMC_NO_EDITOR
 	pWorld_Editor->Disable();
+#endif
 
 	// set editor enabled state
+#ifndef SMC_NO_EDITOR
 	editor_enabled = pLevel_Editor->m_enabled;
 
 	if( pLevel_Editor->m_enabled )
@@ -492,13 +564,16 @@ void cLevel :: Enter( const GameMode old_mode /* = MODE_NOTHING */ )
 			pMouseCursor->Set_Active( 1 );
 		}
 	}
+#endif
 
 	// camera
+#ifndef SMC_NO_EDITOR
 	if( pLevel_Editor->m_enabled )
 	{
 		pActive_Camera->Update_Position();
 	}
 	else
+#endif
 	{
 		pLevel_Manager->m_camera->Center();
 	}
@@ -553,6 +628,7 @@ void cLevel :: Leave( const GameMode next_mode /* = MODE_NOTHING */ )
 	pJoystick->Reset_keys();
 
 	// hide editor window if visible
+#ifndef SMC_NO_EDITOR
 	if( pLevel_Editor->m_enabled )
 	{
 		if( pLevel_Editor->m_editor_window->isVisible() )
@@ -560,6 +636,7 @@ void cLevel :: Leave( const GameMode next_mode /* = MODE_NOTHING */ )
 			pLevel_Editor->m_editor_window->hide();
 		}
 	}
+#endif
 }
 
 void cLevel :: Update( void )
@@ -667,11 +744,13 @@ void cLevel :: Draw_Layer_2( LevelDrawType type /* = LVL_DRAW */ )
 
 		pVideo->Draw_Rect( 0, 0, static_cast<float>(game_res_w), static_cast<float>(game_res_h), 0.12f, &color, request );
 
+#ifndef __ANDROID__
 		request->m_combine_type = GL_MODULATE;
 
 		request->m_combine_color[0] = 0.9f;
 		request->m_combine_color[1] = 0.6f;
 		request->m_combine_color[2] = 0.8f;
+#endif
 
 		// add request
 		pRenderer->Add( request );
@@ -721,10 +800,12 @@ bool cLevel :: Key_Down( const SDLKey key )
 		Draw_Effect_In();
 	}
 	// Toggle leveleditor
+#ifndef SMC_NO_EDITOR
 	else if( key == SDLK_F8 )
 	{
 		pLevel_Editor->Toggle();
 	}
+#endif
 	// ## Game
 	// Shoot
 	else if( key == pPreferences->m_key_shoot && !editor_enabled )
@@ -791,12 +872,14 @@ bool cLevel :: Key_Down( const SDLKey key )
 		pLevel_Player->Action_Interact( INP_EXIT );
 	}
 	// ## editor
+#ifndef SMC_NO_EDITOR
 	else if( pLevel_Editor->Key_Down( key ) )
 	{
 		// processed by the editor
 		return 1;
 	}
 	else
+#endif
 	{
 		// not processed
 		return 0;
@@ -852,12 +935,14 @@ bool cLevel :: Key_Up( const SDLKey key )
 bool cLevel :: Mouse_Down( Uint8 button )
 {
 	// ## editor
+#ifndef SMC_NO_EDITOR
 	if( pLevel_Editor->Mouse_Down( button ) )
 	{
 		// processed by the editor
 		return 1;
 	}
 	else
+#endif
 	{
 		// not processed
 		return 0;
@@ -870,12 +955,14 @@ bool cLevel :: Mouse_Down( Uint8 button )
 bool cLevel :: Mouse_Up( Uint8 button )
 {
 	// ## editor
+#ifndef SMC_NO_EDITOR
 	if( pLevel_Editor->Mouse_Up( button ) )
 	{
 		// processed by the editor
 		return 1;
 	}
 	else
+#endif
 	{
 		// not processed
 		return 0;

@@ -16,7 +16,10 @@
 #include "../core/game_core.h"
 #include "../user/preferences.h"
 #include "../core/debug_log.h"
-#include <GL/glew.h>
+#include "../core/sdl2_compat.h"
+#ifdef __ANDROID__
+#include "../video/gles2_renderer.h"
+#endif
 #include <cmath>
 
 namespace SMC
@@ -28,7 +31,7 @@ cTouchControls :: cTouchControls( void )
 {
 	m_enabled = false;
 	m_visible = false;
-	m_opacity = 0.4f;
+	m_opacity = 0.7f;
 	m_screen_w = 1024.0f;
 	m_screen_h = 768.0f;
 
@@ -61,11 +64,12 @@ void cTouchControls :: Init( void )
 	m_visible = ( num_touch > 0 );
 #endif
 
-	// Disable synthetic mouse events from touches — we inject keyboard events
-	// directly via SDL_PushEvent, so synthetic mouse events just leak to CEGUI
-	// and cause phantom menu clicks (the "mushroom selector toggle" bug).
-	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "0" );
-	// Also prevent mouse clicks from generating synthetic finger events,
+	// Enable synthetic mouse events from touches so the ModernUI menus
+	// (which listen for SDL_MOUSEBUTTONDOWN / SDL_MOUSEMOTION) receive
+	// touch taps as clicks.  In-game, finger events are still handled
+	// directly by cTouchControls via SDL_FINGERDOWN, which takes priority.
+	SDL_SetHint( SDL_HINT_TOUCH_MOUSE_EVENTS, "1" );
+	// Prevent mouse clicks from generating synthetic finger events,
 	// which would cause double-handling through both mouse and finger paths.
 	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
 
@@ -73,8 +77,8 @@ void cTouchControls :: Init( void )
 	m_screen_h = static_cast<float>( pPreferences->m_video_screen_h );
 
 	Init_Zones();
-	LOG_INIT("Touch controls initialized: enabled=%d visible=%d screen=%.0fx%.0f",
-		m_enabled, m_visible, m_screen_w, m_screen_h);
+	SDL_Log( "Touch controls initialized: enabled=%d visible=%d screen=%.0fx%.0f",
+		m_enabled, m_visible, m_screen_w, m_screen_h );
 }
 
 void cTouchControls :: Init_Zones( void )
@@ -82,92 +86,120 @@ void cTouchControls :: Init_Zones( void )
 	float sw = m_screen_w;
 	float sh = m_screen_h;
 
+	// Ergonomic layout (Delta emulator-inspired):
+	//  - D-pad anchored to bottom-left, sized so the thumb rests naturally
+	//    over the center of the cross without strain.
+	//  - Action buttons (SHOOT/JUMP) bottom-right, offset diagonally
+	//    (SNES style) so JUMP is closer to the corner / lower than SHOOT —
+	//    the right thumb naturally curls toward the lower-right; JUMP is
+	//    the most-used button so it gets the most comfortable spot.
+	//  - Bigger separation between JUMP and SHOOT to avoid accidental
+	//    cross-press during a rapid tap.
+	//  - Top edge left clear (system gesture / status bar swipe safe zone).
+
 	// ===== D-PAD (bottom-left) =====
-	// Big buttons, easy to hit. ~18% of screen height each.
-	float bs = sh * 0.18f;   // button size
-	float pad = sh * 0.01f;  // gap between buttons
-	float margin = sw * 0.02f;
+	// Each arm ≈ 14% of screen height → cross spans ~43% vertically. That
+	// keeps thumb comfort while leaving room for the game viewport above.
+	float bs       = sh * 0.14f;   // arm size (one direction button)
+	float pad      = sh * 0.004f;  // tiny gap between arms (joints overlap visually)
+	float marginL  = sw * 0.018f;
+	float marginB  = sh * 0.05f;   // lift off the bottom edge for gesture safety
 
-	// D-pad center point
-	float dcx = margin + bs + pad;
-	float dcy = sh - margin - bs - pad;
+	// D-pad cross is 3 arms wide / 3 arms tall.
+	float dpad_left = marginL;
+	float dpad_top  = sh - marginB - bs * 3.0f - pad * 2.0f;
 
-	// LEFT: left of center
-	m_zones[ZONE_DPAD_LEFT].x = margin;
-	m_zones[ZONE_DPAD_LEFT].y = dcy - bs * 0.5f;
+	float dcx = dpad_left + bs + pad;        // center column X
+	float dcy = dpad_top  + bs + pad;        // center row Y
+
+	// LEFT
+	m_zones[ZONE_DPAD_LEFT].x = dpad_left;
+	m_zones[ZONE_DPAD_LEFT].y = dcy;
 	m_zones[ZONE_DPAD_LEFT].w = bs;
 	m_zones[ZONE_DPAD_LEFT].h = bs;
 	m_zones[ZONE_DPAD_LEFT].mapped_key = pPreferences->m_key_left;
 
-	// RIGHT: right of center
-	m_zones[ZONE_DPAD_RIGHT].x = dcx + pad;
-	m_zones[ZONE_DPAD_RIGHT].y = dcy - bs * 0.5f;
+	// RIGHT
+	m_zones[ZONE_DPAD_RIGHT].x = dcx + bs + pad;
+	m_zones[ZONE_DPAD_RIGHT].y = dcy;
 	m_zones[ZONE_DPAD_RIGHT].w = bs;
 	m_zones[ZONE_DPAD_RIGHT].h = bs;
 	m_zones[ZONE_DPAD_RIGHT].mapped_key = pPreferences->m_key_right;
 
-	// UP: above center
-	m_zones[ZONE_DPAD_UP].x = dcx - bs * 0.5f;
-	m_zones[ZONE_DPAD_UP].y = dcy - bs * 0.5f - pad - bs;
+	// UP
+	m_zones[ZONE_DPAD_UP].x = dcx;
+	m_zones[ZONE_DPAD_UP].y = dpad_top;
 	m_zones[ZONE_DPAD_UP].w = bs;
 	m_zones[ZONE_DPAD_UP].h = bs;
 	m_zones[ZONE_DPAD_UP].mapped_key = pPreferences->m_key_up;
 
-	// DOWN: below center
-	m_zones[ZONE_DPAD_DOWN].x = dcx - bs * 0.5f;
-	m_zones[ZONE_DPAD_DOWN].y = dcy + bs * 0.5f + pad;
+	// DOWN
+	m_zones[ZONE_DPAD_DOWN].x = dcx;
+	m_zones[ZONE_DPAD_DOWN].y = dcy + bs + pad;
 	m_zones[ZONE_DPAD_DOWN].w = bs;
 	m_zones[ZONE_DPAD_DOWN].h = bs;
 	m_zones[ZONE_DPAD_DOWN].mapped_key = pPreferences->m_key_down;
 
-	// ===== ACTION BUTTONS (bottom-right) =====
-	float abtn = bs * 1.1f;  // action button size (slightly bigger)
-	float agap = abtn * 0.15f;
-	float arx = sw - margin - abtn;  // right edge
-	float aby = sh - margin - abtn;  // bottom edge
+	// ===== ACTION BUTTONS (bottom-right) — SHOOT (?) + JUMP (brick) =====
+	// Horizontal alignment with a wide gap (60% of button size) — the
+	// previous tight diagonal made the two buttons read as a single blob.
+	float abtn     = bs * 1.20f;     // slightly bigger than a D-pad arm
+	float agap     = abtn * 0.60f;
+	float marginR  = sw * 0.025f;
+	float marginAB = sh * 0.05f;
 
-	// JUMP (A) - big green, bottom-right corner
-	m_zones[ZONE_BTN_JUMP].x = arx;
-	m_zones[ZONE_BTN_JUMP].y = aby - abtn * 0.5f - agap;
+	// JUMP: bottom-right corner (the natural thumb rest)
+	float jx = sw - marginR - abtn;
+	float jy = sh - marginAB - abtn;
+	m_zones[ZONE_BTN_JUMP].x = jx;
+	m_zones[ZONE_BTN_JUMP].y = jy;
 	m_zones[ZONE_BTN_JUMP].w = abtn;
 	m_zones[ZONE_BTN_JUMP].h = abtn;
 	m_zones[ZONE_BTN_JUMP].mapped_key = pPreferences->m_key_jump;
 
-	// SHOOT (B) - red, left of jump
-	m_zones[ZONE_BTN_SHOOT].x = arx - abtn - agap;
-	m_zones[ZONE_BTN_SHOOT].y = aby;
-	m_zones[ZONE_BTN_SHOOT].w = abtn * 0.85f;
-	m_zones[ZONE_BTN_SHOOT].h = abtn * 0.85f;
+	// SHOOT: same row as JUMP, separated by a wide gap
+	m_zones[ZONE_BTN_SHOOT].x = jx - abtn - agap;
+	m_zones[ZONE_BTN_SHOOT].y = jy;
+	m_zones[ZONE_BTN_SHOOT].w = abtn;
+	m_zones[ZONE_BTN_SHOOT].h = abtn;
 	m_zones[ZONE_BTN_SHOOT].mapped_key = pPreferences->m_key_shoot;
 
-	// ACTION (X) - blue, above shoot
-	m_zones[ZONE_BTN_ACTION].x = arx - abtn - agap;
-	m_zones[ZONE_BTN_ACTION].y = aby - abtn - agap;
-	m_zones[ZONE_BTN_ACTION].w = abtn * 0.85f;
-	m_zones[ZONE_BTN_ACTION].h = abtn * 0.85f;
+	// ACTION — disabled (user asked for 2 action buttons only)
+	m_zones[ZONE_BTN_ACTION].x = 0;
+	m_zones[ZONE_BTN_ACTION].y = 0;
+	m_zones[ZONE_BTN_ACTION].w = 0;
+	m_zones[ZONE_BTN_ACTION].h = 0;
 	m_zones[ZONE_BTN_ACTION].mapped_key = pPreferences->m_key_action;
 
-	// ===== SYSTEM BUTTONS (top) =====
-	float sysw = sw * 0.10f;
-	float sysh = sh * 0.07f;
-
-	// BACK (top-left) - Escape
-	m_zones[ZONE_BTN_BACK].x = margin;
-	m_zones[ZONE_BTN_BACK].y = margin;
-	m_zones[ZONE_BTN_BACK].w = sysw;
-	m_zones[ZONE_BTN_BACK].h = sysh;
+	// ===== SYSTEM BUTTONS (bottom — top is gesture/cutout area) =====
+	// PAUSE (square, top-right) — Escape. Android reserves the LEFT edge
+	// for the back-gesture and the TOP edge for the status-bar swipe, so a
+	// pause button glued to the top-left corner is very hard to hit
+	// (taps in those bands are consumed before they reach the app).
+	// The right-side band is much safer because that gesture is not
+	// system-reserved on Pixel landscape.
+	// Bigger square + generous tap-area so the user never has to be pixel-
+	// perfect: visible icon is sysSize, but we extend the hit-test rect a
+	// bit further toward the corner so taps in the corner area also count.
+	float sysSize  = sh * 0.14f;   // square button, 14% of screen height (visible)
+	float sysTop   = sh * 0.04f;   // small inset from the top
+	float sysLeft  = sw - marginR - sysSize;
+	m_zones[ZONE_BTN_BACK].x = sysLeft - sysSize * 0.30f;            // extend 30% to the left
+	m_zones[ZONE_BTN_BACK].y = sysTop * 0.50f;                       // extend almost to the top edge
+	m_zones[ZONE_BTN_BACK].w = sysSize * 1.30f + marginR;            // extend right past the screen edge
+	m_zones[ZONE_BTN_BACK].h = sysSize * 1.30f;                      // extend down 30%
 	m_zones[ZONE_BTN_BACK].mapped_key = SDLK_ESCAPE;
 
-	// START (top-right) - Escape/Pause
-	m_zones[ZONE_BTN_START].x = sw - margin - sysw;
-	m_zones[ZONE_BTN_START].y = margin;
-	m_zones[ZONE_BTN_START].w = sysw;
-	m_zones[ZONE_BTN_START].h = sysh;
+	// START (disabled — replaced by single PAUSE in top-left)
+	m_zones[ZONE_BTN_START].x = 0;
+	m_zones[ZONE_BTN_START].y = 0;
+	m_zones[ZONE_BTN_START].w = 0;
+	m_zones[ZONE_BTN_START].h = 0;
 	m_zones[ZONE_BTN_START].mapped_key = SDLK_ESCAPE;
 
-	// ENTER - for menu selection (center-right, big)
-	m_zones[ZONE_BTN_ENTER].x = arx;
-	m_zones[ZONE_BTN_ENTER].y = aby;
+	// ENTER — menu validate (reuses JUMP slot position)
+	m_zones[ZONE_BTN_ENTER].x = jx;
+	m_zones[ZONE_BTN_ENTER].y = jy;
 	m_zones[ZONE_BTN_ENTER].w = abtn;
 	m_zones[ZONE_BTN_ENTER].h = abtn;
 	m_zones[ZONE_BTN_ENTER].mapped_key = SDLK_RETURN;
@@ -196,29 +228,37 @@ void cTouchControls :: Update_Zone_Visibility( void )
 
 	if( Game_Mode == MODE_MENU )
 	{
-		// Menu: D-pad up/down for navigation, ENTER to confirm, BACK to go back
+		// Menu: ALL touch zones off so taps fall through to the menu's
+		// own mouse handler. The pause/BACK zone in particular has a
+		// generous gameplay-tap area that would eat clicks on the right
+		// side of the panel (tabs, Back button, etc.) once the user
+		// enters the Options screen. Inside menus there is already a
+		// "Back" button rendered by ModernUI, plus the Android system
+		// back gesture, so a touch-overlay pause is redundant here.
 		m_zones[ZONE_DPAD_LEFT].active  = false;
 		m_zones[ZONE_DPAD_RIGHT].active = false;
-		m_zones[ZONE_DPAD_UP].active    = true;
-		m_zones[ZONE_DPAD_DOWN].active  = true;
+		m_zones[ZONE_DPAD_UP].active    = false;
+		m_zones[ZONE_DPAD_DOWN].active  = false;
 		m_zones[ZONE_BTN_JUMP].active   = false;
 		m_zones[ZONE_BTN_SHOOT].active  = false;
 		m_zones[ZONE_BTN_ACTION].active = false;
 		m_zones[ZONE_BTN_START].active  = false;
-		m_zones[ZONE_BTN_BACK].active   = true;
-		m_zones[ZONE_BTN_ENTER].active  = true;
+		m_zones[ZONE_BTN_BACK].active   = false;
+		m_zones[ZONE_BTN_ENTER].active  = false;
 	}
 	else
 	{
-		// Gameplay: D-pad, action buttons, system buttons — hide ENTER
+		// Gameplay: 4-way D-pad, JUMP + SHOOT action buttons, single Pause
+		// (BACK on the left). The right-side START button was redundant
+		// (both mapped to ESC) and the arrow icon was confusing.
 		m_zones[ZONE_DPAD_LEFT].active  = true;
 		m_zones[ZONE_DPAD_RIGHT].active = true;
 		m_zones[ZONE_DPAD_UP].active    = true;
 		m_zones[ZONE_DPAD_DOWN].active  = true;
 		m_zones[ZONE_BTN_JUMP].active   = true;
 		m_zones[ZONE_BTN_SHOOT].active  = true;
-		m_zones[ZONE_BTN_ACTION].active = true;
-		m_zones[ZONE_BTN_START].active  = true;
+		m_zones[ZONE_BTN_ACTION].active = false;
+		m_zones[ZONE_BTN_START].active  = false;
 		m_zones[ZONE_BTN_BACK].active   = true;
 		m_zones[ZONE_BTN_ENTER].active  = false;
 	}
@@ -426,8 +466,19 @@ void cTouchControls :: Update( void )
 {
 	if( !m_enabled ) return;
 
-	m_screen_w = static_cast<float>( pPreferences->m_video_screen_w );
-	m_screen_h = static_cast<float>( pPreferences->m_video_screen_h );
+	float new_w = static_cast<float>( pPreferences->m_video_screen_w );
+	float new_h = static_cast<float>( pPreferences->m_video_screen_h );
+
+	// Screen size changed (Android surface resize, window resize on desktop) —
+	// rebuild zone rects so hit-tests and drawing match the new surface.
+	// Release any held zone first so its finger_id doesn't point at stale coords.
+	if( new_w != m_screen_w || new_h != m_screen_h )
+	{
+		Reset();
+		m_screen_w = new_w;
+		m_screen_h = new_h;
+		Init_Zones();
+	}
 
 	Update_Zone_Visibility();
 
@@ -449,7 +500,16 @@ void cTouchControls :: Draw( void )
 {
 	if( !m_visible ) return;
 
-#ifndef __ANDROID__
+#ifdef __ANDROID__
+	// GLES2: set screen-space projection for the touch overlay.
+	// Zones are positioned in m_screen_w × m_screen_h space; the game
+	// projection is game_res (800×600).  Switch to overlay projection,
+	// draw directly via GLES2, then restore.
+	GLES2::Set_Projection( m_screen_w, m_screen_h );
+	glDisable( GL_DEPTH_TEST );
+	glEnable( GL_BLEND );
+	glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+#else
 	glPushAttrib( GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_CURRENT_BIT );
 	glDisable( GL_TEXTURE_2D );
 	glEnable( GL_BLEND );
@@ -466,80 +526,69 @@ void cTouchControls :: Draw( void )
 #endif
 
 	Uint8 base_a = static_cast<Uint8>( m_opacity * 255.0f );
-	Uint8 press_a = base_a * 2 > 240 ? 240 : base_a * 2;
 
-	// ---- D-PAD ----
+	// ---- D-PAD ---- (metal plate per arm + white arrow glyph)
 	for( int i = ZONE_DPAD_LEFT; i <= ZONE_DPAD_DOWN; i++ )
 	{
 		if( !m_zones[i].active ) continue;
-		Uint8 a = m_zones[i].pressed ? press_a : base_a;
-		Draw_Rounded_Rect( m_zones[i].x, m_zones[i].y, m_zones[i].w, m_zones[i].h,
-			180, 180, 180, a );
-
+		bool pressed = m_zones[i].pressed;
+		Draw_Metal_Plate( m_zones[i].x, m_zones[i].y, m_zones[i].w, m_zones[i].h,
+			base_a, pressed );
 		float cx = m_zones[i].x + m_zones[i].w * 0.5f;
 		float cy = m_zones[i].y + m_zones[i].h * 0.5f;
-		float as = m_zones[i].w * 0.25f;
-		Uint8 aa = m_zones[i].pressed ? 255 : 160;
-
-		if( i == ZONE_DPAD_LEFT )
-			Draw_Triangle( cx + as, cy - as, cx + as, cy + as, cx - as, cy, 40, 40, 40, aa );
-		else if( i == ZONE_DPAD_RIGHT )
-			Draw_Triangle( cx - as, cy - as, cx - as, cy + as, cx + as, cy, 40, 40, 40, aa );
-		else if( i == ZONE_DPAD_UP )
-			Draw_Triangle( cx - as, cy + as, cx + as, cy + as, cx, cy - as, 40, 40, 40, aa );
-		else if( i == ZONE_DPAD_DOWN )
-			Draw_Triangle( cx - as, cy - as, cx + as, cy - as, cx, cy + as, 40, 40, 40, aa );
+		float gs = m_zones[i].w * 0.30f;
+		Uint8 ga = pressed ? 255 : 230;
+		int dir = (i == ZONE_DPAD_LEFT) ? 0 :
+		          (i == ZONE_DPAD_RIGHT) ? 1 :
+		          (i == ZONE_DPAD_UP) ? 2 : 3;
+		Draw_Arrow_Glyph( cx, cy, gs, dir, 255, 255, 255, ga );
 	}
 
-	// ---- ACTION BUTTONS ----
-	struct { int id; Uint8 r, g, b; } buttons[] = {
-		{ ZONE_BTN_JUMP,   40, 200,  40 },  // green
-		{ ZONE_BTN_SHOOT, 200,  50,  50 },  // red
-		{ ZONE_BTN_ACTION, 50, 100, 220 },  // blue
-		{ ZONE_BTN_ENTER, 220, 200,  40 },  // yellow
-	};
-
-	for( int b = 0; b < 4; b++ )
+	// ---- JUMP (brick-red tile + ↑ arrow) ----
+	if( m_zones[ZONE_BTN_JUMP].active )
 	{
-		int id = buttons[b].id;
-		if( !m_zones[id].active ) continue;
-		Uint8 a = m_zones[id].pressed ? press_a : base_a;
-		float r = m_zones[id].w * 0.5f;
-		float cx = m_zones[id].x + r;
-		float cy = m_zones[id].y + m_zones[id].h * 0.5f;
-		Draw_Circle( cx, cy, r, buttons[b].r, buttons[b].g, buttons[b].b, a );
-
-		// Label indicator
-		Uint8 la = m_zones[id].pressed ? 255 : 180;
-		float ls = r * 0.35f;
-		if( id == ZONE_BTN_JUMP )
-			Draw_Triangle( cx, cy - ls, cx - ls, cy + ls * 0.7f, cx + ls, cy + ls * 0.7f, 255, 255, 255, la );
-		else if( id == ZONE_BTN_ENTER )
-			Draw_Triangle( cx - ls, cy - ls, cx - ls, cy + ls, cx + ls, cy, 255, 255, 255, la );
+		const TouchZone &z = m_zones[ZONE_BTN_JUMP];
+		Draw_Brick_Tile( z.x, z.y, z.w, z.h, base_a, z.pressed );
+		float cx = z.x + z.w * 0.5f;
+		float cy = z.y + z.h * 0.5f;
+		Draw_Arrow_Glyph( cx, cy, z.w * 0.32f, 2,
+			255, 255, 255, z.pressed ? 255 : 235 );
 	}
 
-	// ---- SYSTEM BUTTONS ----
-	int sysbtns[] = { ZONE_BTN_BACK, ZONE_BTN_START };
-	for( int s = 0; s < 2; s++ )
+	// ---- SHOOT (itembox `?` tile) ----
+	if( m_zones[ZONE_BTN_SHOOT].active )
 	{
-		int id = sysbtns[s];
-		if( !m_zones[id].active ) continue;
-		Uint8 a = m_zones[id].pressed ? press_a : base_a;
-		Draw_Rounded_Rect( m_zones[id].x, m_zones[id].y, m_zones[id].w, m_zones[id].h,
-			80, 80, 80, a );
-
-		float cx = m_zones[id].x + m_zones[id].w * 0.5f;
-		float cy = m_zones[id].y + m_zones[id].h * 0.5f;
-		float ts = m_zones[id].h * 0.25f;
-		Uint8 la = m_zones[id].pressed ? 255 : 180;
-
-		if( id == ZONE_BTN_BACK )
-			Draw_Triangle( cx + ts, cy - ts, cx + ts, cy + ts, cx - ts, cy, 220, 220, 220, la );
-		else
-			Draw_Triangle( cx - ts, cy - ts, cx - ts, cy + ts, cx + ts, cy, 220, 220, 220, la );
+		const TouchZone &z = m_zones[ZONE_BTN_SHOOT];
+		Draw_Itembox_Tile( z.x, z.y, z.w, z.h, base_a, z.pressed );
+		float cx = z.x + z.w * 0.5f;
+		float cy = z.y + z.h * 0.5f;
+		Draw_QMark_Glyph( cx, cy, z.w * 0.55f,
+			30, 20, 10, z.pressed ? 255 : 245 );
 	}
 
-#ifndef __ANDROID__
+	// ---- PAUSE / BACK (wood sign + pause bars) ----
+	if( m_zones[ZONE_BTN_BACK].active )
+	{
+		const TouchZone &z = m_zones[ZONE_BTN_BACK];
+		// Visible plate is larger now so the pause control is clearly
+		// readable against busy backgrounds (green grass / brick tiles).
+		float vis_w = z.w * 0.75f;
+		float vis_h = z.h * 0.85f;
+		float vis_x = z.x + (z.w - vis_w);
+		float vis_y = z.y;
+		Draw_Wood_Sign( vis_x, vis_y, vis_w, vis_h, base_a, z.pressed );
+		float cx = vis_x + vis_w * 0.5f;
+		float cy = vis_y + vis_h * 0.5f;
+		Draw_Pause_Glyph( cx, cy, vis_h * 0.45f,
+			255, 250, 230, z.pressed ? 255 : 230 );
+	}
+
+#ifdef __ANDROID__
+	// Restore game projection and depth test
+	GLES2::Set_Projection( static_cast<float>(game_res_w),
+	                        static_cast<float>(game_res_h) );
+	glEnable( GL_DEPTH_TEST );
+#else
 	glMatrixMode( GL_MODELVIEW );
 	glPopMatrix();
 	glMatrixMode( GL_PROJECTION );
@@ -607,35 +656,178 @@ void cTouchControls :: Draw_Triangle( float x1, float y1, float x2, float y2, fl
 	glEnd();
 }
 
-#else // __ANDROID__ — GLES2: use pVideo queue-based renderer
-
-#include "../video/video.h"
-#include "../video/color.h"
+#else // __ANDROID__ — GLES2: draw directly (bypass renderer queue / camera)
 
 void cTouchControls :: Draw_Circle( float cx, float cy, float radius, Uint8 r, Uint8 g, Uint8 b, Uint8 a )
 {
-	Color col( r, g, b, a );
-	pVideo->Draw_Circle( cx, cy, radius, 0.95f, &col );
+	GLES2::Draw_Circle( cx, cy, radius, r, g, b, a );
 }
 
 void cTouchControls :: Draw_Rounded_Rect( float x, float y, float w, float h, Uint8 r, Uint8 g, Uint8 b, Uint8 a )
 {
-	Color col( r, g, b, a );
-	pVideo->Draw_Rect( x, y, w, h, 0.95f, &col );
+	GLES2::Draw_Rect( x, y, w, h, r, g, b, a );
 }
 
 void cTouchControls :: Draw_Triangle( float x1, float y1, float x2, float y2, float x3, float y3,
 	Uint8 r, Uint8 g, Uint8 b, Uint8 a )
 {
-	// Approximate with bounding-box rect (no immediate-mode triangle in GLES2)
-	float bx = fminf( fminf(x1,x2), x3 );
-	float by = fminf( fminf(y1,y2), y3 );
-	float bw = fmaxf( fmaxf(x1,x2), x3 ) - bx;
-	float bh = fmaxf( fmaxf(y1,y2), y3 ) - by;
-	Color col( r, g, b, a );
-	pVideo->Draw_Rect( bx, by, bw, bh, 0.95f, &col );
+	GLES2::Draw_Triangle( x1, y1, x2, y2, x3, y3, r, g, b, a );
 }
 
 #endif // __ANDROID__
+
+/* *** *** *** In-universe SMC skin helpers *** *** *** */
+
+// Generic beveled plate. Uses a single vertical gradient to bake the
+// highlight (top) and shadow (bottom) into ONE draw call, plus one thin
+// dark line at the bottom to suggest the dark outline. Total: 2 draws
+// per plate (was 9). This is critical for mobile FPS — the per-frame
+// draw call budget is small.
+void cTouchControls :: Draw_Beveled_Plate( float x, float y, float w, float h,
+	Uint8 r, Uint8 g, Uint8 b, Uint8 a, bool pressed )
+{
+	if( pressed )
+	{
+		r = static_cast<Uint8>( r * 0.75f );
+		g = static_cast<Uint8>( g * 0.75f );
+		b = static_cast<Uint8>( b * 0.75f );
+	}
+	// Top color: lighter (highlight baked in)
+	Uint8 tr = static_cast<Uint8>( r + (255 - r) * 0.40f );
+	Uint8 tg = static_cast<Uint8>( g + (255 - g) * 0.40f );
+	Uint8 tb = static_cast<Uint8>( b + (255 - b) * 0.40f );
+	// Bottom color: darker (shadow baked in)
+	Uint8 br = static_cast<Uint8>( r * 0.55f );
+	Uint8 bg = static_cast<Uint8>( g * 0.55f );
+	Uint8 bb = static_cast<Uint8>( b * 0.55f );
+#ifdef __ANDROID__
+	GLES2::Draw_Gradient_Vertical( x, y, w, h, tr, tg, tb, a, br, bg, bb, a );
+#else
+	// Desktop fallback: flat color (gradient helpers not duplicated here)
+	Draw_Rounded_Rect( x, y, w, h, r, g, b, a );
+#endif
+	// One dark bottom line for crisp pixel-art definition
+	float ol = ( w < h ? w : h ) * 0.04f;
+	if( ol < 1.0f ) ol = 1.0f;
+	Draw_Rounded_Rect( x, y + h - ol, w, ol, 15, 10, 5, a );
+}
+
+// Mario brick tile: warm red-brown gradient + one horizontal mortar joint.
+// Cost: 3 draws (plate=2 + 1 mortar).
+void cTouchControls :: Draw_Brick_Tile( float x, float y, float w, float h, Uint8 a, bool pressed )
+{
+	Draw_Beveled_Plate( x, y, w, h, 200, 85, 55, a, pressed );
+	float mt = ( w < h ? w : h ) * 0.05f;
+	if( mt < 2.0f ) mt = 2.0f;
+	Uint8 mr = pressed ? 60 : 90;
+	Uint8 mg = pressed ? 30 : 50;
+	Uint8 mb = pressed ? 15 : 25;
+	Draw_Rounded_Rect( x + mt, y + h * 0.5f - mt * 0.5f, w - mt * 2.0f, mt, mr, mg, mb, a );
+}
+
+// Itembox `?`-block tile: golden gradient + dark inner border ring drawn
+// as a single inset frame (1 inner darker rect). The `?` glyph goes on
+// top. Cost: 3 draws (plate=2 + 1 inner fill).
+void cTouchControls :: Draw_Itembox_Tile( float x, float y, float w, float h, Uint8 a, bool pressed )
+{
+	Draw_Beveled_Plate( x, y, w, h, 235, 185, 50, a, pressed );
+	float ins = ( w < h ? w : h ) * 0.13f;
+	Uint8 br = pressed ? 80 : 130;
+	Uint8 bg = pressed ? 45 : 75;
+	Uint8 bb = pressed ? 10 : 20;
+	// Single thin dark frame using a 1-pixel-tall horizontal "shelf" at
+	// the inset top edge — visually evokes the itembox engraved border
+	// without 4 separate rects.
+	float bt = ( w < h ? w : h ) * 0.04f;
+	if( bt < 2.0f ) bt = 2.0f;
+	Draw_Rounded_Rect( x + ins, y + ins, w - ins * 2.0f, bt, br, bg, bb, a );
+}
+
+// Dark metal plate for the D-pad arms. Cool gunmetal gray.
+void cTouchControls :: Draw_Metal_Plate( float x, float y, float w, float h, Uint8 a, bool pressed )
+{
+	Draw_Beveled_Plate( x, y, w, h, 75, 75, 85, a, pressed );
+}
+
+// Pause button background — dark slate (like a video-player overlay).
+// Reads on every possible level background (sky, grass, brick, lava).
+// Kept named Draw_Wood_Sign for header compat; the look is now slate.
+void cTouchControls :: Draw_Wood_Sign( float x, float y, float w, float h, Uint8 a, bool pressed )
+{
+	Draw_Beveled_Plate( x, y, w, h, 40, 40, 50, a, pressed );
+}
+
+// Chunky arrow glyph — single-pass (no shadow). Plate is dark enough that
+// a white arrow contrasts on its own. Cost: 2 draws (shaft + tip).
+// dir: 0=Left 1=Right 2=Up 3=Down
+void cTouchControls :: Draw_Arrow_Glyph( float cx, float cy, float size, int dir,
+	Uint8 r, Uint8 g, Uint8 b, Uint8 a )
+{
+	float s = size;
+	float sh = s * 0.4f;       // shaft thickness
+
+	if( dir == 0 )      // LEFT
+	{
+		Draw_Rounded_Rect( cx - s * 0.20f, cy - sh * 0.5f, s * 0.85f, sh, r, g, b, a );
+		Draw_Triangle( cx - s, cy,
+			cx - s * 0.20f, cy - s * 0.55f,
+			cx - s * 0.20f, cy + s * 0.55f, r, g, b, a );
+	}
+	else if( dir == 1 ) // RIGHT
+	{
+		Draw_Rounded_Rect( cx - s * 0.65f, cy - sh * 0.5f, s * 0.85f, sh, r, g, b, a );
+		Draw_Triangle( cx + s, cy,
+			cx + s * 0.20f, cy - s * 0.55f,
+			cx + s * 0.20f, cy + s * 0.55f, r, g, b, a );
+	}
+	else if( dir == 2 ) // UP
+	{
+		Draw_Rounded_Rect( cx - sh * 0.5f, cy - s * 0.20f, sh, s * 0.85f, r, g, b, a );
+		Draw_Triangle( cx, cy - s,
+			cx - s * 0.55f, cy - s * 0.20f,
+			cx + s * 0.55f, cy - s * 0.20f, r, g, b, a );
+	}
+	else                // DOWN
+	{
+		Draw_Rounded_Rect( cx - sh * 0.5f, cy - s * 0.65f, sh, s * 0.85f, r, g, b, a );
+		Draw_Triangle( cx, cy + s,
+			cx - s * 0.55f, cy + s * 0.20f,
+			cx + s * 0.55f, cy + s * 0.20f, r, g, b, a );
+	}
+}
+
+// `?` glyph — simplified to 4 primitives (vs 15 cells of pixel art).
+// Builds the question mark from: top horizontal bar, right descender,
+// diagonal hook, and bottom dot. Less pixel-accurate but stays readable
+// and is 4× cheaper at draw time.
+void cTouchControls :: Draw_QMark_Glyph( float cx, float cy, float size,
+	Uint8 r, Uint8 g, Uint8 b, Uint8 a )
+{
+	float w  = size * 0.55f;
+	float h  = size;
+	float t  = size * 0.18f;            // stroke thickness
+	float left = cx - w * 0.5f;
+	float top  = cy - h * 0.5f;
+
+	// Top horizontal bar
+	Draw_Rounded_Rect( left, top, w, t, r, g, b, a );
+	// Right descender (from top-right down to mid)
+	Draw_Rounded_Rect( left + w - t, top, t, h * 0.45f, r, g, b, a );
+	// Diagonal hook → fake with one small rect leaning toward center
+	Draw_Rounded_Rect( cx - t * 0.5f, top + h * 0.40f, t, h * 0.25f, r, g, b, a );
+	// Bottom dot
+	Draw_Rounded_Rect( cx - t * 0.5f, top + h * 0.80f, t, t, r, g, b, a );
+}
+
+// Pause icon: two vertical bars.
+void cTouchControls :: Draw_Pause_Glyph( float cx, float cy, float size,
+	Uint8 r, Uint8 g, Uint8 b, Uint8 a )
+{
+	float bw = size * 0.30f;
+	float bh = size * 1.05f;
+	float gap = bw * 0.85f;
+	Draw_Rounded_Rect( cx - gap * 0.5f - bw, cy - bh * 0.5f, bw, bh, r, g, b, a );
+	Draw_Rounded_Rect( cx + gap * 0.5f,       cy - bh * 0.5f, bw, bh, r, g, b, a );
+}
 
 } // namespace SMC

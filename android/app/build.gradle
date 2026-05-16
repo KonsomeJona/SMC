@@ -5,18 +5,19 @@ plugins {
 android {
     namespace 'org.smc'
     compileSdk 34
-    ndkVersion "25.2.9519653"
+    ndkVersion "29.0.14033849"
 
     defaultConfig {
-        applicationId "org.smc"
+        applicationId "com.takohi.secretchronicles"
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName "2.0.0"
+        versionCode 12
+        versionName "2.0.11"
 
-        // NDK ABI filters — arm64-v8a for modern devices; add armeabi-v7a if needed
+        // NDK ABI filters — arm64-v8a for phones, armeabi-v7a for WearOS
+        // (Pixel Watch 3 is 32-bit armv7), x86_64 for emulators.
         ndk {
-            abiFilters 'arm64-v8a', 'x86_64'
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
         }
 
         externalNativeBuild {
@@ -43,6 +44,13 @@ android {
         }
         debug {
             jniDebuggable true
+            externalNativeBuild {
+                cmake {
+                    // RelWithDebInfo = -O2 + debug symbols, unlike the default Debug (-O0).
+                    // Without this, JNI debug builds run 5-10x slower than release.
+                    arguments "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+                }
+            }
         }
     }
 
@@ -56,7 +64,7 @@ android {
             // under src/main/assets/ also remain in the APK.
             assets.srcDirs = [
                 'src/main/assets',
-                '../../../../smc/data'
+                '../../smc/data'
             ]
         }
     }

@@ -39,6 +39,7 @@
 #else
   #include "core/glu_android.h"
 #endif
+#ifndef SMC_NO_CEGUI
 // CEGUI — still included for loading screen, editor, and Init_Video reinit paths.
 // Init_CEGUI() and Init_CEGUI_Data() are now stubs (M12).
 #include <CEGUI/DefaultResourceProvider.h>
@@ -52,10 +53,13 @@
 #include <CEGUI/falagard/WidgetLookManager.h>
 #include <CEGUI/widgets/ProgressBar.h>
 #include <CEGUI/RendererModules/Null/Renderer.h>
+#endif
 // png
+#ifndef __ANDROID__
 #include <png.h>
 #ifndef PNG_COLOR_TYPE_RGBA
 	#define PNG_COLOR_TYPE_RGBA PNG_COLOR_TYPE_RGB_ALPHA
+#endif
 #endif
 #include "../core/debug_log.h"
 
@@ -83,10 +87,12 @@ cVideo :: cVideo( void )
 	m_texture_quality = cPreferences::m_texture_quality_default;
 
 	SDL_VERSION( &wm_info.version );
-#ifdef __unix__
+#if defined(__unix__) && !defined(__ANDROID__)
 	glx_context = NULL;
 #endif
+#ifndef SMC_NO_BOOST
 	m_render_thread = boost::thread();
+#endif
 
 	m_initialised = 0;
 	m_post_gui_render = NULL;
@@ -177,6 +183,20 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		flags |= SDL_WINDOW_FULLSCREEN;
 	}
 
+#ifdef __ANDROID__
+	// Android: always fullscreen, use native display resolution.
+	flags |= SDL_WINDOW_FULLSCREEN;
+	SDL_DisplayMode dm;
+	SDL_GetCurrentDisplayMode( 0, &dm );
+	int screen_w = dm.w;
+	int screen_h = dm.h;
+	int screen_bpp = 0;
+	SDL_Log( "Init_Video: SDL_GetCurrentDisplayMode -> %dx%d", screen_w, screen_h );
+	// Also store into preferences so the rest of Init_Video is consistent.
+	pPreferences->m_video_screen_w = screen_w;
+	pPreferences->m_video_screen_h = screen_h;
+	(void)use_preferences;
+#else
 	int screen_w, screen_h, screen_bpp;
 
 	// full initialization
@@ -193,6 +213,7 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		screen_h = 600;
 		screen_bpp = 16;
 	}
+#endif
 
 	// test screen mode
 	int screen_test = Test_Video( screen_w, screen_h, screen_bpp, flags );
@@ -284,6 +305,7 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	// if reinitialization
 	if( m_initialised )
 	{
+#ifndef SMC_NO_CEGUI
 		// CEGUI is not initialised in M12; skip CEGUI-specific texture saving
 		bool cegui_initialized = ( pGuiSystem != NULL ) &&
 		                         ( pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL );
@@ -293,11 +315,16 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		{
 			Loading_Screen_Init();
 		}
+#else
+		bool cegui_initialized = false;
+#endif
 
 		// save textures
 		pImage_Manager->Grab_Textures( reload_textures_from_file, cegui_initialized );
 		pFont->Grab_Textures();
+#ifndef SMC_NO_CEGUI
 		if( pGuiRenderer ) pGuiRenderer->grabTextures();
+#endif
 		pImage_Manager->Delete_Hardware_Textures();
 
 		// exit loading screen
@@ -439,7 +466,7 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	{
 		printf( "Error: SDL_GetWMInfo not implemented\n" );
 	}
-#ifdef __unix__
+#if defined(__unix__) && !defined(__ANDROID__)
 	// get context
 	glx_context = glXGetCurrentContext();
 #endif
@@ -457,16 +484,24 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 		 * must be the first CEGUI call after the grabTextures function
 		 * Skip if CEGUI is not initialised (M12 stub)
 		*/
+#ifndef SMC_NO_CEGUI
 		if( pGuiRenderer ) pGuiRenderer->restoreTextures();
+#endif
 		pFont->Restore_Textures();
 
 		// send preference resolution to CEGUI (no-op when CEGUI is not initialised)
+#ifndef SMC_NO_CEGUI
 		if( pGuiSystem )
 			pGuiSystem->notifyDisplaySizeChanged( CEGUI::Sizef( static_cast<float>(screen_w), static_cast<float>(screen_h) ) );
+#endif
 
+#ifndef SMC_NO_CEGUI
 		// check if CEGUI is initialized
 		bool cegui_initialized = ( pGuiSystem != NULL ) &&
 		                         ( pGuiSystem->getDefaultGUIContext().getRootWindow() != NULL );
+#else
+		bool cegui_initialized = false;
+#endif
 
 		// show loading screen
 		if( cegui_initialized )
@@ -533,12 +568,25 @@ void cVideo :: Init_OpenGL( void )
 	{
 		SDL_GL_GetDrawableSize( g_sdl_window, &draw_w, &draw_h );
 	}
-	LOG_DEBUG(VIDEO, "Init_OpenGL: window=%dx%d drawable=%dx%d game=%dx%d",
-		pPreferences->m_video_screen_w, pPreferences->m_video_screen_h,
-		draw_w, draw_h, game_res_w, game_res_h);
-	printf( "Init_OpenGL: window=%dx%d drawable=%dx%d game=%dx%d\n",
+	SDL_Log( "Init_OpenGL: window=%dx%d drawable=%dx%d game=%dx%d",
 		pPreferences->m_video_screen_w, pPreferences->m_video_screen_h,
 		draw_w, draw_h, game_res_w, game_res_h );
+
+#ifdef __ANDROID__
+	// On Android, the drawable size is the authoritative rendering resolution.
+	// SDL_GetCurrentDisplayMode returns device pixels (from getRealMetrics) which
+	// can differ from the actual GL surface size after EGL surface creation.
+	// Update preferences so scale factors, image cache, and touch controls all
+	// use the real drawable dimensions instead of the device display dimensions.
+	if( draw_w != pPreferences->m_video_screen_w || draw_h != pPreferences->m_video_screen_h )
+	{
+		SDL_Log( "Init_OpenGL: updating preferences from %dx%d to drawable %dx%d",
+			pPreferences->m_video_screen_w, pPreferences->m_video_screen_h,
+			draw_w, draw_h );
+		pPreferences->m_video_screen_w = draw_w;
+		pPreferences->m_video_screen_h = draw_h;
+	}
+#endif
 
 	// viewport should cover the whole drawable area
 	LOG_DEBUG(VIDEO, "Init_OpenGL: glViewport(0, 0, %d, %d)", draw_w, draw_h);
@@ -562,12 +610,19 @@ void cVideo :: Init_OpenGL( void )
 	// set the smooth shading model
 	glShadeModel( GL_SMOOTH );
 #else
-	// GLES2: initialize shader programs and set orthographic projection.
-	LOG_DEBUG(VIDEO, "Init_OpenGL: GLES2 ortho(0, %d, %d, 0) stored for shader uniforms",
-		pPreferences->m_video_screen_w, pPreferences->m_video_screen_h);
+	// GLES2: expand game_res_w to match the screen's aspect ratio, keeping
+	// game_res_h = 600.  This makes both scale factors equal (no distortion):
+	//   before: upscalex = 2340/800 = 2.925,  upscaley = 1080/600 = 1.8  ← stretched
+	//   after:  upscalex = 2340/1300 = 1.8,   upscaley = 1080/600 = 1.8  ← uniform
+	// The wider game_res_w shows more of the world horizontally so nothing is
+	// clipped at the screen edges.
+	game_res_w = static_cast<int>(
+	    static_cast<float>(game_res_h) * static_cast<float>(draw_w) / static_cast<float>(draw_h) + 0.5f );
+	SDL_Log( "Init_OpenGL: Android game_res adjusted to %dx%d (screen %.2f:1)",
+	         game_res_w, game_res_h, static_cast<float>(draw_w) / static_cast<float>(draw_h) );
 	GLES2::Init();
-	GLES2::Set_Projection( static_cast<float>(pPreferences->m_video_screen_w),
-	                       static_cast<float>(pPreferences->m_video_screen_h) );
+	GLES2::Set_Projection( static_cast<float>(game_res_w),
+	                       static_cast<float>(game_res_h) );
 #endif
 
 	// set clear color to black
@@ -753,14 +808,20 @@ void cVideo :: Init_Image_Cache( bool recreate /* = 0 */, bool draw_gui /* = 0 *
 	float real_texture_detail = m_texture_quality;
 	m_texture_quality = 1;
 
+#ifndef SMC_NO_CEGUI
 	CEGUI::ProgressBar *progress_bar = NULL;
+#endif
 
-	if( draw_gui && pGuiSystem )
+	if( draw_gui )
 	{
-		// get progress bar
-		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
-		if( progress_bar ) progress_bar->setProgress( 0 );
-
+#ifndef SMC_NO_CEGUI
+		if( pGuiSystem )
+		{
+			// get progress bar
+			progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
+			if( progress_bar ) progress_bar->setProgress( 0 );
+		}
+#endif
 		// set loading screen text
 		Loading_Screen_Draw_Text( _("Caching Images") );
 	}
@@ -882,9 +943,10 @@ void cVideo :: Init_Image_Cache( bool recreate /* = 0 */, bool draw_gui /* = 0 *
 		// draw
 		if( draw_gui )
 		{
+#ifndef SMC_NO_CEGUI
 			// update progress
 			progress_bar->setProgress( static_cast<float>(loaded_files) / static_cast<float>(file_count) );
-
+#endif
 		#ifdef _DEBUG
 			// update filename
 			cGL_Surface *surface_filename = pFont->Render_Text( pFont->m_font_small, filename, white );
@@ -986,7 +1048,9 @@ void cVideo :: Render( bool threaded /* = 0 */ )
 
 	if( threaded )
 	{
+#ifndef SMC_NO_CEGUI
 		if( pGuiSystem ) pGuiSystem->renderAllGUIContexts();
+#endif
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GUI]->Update();
@@ -1011,7 +1075,9 @@ void cVideo :: Render( bool threaded /* = 0 */ )
 		// make main thread inactive
 		Make_GL_Context_Inactive();
 		// start render thread
+#ifndef SMC_NO_BOOST
 		m_render_thread = boost::thread(&cVideo::Render_From_Thread, this);
+#endif
 	}
 	// single thread mode
 	else
@@ -1021,7 +1087,9 @@ void cVideo :: Render( bool threaded /* = 0 */ )
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GAME]->Update();
 
+#ifndef SMC_NO_CEGUI
 		if( pGuiSystem ) pGuiSystem->renderAllGUIContexts();
+#endif
 
 		// update performance timer
 		pFramerate->m_perf_timer[PERF_RENDER_GUI]->Update();
@@ -1048,10 +1116,12 @@ void cVideo :: Render_Finish( void )
 #ifndef SMC_RENDER_THREAD_TEST
 	return;
 #endif
+#ifndef SMC_NO_BOOST
 	if( m_render_thread.joinable() )
 	{
 		m_render_thread.join();
 	}
+#endif
 
 	// todo : use opengl in only one thread
 	Make_GL_Context_Current();
@@ -1176,6 +1246,21 @@ cVideo::cSoftware_Image cVideo :: Load_Image( std::string filename, bool load_se
 	if( !sdl_surface && File_Exists( filename ) && ( !settings || settings->m_base.empty() ) )
 	{
 		sdl_surface = IMG_Load( filename.c_str() );
+	}
+
+	// Force every loaded surface to 32-bit RGBA. Downstream upload code
+	// (Create_GL_Texture) always passes GL_RGBA to glTexImage2D, so a
+	// 24-bit RGB source would cause the GL driver to read past the buffer
+	// end → SIGABRT on Android (Bionic's Scudo allocator is stricter than
+	// glibc's). ~30 of the game PNGs are stored as RGB-only.
+	if( sdl_surface && sdl_surface->format->BitsPerPixel != 32 )
+	{
+		SDL_Surface *converted = SDL_ConvertSurfaceFormat( sdl_surface, SDL_PIXELFORMAT_RGBA32, 0 );
+		if( converted )
+		{
+			SDL_FreeSurface( sdl_surface );
+			sdl_surface = converted;
+		}
 	}
 
 	if( !sdl_surface )
@@ -1333,17 +1418,18 @@ cGL_Surface *cVideo :: Create_Texture( SDL_Surface *surface, bool mipmap /* = 0 
 	// check if the image size is greater than the maximum texture size
 	Apply_Max_Texture_Size( texture_width, texture_height );
 
-	// scale to new size
+	// scale to new size — keep the downscaled buffer separate from the
+	// SDL surface to avoid mutating surface->pixels (caused heap corruption
+	// on Android Scudo when the surface came from SDL_ConvertSurfaceFormat).
+	unsigned char *scratch_pixels = NULL;
+	const void *upload_pixels = surface->pixels;
 	if( texture_width != surface->w || texture_height != surface->h )
 	{
 		int reduce_block_x = surface->w / texture_width;
 		int reduce_block_y = surface->h / texture_height;
-
-		// create scaled image
-		unsigned char *new_pixels = static_cast<unsigned char*>(SDL_malloc( texture_width * texture_height * 4 ));
-		Downscale_Image( static_cast<unsigned char*>(surface->pixels), surface->w, surface->h, surface->format->BytesPerPixel, new_pixels, reduce_block_x, reduce_block_y );
-		SDL_free( surface->pixels );
-		surface->pixels = new_pixels;
+		scratch_pixels = static_cast<unsigned char*>(SDL_malloc( texture_width * texture_height * 4 ));
+		Downscale_Image( static_cast<unsigned char*>(surface->pixels), surface->w, surface->h, surface->format->BytesPerPixel, scratch_pixels, reduce_block_x, reduce_block_y );
+		upload_pixels = scratch_pixels;
 	}
 	// set SDL_image pixel store mode
 	// GL_UNPACK_ROW_LENGTH is not available in OpenGL ES 2.0 core
@@ -1363,13 +1449,15 @@ cGL_Surface *cVideo :: Create_Texture( SDL_Surface *surface, bool mipmap /* = 0 
 	// set texture magnification function
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 	// upload to OpenGL texture
-	Create_GL_Texture( texture_width, texture_height, surface->pixels, mipmap );
+	Create_GL_Texture( texture_width, texture_height, upload_pixels, mipmap );
 
 	// unset pixel store mode (desktop only — GLES2 does not support GL_UNPACK_ROW_LENGTH)
 #ifndef __ANDROID__
 	glPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
 #endif
 
+	if( scratch_pixels )
+		SDL_free( scratch_pixels );
 	SDL_FreeSurface( surface );
 
 	// create OpenGL surface class
@@ -1440,6 +1528,12 @@ void cVideo :: Create_GL_Texture( unsigned int width, unsigned int height, const
 
 Color cVideo :: Get_Pixel( int x, int y ) const
 {
+#ifdef __ANDROID__
+	// GLES2 has no readback from the default framebuffer with GL_RGB/GL_UNSIGNED_BYTE.
+	// Callers use this for debugging only; return black.
+	(void)x; (void)y;
+	return Color( static_cast<Uint8>(0), 0, 0 );
+#else
 	GLubyte *pixel = new GLubyte[3];
 	// read it
 	glReadPixels( x, y, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel );
@@ -1450,6 +1544,7 @@ Color cVideo :: Get_Pixel( int x, int y ) const
 	delete[] pixel;
 
 	return color;
+#endif
 }
 
 void cVideo :: Clear_Screen( void ) const
@@ -1767,10 +1862,15 @@ bool cVideo :: Downscale_Image( const unsigned char* const orig, int width, int 
 
 void cVideo :: Save_Screenshot( void )
 {
+#ifdef __ANDROID__
+	// GLES2 does not expose GL_RGB readback from the default framebuffer;
+	// libpng / Save_Surface are also compiled out on Android.
+	pHud_Debug->Set_Text( _("Screenshots not supported on Android"), speedfactor_fps * 2.5f );
+#else
 	Render_Finish();
 
 	std::string filename;
-	
+
 	for( unsigned int i = 1; i < 1000; i++ )
 	{
 		filename = pResource_Manager->user_data_dir + USER_SCREENSHOT_DIR "/" + int_to_string( i ) + ".png";
@@ -1793,8 +1893,10 @@ void cVideo :: Save_Screenshot( void )
 			return;
 		}
 	}
+#endif
 }
 
+#ifndef __ANDROID__
 void cVideo :: Save_Surface( const std::string &filename, const unsigned char *data, unsigned int width, unsigned int height, unsigned int bpp /* = 4 */, bool reverse_data /* = 0 */ ) const
 {
 	FILE *fp = NULL;
@@ -1879,6 +1981,12 @@ void cVideo :: Save_Surface( const std::string &filename, const unsigned char *d
 
 	fclose( fp );
 }
+#else
+void cVideo :: Save_Surface( const std::string &filename, const unsigned char *data, unsigned int width, unsigned int height, unsigned int bpp /* = 4 */, bool reverse_data /* = 0 */ ) const
+{
+	// PNG saving not available on Android
+}
+#endif // __ANDROID__
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 
@@ -2388,6 +2496,7 @@ void Draw_Effect_In( Effect_Fadein effect /* = EFFECT_IN_RANDOM */, float speed 
 
 void Loading_Screen_Init( void )
 {
+#ifndef SMC_NO_CEGUI
 	if( !pGuiSystem )
 	{
 		// CEGUI not initialised (M12 stub) — loading screen is a no-op
@@ -2415,10 +2524,12 @@ void Loading_Screen_Init( void )
 	// set info text
 	CEGUI::Window *text_default = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "text_loading" ));
 	text_default->setText( _("Loading") );
+#endif
 }
 
 void Loading_Screen_Draw_Text( const std::string &str_info /* = "Loading" */ )
 {
+#ifndef SMC_NO_CEGUI
 	if( !pGuiSystem ) return;
 
 	// set info text
@@ -2431,6 +2542,7 @@ void Loading_Screen_Draw_Text( const std::string &str_info /* = "Loading" */ )
 	text_default->setText( reinterpret_cast<const CEGUI::utf8*>(str_info.c_str()) );
 
 	Loading_Screen_Draw();
+#endif
 }
 
 void Loading_Screen_Draw( void )
@@ -2448,12 +2560,15 @@ void Loading_Screen_Draw( void )
 
 	// Render
 	pRenderer->Render();
+#ifndef SMC_NO_CEGUI
 	if( pGuiSystem ) pGuiSystem->renderAllGUIContexts();
+#endif
 	SDL_GL_SwapWindow( g_sdl_window );
 }
 
 void Loading_Screen_Exit( void )
 {
+#ifndef SMC_NO_CEGUI
 	if( !pGuiSystem ) return;
 
 	CEGUI::Window *loading_window = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "loading" );
@@ -2474,14 +2589,20 @@ void Loading_Screen_Exit( void )
 			guisheet->getChildAtIdx( i )->show();
 		}
 	}
+#endif
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 
 cVideo *pVideo = NULL;
 
+#ifndef SMC_NO_CEGUI
 CEGUI::OpenGLRenderer *pGuiRenderer = NULL;
 CEGUI::System *pGuiSystem = NULL;
+#else
+void *pGuiRenderer = NULL;
+void *pGuiSystem = NULL;
+#endif
 
 SDL_Surface *screen = NULL;
 SDL_Window *g_sdl_window = NULL;
