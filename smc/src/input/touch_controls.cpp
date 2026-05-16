@@ -34,6 +34,7 @@ cTouchControls :: cTouchControls( void )
 	m_opacity = 0.7f;
 	m_screen_w = 1024.0f;
 	m_screen_h = 768.0f;
+	m_last_game_mode = -1;
 
 	for( int i = 0; i < ZONE_COUNT; i++ )
 	{
@@ -491,6 +492,18 @@ void cTouchControls :: Update( void )
 		m_screen_w = new_w;
 		m_screen_h = new_h;
 		Init_Zones();
+	}
+
+	// Release any held zones on Game_Mode transitions. Without this, a
+	// zone that was pressed when the player died (e.g. D-pad RIGHT) stays
+	// `pressed=true` forever — Press_Zone's early-return on pressed=true
+	// then prevents new key injections, so the overworld arrows appear
+	// dead after a level→overworld transition.
+	int cur_mode = static_cast<int>( Game_Mode );
+	if( cur_mode != m_last_game_mode )
+	{
+		Reset();
+		m_last_game_mode = cur_mode;
 	}
 
 	Update_Zone_Visibility();

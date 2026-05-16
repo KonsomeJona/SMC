@@ -31,9 +31,13 @@
 #include "../core/filesystem/filesystem.h"
 #include "../core/filesystem/resource_manager.h"
 // CEGUI
-#include "CEGUIXMLParser.h"
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIExceptions.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLParser.h>
+  #include <CEGUI/XMLAttributes.h>
+  #include <CEGUI/Exceptions.h>
+#else
+  #include "../core/tinyxml2.h"
+#endif
 
 namespace SMC
 {
@@ -67,14 +71,49 @@ void cOverworld_description :: Load( void )
 	}
 
 	// Load Description
+#ifndef SMC_NO_CEGUI
 // fixme : Workaround for std::string to CEGUI::String utf8 conversion. Check again if CEGUI 0.8 works with std::string utf8
 #ifdef _WIN32
 	CEGUI::System::getSingleton().getXMLParser()->parseXMLFile( *this, (const CEGUI::utf8*)filename.c_str(), DATA_DIR "/" GAME_SCHEMA_DIR "/World/Description.xsd", "" );
 #else
 	CEGUI::System::getSingleton().getXMLParser()->parseXMLFile( *this, filename.c_str(), DATA_DIR "/" GAME_SCHEMA_DIR "/World/Description.xsd", "" );
 #endif
+#else
+	// Android: drive elementStart/elementEnd via TinyXML2
+	using namespace tinyxml2;
+	XMLDocument doc;
+	if( doc.LoadFile( filename.c_str() ) != XML_SUCCESS )
+	{
+		printf( "TinyXML2: failed to load description '%s': %s\n", filename.c_str(), doc.ErrorStr() );
+		return;
+	}
+	XMLElement *root = doc.RootElement();
+	if( !root ) return;
+	for( XMLElement *section = root->FirstChildElement(); section; section = section->NextSiblingElement() )
+	{
+		const char *sname = section->Name();
+		for( XMLElement *prop = section->FirstChildElement(); prop; prop = prop->NextSiblingElement() )
+		{
+			const char *pname = prop->Name();
+			if( pname && (strcmp( pname, "property" ) == 0 || strcmp( pname, "Property" ) == 0) )
+			{
+				const char *key = prop->Attribute( "name" );
+				const char *val = prop->Attribute( "value" );
+				if( key && val )
+				{
+					CEGUI::XMLAttributes pa;
+					pa.add( "name", key );
+					pa.add( "value", val );
+					elementStart( std::string( pname ), pa );
+				}
+			}
+		}
+		if( sname ) elementEnd( std::string( sname ) );
+	}
+#endif
 }
 
+#ifndef SMC_NO_CEGUI
 void cOverworld_description :: Save( void )
 {
 	std::string save_dir = pResource_Manager->user_data_dir + USER_WORLD_DIR + "/" + m_path;
@@ -96,7 +135,7 @@ void cOverworld_description :: Save( void )
 
 	CEGUI::XMLSerializer stream( file );
 
-	// begin 
+	// begin
 	stream.openTag( "description" );
 
 	// begin
@@ -114,6 +153,7 @@ void cOverworld_description :: Save( void )
 
 	file.close();
 }
+#endif
 
 std::string cOverworld_description :: Get_Full_Path( void ) const
 {
@@ -243,6 +283,7 @@ bool cOverworld :: Load( void )
 		return 0;
 	}
 
+#ifndef SMC_NO_CEGUI
 	try
 	{
 		// parse overworld
@@ -250,7 +291,7 @@ bool cOverworld :: Load( void )
 	#ifdef _WIN32
 		CEGUI::System::getSingleton().getXMLParser()->parseXMLFile( *this, (const CEGUI::utf8*)world_filename.c_str(), DATA_DIR "/" GAME_SCHEMA_DIR "/World/World.xsd", "" );
 	#else
-		CEGUI::System::getSingleton().getXMLParser()->parseXMLFile( *this, world_filename.c_str(), DATA_DIR "/" GAME_SCHEMA_DIR "/World/World.xsd", "" );	
+		CEGUI::System::getSingleton().getXMLParser()->parseXMLFile( *this, world_filename.c_str(), DATA_DIR "/" GAME_SCHEMA_DIR "/World/World.xsd", "" );
 	#endif
 	}
 	// catch CEGUI Exceptions
@@ -259,6 +300,45 @@ bool cOverworld :: Load( void )
 		printf( "Loading World %s CEGUI Exception %s\n", world_filename.c_str(), ex.getMessage().c_str() );
 		pHud_Debug->Set_Text( _("World Loading failed : ") + (const std::string)ex.getMessage().c_str() );
 	}
+#else
+	// Android: drive elementStart/elementEnd via TinyXML2
+	{
+		using namespace tinyxml2;
+		XMLDocument doc;
+		if( doc.LoadFile( world_filename.c_str() ) != XML_SUCCESS )
+		{
+			printf( "TinyXML2: failed to load world '%s': %s\n", world_filename.c_str(), doc.ErrorStr() );
+			return 0;
+		}
+		XMLElement *root = doc.FirstChildElement( "overworld" );
+		if( !root )
+		{
+			printf( "TinyXML2: no <overworld> root in '%s'\n", world_filename.c_str() );
+			return 0;
+		}
+		for( XMLElement *section = root->FirstChildElement(); section; section = section->NextSiblingElement() )
+		{
+			const char *sname = section->Name();
+			for( XMLElement *prop = section->FirstChildElement(); prop; prop = prop->NextSiblingElement() )
+			{
+				const char *pname = prop->Name();
+				if( pname && (strcmp( pname, "property" ) == 0 || strcmp( pname, "Property" ) == 0) )
+				{
+					const char *key = prop->Attribute( "name" );
+					const char *val = prop->Attribute( "value" );
+					if( key && val )
+					{
+						CEGUI::XMLAttributes pa;
+						pa.add( "name", key );
+						pa.add( "value", val );
+						elementStart( std::string( pname ), pa );
+					}
+				}
+			}
+			if( sname ) elementEnd( std::string( sname ) );
+		}
+	}
+#endif
 
 	// engine version entry not set
 	if( m_engine_version < 0 )
@@ -305,6 +385,7 @@ void cOverworld :: Unload( void )
 	m_last_saved = 0;
 }
 
+#ifndef SMC_NO_CEGUI
 void cOverworld :: Save( void )
 {
 	pAudio->Play_Sound( "editor/save.ogg" );
@@ -403,6 +484,7 @@ void cOverworld :: Save( void )
 	// show info
 	pHud_Debug->Set_Text( _("World ") + m_description->m_name + _(" saved") );
 }
+#endif
 
 void cOverworld :: Enter( const GameMode old_mode /* = MODE_NOTHING */ )
 {
@@ -469,9 +551,12 @@ void cOverworld :: Enter( const GameMode old_mode /* = MODE_NOTHING */ )
 	}
 
 	// disable level editor
+#ifndef SMC_NO_EDITOR
 	pLevel_Editor->Disable();
+#endif
 
 	// set editor enabled state
+#ifndef SMC_NO_EDITOR
 	editor_enabled = pWorld_Editor->m_enabled;
 
 	if( pWorld_Editor->m_enabled )
@@ -482,6 +567,7 @@ void cOverworld :: Enter( const GameMode old_mode /* = MODE_NOTHING */ )
 			pMouseCursor->Set_Active( 1 );
 		}
 	}
+#endif
 
 	// Update Hud Text and position
 	pHud_Manager->Update_Text();
@@ -515,6 +601,7 @@ void cOverworld :: Leave( const GameMode next_mode /* = MODE_NOTHING */ )
 	}
 
 	// hide editor window if visible
+#ifndef SMC_NO_EDITOR
 	if( pWorld_Editor->m_enabled )
 	{
 		if( pWorld_Editor->m_editor_window->isVisible() )
@@ -522,6 +609,7 @@ void cOverworld :: Leave( const GameMode next_mode /* = MODE_NOTHING */ )
 			pWorld_Editor->m_editor_window->hide();
 		}
 	}
+#endif
 
 	// if new mode is not menu
 	if( next_mode != MODE_MENU )
@@ -546,7 +634,9 @@ void cOverworld :: Draw( void )
 	Draw_HUD();
 
 	// Editor
+#ifndef SMC_NO_EDITOR
 	pWorld_Editor->Draw();
+#endif
 
 	// update performance timer
 	pFramerate->m_perf_timer[PERF_DRAW_OVERWORLD]->Update();
@@ -586,7 +676,9 @@ void cOverworld :: Draw_HUD( void )
 void cOverworld :: Update( void )
 {
 	// editor
+#ifndef SMC_NO_EDITOR
 	pWorld_Editor->Process_Input();
+#endif
 
 	if( !editor_world_enabled )
 	{
@@ -617,7 +709,9 @@ void cOverworld :: Update( void )
 	// hud
 	pHud_Manager->Update();
 	// Editor
+#ifndef SMC_NO_EDITOR
 	pWorld_Editor->Update();
+#endif
 
 	// update performance timer
 	pFramerate->m_perf_timer[PERF_UPDATE_OVERWORLD]->Update();
@@ -633,19 +727,19 @@ void cOverworld :: Update_Camera( void )
 	// todo : move to a Process_Input function
 	if( pOverworld_Manager->m_camera_mode )
 	{
-		if( pKeyboard->m_keys[pPreferences->m_key_right] || ( pJoystick->m_right && pPreferences->m_joy_enabled ) )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) || ( pJoystick->m_right && pPreferences->m_joy_enabled ) )
 		{
 			pOverworld_Manager->m_camera->Move( pFramerate->m_speed_factor * 15, 0 );
 		}
-		else if( pKeyboard->m_keys[pPreferences->m_key_left] || ( pJoystick->m_left && pPreferences->m_joy_enabled ) )
+		else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) || ( pJoystick->m_left && pPreferences->m_joy_enabled ) )
 		{
 			pOverworld_Manager->m_camera->Move( pFramerate->m_speed_factor * -15, 0 );
 		}
-		if( pKeyboard->m_keys[pPreferences->m_key_up] || ( pJoystick->m_up && pPreferences->m_joy_enabled ) )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_up) || ( pJoystick->m_up && pPreferences->m_joy_enabled ) )
 		{
 			pOverworld_Manager->m_camera->Move( 0, pFramerate->m_speed_factor * -15 );
 		}
-		else if( pKeyboard->m_keys[pPreferences->m_key_down] || ( pJoystick->m_down && pPreferences->m_joy_enabled ) )
+		else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_down) || ( pJoystick->m_down && pPreferences->m_joy_enabled ) )
 		{
 			pOverworld_Manager->m_camera->Move( 0, pFramerate->m_speed_factor * 15 );
 		}
@@ -697,7 +791,9 @@ bool cOverworld :: Key_Down( SDLKey key )
 	}
 	else if( key == SDLK_F8 )
 	{
+#ifndef SMC_NO_EDITOR
 		pWorld_Editor->Toggle();
+#endif
 	}
 	else if( key == SDLK_d && pKeyboard->Is_Ctrl_Down() )
 	{
@@ -709,7 +805,7 @@ bool cOverworld :: Key_Down( SDLKey key )
 		// toggle layer drawing
 		pOverworld_Manager->m_draw_layer = !pOverworld_Manager->m_draw_layer;
 	}
-	else if( pKeyboard->m_keys[SDLK_g] && pKeyboard->m_keys[SDLK_o] && pKeyboard->m_keys[SDLK_d] )
+	else if( pKeyboard->m_keys[SDL_SCANCODE_G] && pKeyboard->m_keys[SDL_SCANCODE_O] && pKeyboard->m_keys[SDL_SCANCODE_D] )
 	{
 		// all waypoint access
 		Set_Progress( m_waypoints.size(), 1 );
@@ -723,17 +819,23 @@ bool cOverworld :: Key_Down( SDLKey key )
 	{
 		pOverworld_Player->Action_Interact( INP_EXIT );
 	}
-	// Action
-	else if( key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE )
+	// Action — accept the configured action keys (Return / Space) plus the
+	// player's configured JUMP key so the on-screen JUMP touch button enters
+	// the level when pressed on a waypoint.
+	else if( key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE
+	         || key == pPreferences->m_key_jump
+	         || key == pPreferences->m_key_shoot )
 	{
 		pOverworld_Player->Action_Interact( INP_ACTION );
 	}
 	// ## editor
+#ifndef SMC_NO_EDITOR
 	else if( pWorld_Editor->Key_Down( key ) )
 	{
 		// processed by the editor
 		return 1;
 	}
+#endif
 	else
 	{
 		// not processed
@@ -764,37 +866,31 @@ bool cOverworld :: Key_Up( SDLKey key )
 bool cOverworld :: Mouse_Down( Uint8 button )
 {
 	// ## editor
+#ifndef SMC_NO_EDITOR
 	if( pWorld_Editor->Mouse_Down( button ) )
 	{
 		// processed by the editor
 		return 1;
 	}
-	else
-	{
-		// not processed
-		return 0;
-	}
+#endif
 
-	// button got processed
-	return 1;
+	// not processed
+	return 0;
 }
 
 bool cOverworld :: Mouse_Up( Uint8 button )
 {
 	// ## editor
+#ifndef SMC_NO_EDITOR
 	if( pWorld_Editor->Mouse_Up( button ) )
 	{
 		// processed by the editor
 		return 1;
 	}
-	else
-	{
-		// not processed
-		return 0;
-	}
+#endif
 
-	// button got processed
-	return 1;
+	// not processed
+	return 0;
 }
 
 bool cOverworld :: Joy_Button_Down( Uint8 button )
@@ -1163,7 +1259,7 @@ cSprite *Create_World_Object_From_XML( const CEGUI::String &element, CEGUI::XMLA
 		{
 			if( attributes.exists( "posy" ) )
 			{
-				attributes.add( "posy", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
+				attributes.add( "posy", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "posy" ) - 600.0f ) );
 			}
 		}
 		// if V.1.9 and lower : change old bridge to bridge 1 vertical
@@ -1214,7 +1310,7 @@ cSprite *Create_World_Object_From_XML( const CEGUI::String &element, CEGUI::XMLA
 		{
 			if( attributes.exists( "y" ) )
 			{
-				attributes.add( "y", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "y" ) - 600.0f ) );
+				attributes.add( "y", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "y" ) - 600.0f ) );
 			}
 		}
 
@@ -1227,7 +1323,7 @@ cSprite *Create_World_Object_From_XML( const CEGUI::String &element, CEGUI::XMLA
 		{
 			if( attributes.exists( "pos_y" ) )
 			{
-				attributes.add( "pos_y", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "pos_y" ) - 600.0f ) );
+				attributes.add( "pos_y", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "pos_y" ) - 600.0f ) );
 			}
 		}
 
@@ -1240,11 +1336,11 @@ cSprite *Create_World_Object_From_XML( const CEGUI::String &element, CEGUI::XMLA
 		{
 			if( attributes.exists( "Y1" ) )
 			{
-				attributes.add( "Y1", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "Y1" ) - 600.0f ) );
+				attributes.add( "Y1", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "Y1" ) - 600.0f ) );
 			}
 			if( attributes.exists( "Y2" ) )
 			{
-				attributes.add( "Y2", CEGUI::PropertyHelper::floatToString( attributes.getValueAsFloat( "Y2" ) - 600.0f ) );
+				attributes.add( "Y2", CEGUI::PropertyHelper<float>::toString( attributes.getValueAsFloat( "Y2" ) - 600.0f ) );
 			}
 		}
 

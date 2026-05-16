@@ -96,6 +96,7 @@ private:
 	float m_screen_w;  // current glOrtho width
 	float m_screen_h;  // current glOrtho height
 	float m_opacity;   // base opacity 0-1
+	int m_last_game_mode;  // detect Game_Mode changes → release stale zones
 };
 
 // global touch controls pointer
