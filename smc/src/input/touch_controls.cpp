@@ -102,8 +102,9 @@ void cTouchControls :: Init_Zones( void )
 	// keeps thumb comfort while leaving room for the game viewport above.
 	float bs       = sh * 0.14f;   // arm size (one direction button)
 	float pad      = sh * 0.004f;  // tiny gap between arms (joints overlap visually)
-	float marginL  = sw * 0.018f;
-	float marginB  = sh * 0.05f;   // lift off the bottom edge for gesture safety
+	// Generous edge margins so pads visibly breathe off the bezel.
+	float marginL  = sw * 0.035f;
+	float marginB  = sh * 0.07f;   // lift off the bottom edge for gesture safety
 
 	// D-pad cross is 3 arms wide / 3 arms tall.
 	float dpad_left = marginL;
@@ -145,8 +146,8 @@ void cTouchControls :: Init_Zones( void )
 	// previous tight diagonal made the two buttons read as a single blob.
 	float abtn     = bs * 1.20f;     // slightly bigger than a D-pad arm
 	float agap     = abtn * 0.60f;
-	float marginR  = sw * 0.025f;
-	float marginAB = sh * 0.05f;
+	float marginR  = sw * 0.035f;
+	float marginAB = sh * 0.07f;
 
 	// JUMP: bottom-right corner (the natural thumb rest)
 	float jx = sw - marginR - abtn;
@@ -182,12 +183,16 @@ void cTouchControls :: Init_Zones( void )
 	// perfect: visible icon is sysSize, but we extend the hit-test rect a
 	// bit further toward the corner so taps in the corner area also count.
 	float sysSize  = sh * 0.14f;   // square button, 14% of screen height (visible)
-	float sysTop   = sh * 0.04f;   // small inset from the top
+	// Empirically validated: Android composites the SDL surface with a
+	// ~10% top inset (status-bar / cutout). Anything inside the first
+	// ~15% of the surface's reported height is clipped by the system bar
+	// on Pixel 4a. 20% puts the PAUSE plate cleanly in view.
+	float sysTop   = sh * 0.20f;
 	float sysLeft  = sw - marginR - sysSize;
 	m_zones[ZONE_BTN_BACK].x = sysLeft - sysSize * 0.30f;            // extend 30% to the left
-	m_zones[ZONE_BTN_BACK].y = sysTop * 0.50f;                       // extend almost to the top edge
+	m_zones[ZONE_BTN_BACK].y = sysTop;                               // start below the status-bar area
 	m_zones[ZONE_BTN_BACK].w = sysSize * 1.30f + marginR;            // extend right past the screen edge
-	m_zones[ZONE_BTN_BACK].h = sysSize * 1.30f;                      // extend down 30%
+	m_zones[ZONE_BTN_BACK].h = sysSize * 1.30f;                      // generous tap zone
 	m_zones[ZONE_BTN_BACK].mapped_key = SDLK_ESCAPE;
 
 	// START (disabled — replaced by single PAUSE in top-left)
@@ -570,8 +575,6 @@ void cTouchControls :: Draw( void )
 	if( m_zones[ZONE_BTN_BACK].active )
 	{
 		const TouchZone &z = m_zones[ZONE_BTN_BACK];
-		// Visible plate is larger now so the pause control is clearly
-		// readable against busy backgrounds (green grass / brick tiles).
 		float vis_w = z.w * 0.75f;
 		float vis_h = z.h * 0.85f;
 		float vis_x = z.x + (z.w - vis_w);
@@ -749,12 +752,11 @@ void cTouchControls :: Draw_Metal_Plate( float x, float y, float w, float h, Uin
 	Draw_Beveled_Plate( x, y, w, h, 75, 75, 85, a, pressed );
 }
 
-// Pause button background — dark slate (like a video-player overlay).
-// Reads on every possible level background (sky, grass, brick, lava).
-// Kept named Draw_Wood_Sign for header compat; the look is now slate.
+// Pause button background — warm wood-brown so it reads as an SMC level
+// sign against any background.
 void cTouchControls :: Draw_Wood_Sign( float x, float y, float w, float h, Uint8 a, bool pressed )
 {
-	Draw_Beveled_Plate( x, y, w, h, 40, 40, 50, a, pressed );
+	Draw_Beveled_Plate( x, y, w, h, 175, 110, 55, a, pressed );
 }
 
 // Chunky arrow glyph — single-pass (no shadow). Plate is dark enough that
