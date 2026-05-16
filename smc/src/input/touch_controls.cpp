@@ -292,14 +292,14 @@ void cTouchControls :: Reset( void )
 
 int cTouchControls :: Zone_Hit_Test( float screen_x, float screen_y )
 {
-	// Edge-snapping hit-test: any zone whose anchor sits in the outer
-	// quarter of the screen on a given side has its hit area extended
-	// all the way to that edge. The Android compositor renders the GL
-	// surface with a device-specific X/Y offset (cutout, safe area) we
-	// can't easily query, so the *visible* plate drifts away from the
-	// projection coordinates used here. Snapping hit-tests to the screen
-	// edges absorbs that drift on edge-anchored buttons (D-pad, action
-	// pair, PAUSE) without changing the drawn plates.
+	// Edge-snapping hit-test: a zone whose actual edge sits within ~1×
+	// its own size from a screen edge has its hit area extended to that
+	// edge. The Android compositor renders the GL surface with a small
+	// device-specific X/Y offset (cutout, safe area) we can't easily
+	// query, so visible plates drift away from the projection coords
+	// used here. Snapping the hit-test to the screen edges absorbs that
+	// drift on edge-anchored buttons (D-pad outer arms, action pair,
+	// PAUSE) without affecting non-edge buttons.
 	for( int i = ZONE_COUNT - 1; i >= 0; i-- )
 	{
 		if( !m_zones[i].active ) continue;
@@ -308,16 +308,34 @@ int cTouchControls :: Zone_Hit_Test( float screen_x, float screen_y )
 		const float zw = m_zones[i].w;
 		const float zh = m_zones[i].h;
 
-		// Compute extended hit rect with edge-snap on whichever sides
-		// the button is anchored to.
+		// Base slop: 20% of the zone size in each direction.
 		float hx = zx - zw * 0.20f;
 		float hy = zy - zh * 0.20f;
 		float hw = zw * 1.40f;
 		float hh = zh * 1.40f;
-		if( zx < m_screen_w * 0.25f )                  { hx = 0;             hw = zx + zw + zw * 0.20f; }
-		if( ( zx + zw ) > m_screen_w * 0.75f )         { hw = m_screen_w - hx; }
-		if( zy < m_screen_h * 0.25f )                  { hy = 0;             hh = zy + zh + zh * 0.20f; }
-		if( ( zy + zh ) > m_screen_h * 0.75f )         { hh = m_screen_h - hy; }
+
+		// Edge-snap only when the zone's actual edge is within 1.1×
+		// its own size from the screen edge.
+		const float snap_x = zw * 1.1f;
+		const float snap_y = zh * 1.1f;
+		if( zx < snap_x )
+		{
+			hx = 0;
+			hw = zx + zw + zw * 0.20f;
+		}
+		if( ( m_screen_w - ( zx + zw ) ) < snap_x )
+		{
+			hw = m_screen_w - hx;
+		}
+		if( zy < snap_y )
+		{
+			hy = 0;
+			hh = zy + zh + zh * 0.20f;
+		}
+		if( ( m_screen_h - ( zy + zh ) ) < snap_y )
+		{
+			hh = m_screen_h - hy;
+		}
 
 		if( screen_x >= hx && screen_x <= hx + hw &&
 		    screen_y >= hy && screen_y <= hy + hh )
