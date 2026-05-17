@@ -187,23 +187,17 @@ void cTouchControls :: Init_Zones( void )
 	// perfect: visible icon is sysSize, but we extend the hit-test rect a
 	// bit further toward the corner so taps in the corner area also count.
 	float sysSize  = sh * 0.14f;   // square button, 14% of screen height (visible)
-	// Push PAUSE 30% down — on Pixel 4a the SDL surface composites with a
-	// ~12% top inset (status-bar / cutout). Anything inside the first
-	// ~18% of the reported surface height is clipped. 30% guarantees the
-	// plate sits fully in the visible area while still reading as "top".
-	float sysTop   = sh * 0.30f;
+	// PAUSE plate top-right. The rendering shifts ~130px upward relative
+	// to projection coords on Pixel-class devices (compositor cutout
+	// math we don't query), so the visible plate ends up well below the
+	// status bar even though z.y looks far down. Edge-snap in
+	// Zone_Hit_Test extends the tap area all the way to the top of the
+	// screen so taps on the visible plate register.
+	float sysTop   = sh * 0.25f;
 	float sysLeft  = sw - marginR - sysSize;
-	// PAUSE is placed at the bottom-center of the screen: between the
-	// D-pad and the action buttons, in the gap that gameplay leaves
-	// empty. The Android status-bar / display cutout overlay clips
-	// anything we try to draw in the upper ~20% of the SDL surface on
-	// Pixel-class devices (even though the hit-test there still works),
-	// so the top-right position used by classic console layouts is not
-	// usable. Bottom-center stays clear of all clipped zones and remains
-	// reachable for either thumb.
-	m_zones[ZONE_BTN_BACK].x = sw * 0.5f - sysSize * 0.65f;
-	m_zones[ZONE_BTN_BACK].y = sh - sysSize * 1.6f;
-	m_zones[ZONE_BTN_BACK].w = sysSize * 1.30f;
+	m_zones[ZONE_BTN_BACK].x = sysLeft - sysSize * 0.30f;
+	m_zones[ZONE_BTN_BACK].y = sysTop;
+	m_zones[ZONE_BTN_BACK].w = sysSize * 1.30f + marginR;
 	m_zones[ZONE_BTN_BACK].h = sysSize * 1.30f;
 	m_zones[ZONE_BTN_BACK].mapped_key = SDLK_ESCAPE;
 
@@ -314,10 +308,14 @@ int cTouchControls :: Zone_Hit_Test( float screen_x, float screen_y )
 		float hw = zw * 1.40f;
 		float hh = zh * 1.40f;
 
-		// Edge-snap only when the zone's actual edge is within 1.1×
-		// its own size from the screen edge.
-		const float snap_x = zw * 1.1f;
-		const float snap_y = zh * 1.1f;
+		// Edge-snap when the zone sits anywhere in the outer 40% of
+		// the screen on a given axis. This is wide enough to catch the
+		// PAUSE plate's offset-corrected position near the top while
+		// still keeping the D-pad arms from snapping toward each other
+		// horizontally (their column anchors are around 10% / 17% of
+		// the screen width).
+		const float snap_x = m_screen_w * 0.40f;
+		const float snap_y = m_screen_h * 0.40f;
 		if( zx < snap_x )
 		{
 			hx = 0;
