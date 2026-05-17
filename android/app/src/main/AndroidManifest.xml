@@ -15,14 +15,24 @@
     <application
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.SMC"
         android:allowBackup="false"
         android:hardwareAccelerated="true">
+
+        <!-- Use native GLES driver instead of ANGLE to avoid EGL pre-rotation
+             issues on Android 15+ / Pixel Fold (ANGLE requests buffer pre-rotation
+             transforms that SDL2 2.28 does not handle, causing BLASTBufferQueue
+             rejections and SIGABRT). -->
+        <meta-data android:name="android.app.angle.driver" android:value="native" />
 
         <activity
             android:name=".SMCActivity"
             android:label="@string/app_name"
+            android:theme="@style/Theme.SMC.Splash"
             android:screenOrientation="landscape"
+            android:hardwareAccelerated="false"
+            android:windowLayoutInDisplayCutoutMode="shortEdges"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize"
             android:exported="true">
 

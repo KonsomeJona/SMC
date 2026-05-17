@@ -11,8 +11,8 @@ android {
         applicationId "com.takohi.secretchronicles"
         minSdk 21
         targetSdk 34
-        versionCode 27
-        versionName "2.0.26"
+        versionCode 28
+        versionName "2.0.27"
 
         // NDK ABI filters — default (debug): all 3 ABIs for testing on
         // phone, Wear OS (armv7), and x86_64 emulator. The release block
@@ -96,6 +96,10 @@ android {
 }
 
 dependencies {
+    // AndroidX SplashScreen backport — gives us the Android 12+ splash
+    // API behavior on every Android version we ship to (minSdk 21+).
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+
     // SDL2 Android AAR — place the SDL2.aar (and SDL2_image, SDL2_mixer, SDL2_ttf AARs)
     // in android/app/libs/ and uncomment:
     //

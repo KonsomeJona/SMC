@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Post-splash app theme: legacy fullscreen + SDL-friendly. -->
+    <style name="Theme.SMC" parent="android:Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+    </style>
+    <!-- Splash theme via AndroidX backport. The Theme.SplashScreen parent
+         is provided by androidx.core:core-splashscreen and works from
+         Android 5.0 (API 21) all the way through Android 14+. -->
+    <style name="Theme.SMC.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.SMC</item>
+    </style>
+</resources>
