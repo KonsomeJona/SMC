@@ -14,8 +14,10 @@ android {
         versionCode 27
         versionName "2.0.26"
 
-        // NDK ABI filters — arm64-v8a for phones, armeabi-v7a for WearOS
-        // (Pixel Watch 3 is 32-bit armv7), x86_64 for emulators.
+        // NDK ABI filters — default (debug): all 3 ABIs for testing on
+        // phone, Wear OS (armv7), and x86_64 emulator. The release block
+        // below overrides this to arm64-v8a only, since the Play Store
+        // build targets phones and AAB splits handle the rest.
         ndk {
             abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
         }
@@ -39,7 +41,16 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            // Strip the ABI list down to arm64 only for phone releases.
+            // ~95% of Play Store Android phones are arm64-v8a in 2026.
+            // For Wear OS / 32-bit support, build a separate variant.
+            ndk {
+                abiFilters 'arm64-v8a'
+            }
+            // R8 minify + resource shrink — saves a few MB of unused
+            // Java classes + resources. Keep rules in proguard-rules.pro.
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
@@ -52,6 +63,15 @@ android {
                 }
             }
         }
+    }
+
+    // AAB density/ABI splitting — Play Store generates per-device APKs
+    // automatically. Each user downloads only the resources for their
+    // density + ABI, cutting download size further.
+    bundle {
+        language { enableSplit = true }
+        density  { enableSplit = true }
+        abi      { enableSplit = true }
     }
 
     sourceSets {
