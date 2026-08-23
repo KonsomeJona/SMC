@@ -43,15 +43,23 @@
 #include "core/sdl2_compat.h"
 #include "../core/debug_log.h"
 #include <signal.h>
-#include <execinfo.h>
+// execinfo.h / backtrace() are glibc; bionic has neither. Android already
+// writes a full native stack to the tombstone and to logcat on a fatal
+// signal, so the handler only needs to name the signal before re-raising.
+#ifndef __ANDROID__
+	#include <execinfo.h>
+	#include <unistd.h>
+#endif
 
 static void crash_handler(int sig)
 {
     fprintf(stderr, "[CRASH] Signal %d (%s) received\n", sig, strsignal(sig));
+#ifndef __ANDROID__
     void *buffer[64];
     int nptrs = backtrace(buffer, 64);
     fprintf(stderr, "[CRASH] Backtrace (%d frames):\n", nptrs);
     backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
+#endif
     fflush(stderr);
     signal(sig, SIG_DFL);
     raise(sig);

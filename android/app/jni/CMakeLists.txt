@@ -7,7 +7,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # ---------------------------------------------------------------------------
 # Source root — relative to this CMakeLists.txt (android/app/jni/ → smc/src/)
 # ---------------------------------------------------------------------------
-set(SMC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../../../smc/src")
+set(SMC_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../../../smc/src")
+
+# Fail loudly: an out-of-tree SMC_SRC makes the GLOB below return nothing and
+# CMake then reports the far less obvious "No SOURCES given to target: smc".
+if(NOT EXISTS "${SMC_SRC}/core/main.cpp")
+    message(FATAL_ERROR "SMC sources not found at ${SMC_SRC} — expected <repo>/smc/src")
+endif()
 
 # ---------------------------------------------------------------------------
 # Collect all C++ sources, then remove files that are not compatible with
@@ -40,8 +46,13 @@ endforeach()
 # ---------------------------------------------------------------------------
 # SDL2 — built from source (subprojects cloned by setup_deps.sh)
 # ---------------------------------------------------------------------------
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON  CACHE BOOL "" FORCE)
+# SMCActivity.getLibraries() loads SDL2, SDL2_image, SDL2_mixer, SDL2_ttf and
+# smc as separate .so files, and SDL2's own JNI entry points (nativeInit &co)
+# have to live in libSDL2.so for that to link up. Building SDL2 statically
+# also makes the satellite libraries disagree (INTERFACE_SDL2_SHARED), so the
+# whole set stays shared.
+set(SDL_SHARED ON  CACHE BOOL "" FORCE)
+set(SDL_STATIC OFF CACHE BOOL "" FORCE)
 add_subdirectory(SDL2)
 add_subdirectory(SDL2_image)
 add_subdirectory(SDL2_mixer)
@@ -59,9 +70,19 @@ find_library(EGL_LIB        EGL      REQUIRED)
 # ---------------------------------------------------------------------------
 # Build the shared library that SDL2 will dlopen()
 # ---------------------------------------------------------------------------
+# CEGUI compatibility layer (XML on TinyXML2 + inert editor-widget stubs).
+# Lets the ~50 game files that still include CEGUI headers compile unchanged.
+list(APPEND ALL_SMC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cegui_compat/cegui_compat.cpp")
+
 add_library(smc SHARED ${ALL_SMC_SOURCES})
 
 target_include_directories(smc PRIVATE
+    # first: "CEGUIXMLAttributes.h" & co. must resolve to the shims
+    cegui_compat
+    # <SDL2/SDL_image.h> style includes, kept from the desktop build
+    sdl2_compat_include
+    # libintl.h no-op shim — bionic has no gettext
+    posix_compat
     SDL2/include
     SDL2_image
     SDL2_mixer
@@ -89,8 +110,8 @@ set_target_properties(smc PROPERTIES
 )
 
 target_link_libraries(smc PRIVATE
-    # SDL2 family (static, built from source)
-    SDL2-static
+    # SDL2 family (shared, built from source — see SDL_SHARED above)
+    SDL2
     SDL2_image
     SDL2_mixer
     SDL2_ttf

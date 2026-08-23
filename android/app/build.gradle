@@ -5,7 +5,11 @@ plugins {
 android {
     namespace 'org.smc'
     compileSdk 34
-    ndkVersion "29.0.14033849"
+    // NDK 26 LTS, not 27+: the NDK 29 headers mark ALooper_pollAll as
+    // unavailable, which breaks SDL 2.28.5 (SDL_androidsensor.c uses it).
+    // Bumping SDL past 2.30 would be the other way out — pinning the NDK is
+    // the smaller change.
+    ndkVersion "26.1.10909125"
 
     defaultConfig {
         applicationId "com.takohi.secretchronicles"
@@ -25,8 +29,21 @@ android {
         externalNativeBuild {
             cmake {
                 // Passed to the NDK CMakeLists.txt
+                // SDL2_mixer: SMC only ships .ogg (59) and .wav (16) audio.
+                // STB vorbis is header-only, so no ogg/vorbis submodule is
+                // needed; every other decoder is turned off because its
+                // vendored backend would require a git submodule that
+                // setup_deps.sh does not fetch (and would bloat the APK).
                 arguments "-DANDROID_STL=c++_shared",
-                          "-DANDROID_CPP_FEATURES=rtti exceptions"
+                          "-DANDROID_CPP_FEATURES=rtti exceptions",
+                          "-DSDL2MIXER_VORBIS=STB",
+                          "-DSDL2MIXER_FLAC=OFF",
+                          "-DSDL2MIXER_MOD=OFF",
+                          "-DSDL2MIXER_MP3=OFF",
+                          "-DSDL2MIXER_MIDI=OFF",
+                          "-DSDL2MIXER_OPUS=OFF",
+                          "-DSDL2MIXER_WAVPACK=OFF",
+                          "-DSDL2MIXER_GME=OFF"
                 cppFlags "-std=c++17"
             }
         }

@@ -15,15 +15,26 @@
 
 #include "../../core/filesystem/filesystem.h"
 #include "../../core/game_core.h"
-// boost filesystem
-#include "boost/filesystem/convenience.hpp"
-namespace fs = boost::filesystem;
+// filesystem: boost on desktop, the C++17 standard one on Android (bionic has
+// no boost, and libc++ in NDK 26 ships <filesystem>). The two APIs match here
+// except for the file_type enumerators, spelled fs::file_type::regular in the
+// standard version — see Is_File / Is_Directory below.
+#ifdef SMC_NO_BOOST
+	#include <filesystem>
+	namespace fs = std::filesystem;
+#else
+	#include "boost/filesystem/convenience.hpp"
+	namespace fs = boost::filesystem;
+#endif
 // needed for the stat function and to get the user directory on unix
 #include <sys/stat.h>
 #include <sys/types.h>
 #if _WIN32
 	// needed to get the user directory (SHGetFolderPath)
 	#include <shlobj.h>
+#else
+	// rmdir(2) — boost/filesystem used to drag this in on the desktop build
+	#include <unistd.h>
 #endif
 
 namespace SMC
@@ -55,7 +66,11 @@ bool File_Exists( const std::string &filename )
 	fs::file_type type = fs::status( fs::path( filename ) ).type();
 #endif
 
+#ifdef SMC_NO_BOOST
+	return type == fs::file_type::regular || type == fs::file_type::symlink;
+#else
 	return type == fs::regular_file || type == fs::symlink_file;
+#endif
 }
 
 bool Dir_Exists( const std::string &dir )
@@ -67,7 +82,11 @@ bool Dir_Exists( const std::string &dir )
 	fs::file_type type = fs::status( fs::path( dir ) ).type();
 #endif
 
+#ifdef SMC_NO_BOOST
+	return type == fs::file_type::directory || type == fs::file_type::symlink;
+#else
 	return type == fs::directory_file || type == fs::symlink_file;
+#endif
 }
 
 bool Delete_File( const std::string &filename )

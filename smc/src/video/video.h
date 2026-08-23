@@ -309,12 +309,16 @@ public:
 
 	// window manager information
 	SDL_SysWMinfo wm_info;
-#ifdef __unix__
+// Android is __unix__ too, but has no GLX and no boost: EGL owns the
+// context there, and the optional render thread is desktop-only.
+#if defined( __unix__ ) && !defined( __ANDROID__ )
 	// current opengl context
 	GLXContext glx_context;
 #endif
+#ifndef SMC_NO_BOOST
 	// rendering thread
 	boost::thread m_render_thread;
+#endif
 
 private:
 	// if set video is initialized successfully
