@@ -226,12 +226,14 @@ bool cLevel :: Load( std::string filename )
 				pHud_Debug->Set_Text( _("Level loading failed") );
 				return 0;
 			}
+			SDL_Log( "cLevel::Load: parsing %s", filename.c_str() );
 			XMLElement *root = doc.FirstChildElement( "level" );
 			if( !root )
 			{
 				printf( "TinyXML2: no <level> root in '%s'\n", filename.c_str() );
 				return 0;
 			}
+			int sections_seen = 0;
 			for( XMLElement *section = root->FirstChildElement(); section; section = section->NextSiblingElement() )
 			{
 				const char *sname = section->Name();
@@ -253,8 +255,11 @@ bool cLevel :: Load( std::string filename )
 					}
 				}
 				elementEnd( std::string( sname ) );
+				sections_seen++;
 			}
 			elementEnd( "level" );
+			SDL_Log( "cLevel::Load: %d sections, %d sprites in the manager",
+				sections_seen, (int)m_sprite_manager->objects.size() );
 		}
 		catch( std::exception &ex )
 		{

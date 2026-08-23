@@ -345,29 +345,15 @@ void Init_Game( void )
 	// init user dir directory
 	pResource_Manager->Init_User_Directory();
 	// video init
-	SDL_Log("Init_Game: Init_SDL ...");
 	pVideo->Init_SDL();
-	SDL_Log("Init_Game: Init_SDL done");
-	SDL_Log("Init_Game: Init_Video ...");
 	pVideo->Init_Video();
-	SDL_Log("Init_Game: Init_Video done");
-	SDL_Log("Init_Game: Init_CEGUI ...");
 	pVideo->Init_CEGUI();
-	SDL_Log("Init_Game: Init_CEGUI done");
-	SDL_Log("Init_Game: Init_CEGUI_Data ...");
 	pVideo->Init_CEGUI_Data();
-	SDL_Log("Init_Game: Init_CEGUI_Data done");
-	SDL_Log("Init_Game: Init ...");
 	pFont->Init();
-	SDL_Log("Init_Game: Init done");
 	// framerate init ( must be after SDL init because of SDL_GetTicks() )
-	SDL_Log("Init_Game: Init ...");
 	pFramerate->Init();
-	SDL_Log("Init_Game: Init done");
 	// audio init
-	SDL_Log("Init_Game: Init ...");
 	pAudio->Init();
-	SDL_Log("Init_Game: Init done");
 
 	pCampaign_Manager = new cCampaign_Manager();
 	pLevel_Player = new cLevel_Player( NULL );

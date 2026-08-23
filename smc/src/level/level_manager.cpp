@@ -518,6 +518,10 @@ void cLevel_Manager :: Goto_Sub_Level( std::string str_level, const std::string 
 			Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
 			Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 			Game_Action_Data_End.add( "activate_level_entry", str_entry.c_str() );
+#else
+			// Android: no CEGUI attribute bag, hand the target over directly.
+			g_android_pending_level = str_level;
+			g_android_pending_level_entry = str_entry;
 #endif // SMC_NO_CEGUI
 		}
 	}

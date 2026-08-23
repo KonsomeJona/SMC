@@ -56,6 +56,8 @@ CEGUI::XMLAttributes Game_Action_Data_Middle;
 CEGUI::XMLAttributes Game_Action_Data_End;
 #else
 MenuID g_android_next_menu = MENU_MAIN;
+std::string g_android_pending_level;
+std::string g_android_pending_level_entry;
 #endif
 void *Game_Action_ptr = NULL;
 
@@ -160,6 +162,46 @@ void Handle_Game_Events( void )
 				MenuID menu_to_load = g_android_next_menu;
 				g_android_next_menu = MENU_MAIN;  // reset to default for next time
 				pMenuCore->Load( menu_to_load );
+			}
+			else if( new_mode == MODE_LEVEL && !g_android_pending_level.empty() )
+			{
+				// Mirrors the "load_level" / "load_level_entry" branch of
+				// Handle_Generic_Game_Events, which CEGUI drives on desktop.
+				std::string str_level = g_android_pending_level;
+				std::string str_entry = g_android_pending_level_entry;
+				g_android_pending_level.clear();
+				g_android_pending_level_entry.clear();
+
+				cLevel *level = pLevel_Manager->Load( str_level );
+
+				if( level )
+				{
+					pLevel_Manager->Set_Active( level );
+					level->Init();
+
+					if( !str_entry.empty() )
+					{
+						cLevel_Entry *entry = level->Get_Entry( str_entry );
+
+						if( entry )
+						{
+							pLevel_Player->Set_Pos( entry->Get_Player_Pos_X(), entry->Get_Player_Pos_Y() );
+							pActive_Camera->Center();
+						}
+						else
+						{
+							printf( "Warning : Level entry %s not found\n", str_entry.c_str() );
+						}
+					}
+				}
+				else
+				{
+					printf( "Error : Could not load level %s\n", str_level.c_str() );
+					// Fall back to the menu rather than sitting in an empty
+					// MODE_LEVEL, where the player falls forever.
+					Game_Action = GA_ENTER_MENU;
+					g_android_next_menu = MENU_MAIN;
+				}
 			}
 #endif
 			Enter_Game_Mode( new_mode );

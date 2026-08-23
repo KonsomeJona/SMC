@@ -51,6 +51,12 @@ extern CEGUI::XMLAttributes Game_Action_Data_End;
 #else
 // Android: which menu to load on the next GA_ENTER_MENU action (replaces CEGUI "load_menu" attribute)
 extern MenuID g_android_next_menu;
+// Android: which level to load on the next GA_ENTER_LEVEL action, and which
+// entry to place the player at. These replace the CEGUI "load_level" /
+// "load_level_entry" attributes; without them the game switches to MODE_LEVEL
+// with nothing loaded, which is why levels came up black.
+extern std::string g_android_pending_level;
+extern std::string g_android_pending_level_entry;
 #endif
 
 // internal game resolution and is used for global scaling

@@ -347,6 +347,12 @@ void cOverworld_Player :: Activate_Waypoint( void )
 		Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_FIXED_COLORBOX ) );
 		Game_Action_Data_Middle.add( "load_level", waypoint->Get_Destination() );
 		Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_RANDOM ) );
+#else
+		// Android: GA_ENTER_LEVEL above is set either way, but the level name
+		// only travelled inside the CEGUI attribute bag — so the game switched
+		// to MODE_LEVEL with nothing loaded and rendered a black screen.
+		g_android_pending_level = waypoint->Get_Destination();
+		g_android_pending_level_entry.clear();
 #endif
 	}
 	// world link waypoint

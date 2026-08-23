@@ -657,6 +657,12 @@ bool cMenu_Start :: Load_Level( std::string level_name )
 	Game_Action_Data_Middle.add( "reset_save", "1" );
 	Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_RANDOM ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
+#else
+	// Android: the Level tab of the start menu goes straight through the
+	// pending-level handoff (no entry: the level's own default start is used).
+	g_android_pending_level = level_name;
+	g_android_pending_level_entry.clear();
+	pMenuCore->Unload();
 #endif
 
 	return 1;

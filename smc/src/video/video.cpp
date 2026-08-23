@@ -620,14 +620,11 @@ void cVideo :: Init_OpenGL( void )
 	    static_cast<float>(game_res_h) * static_cast<float>(draw_w) / static_cast<float>(draw_h) + 0.5f );
 	SDL_Log( "Init_OpenGL: Android game_res adjusted to %dx%d (screen %.2f:1)",
 	         game_res_w, game_res_h, static_cast<float>(draw_w) / static_cast<float>(draw_h) );
-	SDL_Log("Init_OpenGL: calling GLES2::Init()");
 	GLES2::Init();
-	SDL_Log("Init_OpenGL: GLES2::Init() returned");
 	GLES2::Set_Projection( static_cast<float>(game_res_w),
 	                       static_cast<float>(game_res_h) );
 #endif
 
-	SDL_Log("Init_OpenGL: projection set, configuring GL state");
 	// set clear color to black
 	glClearColor( 0, 0, 0, 1 );
 

@@ -141,7 +141,6 @@ static GLuint link_program(GLuint vert, GLuint frag)
 
 void Init(void)
 {
-    SDL_Log("GLES2::Init: enter, GL_VERSION=%s", (const char *)glGetString(GL_VERSION));
     // --- Textured program ---
     GLuint v = compile_shader(GL_VERTEX_SHADER,   k_vert_textured);
     GLuint f = compile_shader(GL_FRAGMENT_SHADER, k_frag_textured);
@@ -157,7 +156,6 @@ void Init(void)
         s_attr_tex_uv   = glGetAttribLocation (s_prog_tex, "a_texcoord");
     }
 
-    SDL_Log("GLES2::Init: textured program = %u", s_prog_tex);
     // --- Colored program ---
     v = compile_shader(GL_VERTEX_SHADER,   k_vert_colored);
     f = compile_shader(GL_FRAGMENT_SHADER, k_frag_colored);
