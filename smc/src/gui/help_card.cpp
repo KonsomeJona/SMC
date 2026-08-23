@@ -20,18 +20,7 @@
 namespace SMC
 {
 
-// Card palette (RGBA) — cast first arg to Uint8 to disambiguate overloads
-#define RGBA(r,g,b,a) Color( static_cast<Uint8>(r), static_cast<Uint8>(g), static_cast<Uint8>(b), static_cast<Uint8>(a) )
-static const Color COL_OVERLAY    = RGBA(   0,   0,   0, 160 );
-static const Color COL_CARD_BG    = RGBA( 255, 248, 220, 245 );
-static const Color COL_HEADER_BG  = RGBA( 218, 165,  32, 255 );
-static const Color COL_BORDER     = RGBA( 139,  90,  43, 200 );
-static const Color COL_BTN_BG     = RGBA( 218, 165,  32, 255 );
-static const Color COL_BTN_BORDER = RGBA( 139,  90,  43, 255 );
-static const Color COL_TITLE      = RGBA( 255, 255, 255, 255 );
-static const Color COL_BODY       = RGBA(  60,  30,   0, 255 );
-static const Color COL_BTN_TEXT   = RGBA(  60,  30,   0, 255 );
-#undef RGBA
+#include "../gui/ui_palette.h"
 
 static const float HEADER_H      = 44.0f;
 static const float BODY_PAD      = 14.0f;

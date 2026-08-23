@@ -42,28 +42,34 @@
 #include "../gui/modern_ui.h"
 #include "core/sdl2_compat.h"
 #include "../core/debug_log.h"
-#include <signal.h>
-// execinfo.h / backtrace() are glibc; bionic has neither. Android already
-// writes a full native stack to the tombstone and to logcat on a fatal
-// signal, so the handler only needs to name the signal before re-raising.
-#ifndef __ANDROID__
-	#include <execinfo.h>
-	#include <unistd.h>
+#ifdef __ANDROID__
+#include <android/log.h>
+#include <unistd.h>   // chdir — the other unistd.h include is inside a
+                      // #ifndef __ANDROID__ block (backtrace support)
 #endif
+#include <signal.h>
+#ifndef __ANDROID__
+#include <execinfo.h>
 
 static void crash_handler(int sig)
 {
     fprintf(stderr, "[CRASH] Signal %d (%s) received\n", sig, strsignal(sig));
-#ifndef __ANDROID__
     void *buffer[64];
     int nptrs = backtrace(buffer, 64);
     fprintf(stderr, "[CRASH] Backtrace (%d frames):\n", nptrs);
     backtrace_symbols_fd(buffer, nptrs, STDERR_FILENO);
-#endif
     fflush(stderr);
     signal(sig, SIG_DFL);
     raise(sig);
 }
+#else
+static void crash_handler(int sig)
+{
+    fprintf(stderr, "[CRASH] Signal %d received\n", sig);
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+#endif
 
 #ifdef __APPLE__
 // needed for datapath detection
@@ -85,6 +91,33 @@ using namespace SMC;
 
 int main( int argc, char **argv )
 {
+#ifdef __ANDROID__
+	// Every game path is a literal DATA_DIR "/..." with DATA_DIR == "data",
+	// so the process has to run from the directory holding the extracted
+	// data/ tree. SDL leaves the working directory at "/" on Android, which
+	// is why TTF_OpenFont( "data/gui/font/default_bold.ttf" ) used to fail
+	// and take the whole process down through exit( EXIT_FAILURE ).
+	{
+		const char *files_dir = SDL_AndroidGetInternalStoragePath();
+
+		if( !files_dir )
+		{
+			__android_log_print( ANDROID_LOG_ERROR, "SMC",
+				"SDL_AndroidGetInternalStoragePath() returned NULL" );
+		}
+		else if( chdir( files_dir ) != 0 )
+		{
+			__android_log_print( ANDROID_LOG_ERROR, "SMC",
+				"chdir( %s ) failed - game data will not be found", files_dir );
+		}
+		else
+		{
+			__android_log_print( ANDROID_LOG_INFO, "SMC",
+				"working directory set to %s", files_dir );
+		}
+	}
+#endif
+
     signal(SIGSEGV, crash_handler);
     signal(SIGABRT, crash_handler);
     signal(SIGFPE, crash_handler);
@@ -207,6 +240,7 @@ int main( int argc, char **argv )
 		}
 	}
 
+
 	try
 	{
 		// initialize everything
@@ -223,25 +257,33 @@ int main( int argc, char **argv )
 	{
 		Game_Action = GA_ENTER_LEVEL;
 		Game_Mode_Type = MODE_TYPE_LEVEL_CUSTOM;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_level", arguments[2] );
+#endif
 	}
 	// command line world entering
 	else if( argc > 2 && ( arguments[1] == "--world" || arguments[1] == "-w" ) && !arguments[2].empty() )
 	{
 		Game_Action = GA_ENTER_WORLD;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "enter_world", arguments[2] );
+#endif
 	}
 	// enter main menu
 	else
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
+#endif
 	}
 
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 	Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_BLACK ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
+#endif
 
 	// game loop
 	while( !game_exit )
@@ -303,15 +345,29 @@ void Init_Game( void )
 	// init user dir directory
 	pResource_Manager->Init_User_Directory();
 	// video init
+	SDL_Log("Init_Game: Init_SDL ...");
 	pVideo->Init_SDL();
+	SDL_Log("Init_Game: Init_SDL done");
+	SDL_Log("Init_Game: Init_Video ...");
 	pVideo->Init_Video();
+	SDL_Log("Init_Game: Init_Video done");
+	SDL_Log("Init_Game: Init_CEGUI ...");
 	pVideo->Init_CEGUI();
+	SDL_Log("Init_Game: Init_CEGUI done");
+	SDL_Log("Init_Game: Init_CEGUI_Data ...");
 	pVideo->Init_CEGUI_Data();
+	SDL_Log("Init_Game: Init_CEGUI_Data done");
+	SDL_Log("Init_Game: Init ...");
 	pFont->Init();
+	SDL_Log("Init_Game: Init done");
 	// framerate init ( must be after SDL init because of SDL_GetTicks() )
+	SDL_Log("Init_Game: Init ...");
 	pFramerate->Init();
+	SDL_Log("Init_Game: Init done");
 	// audio init
+	SDL_Log("Init_Game: Init ...");
 	pAudio->Init();
+	SDL_Log("Init_Game: Init done");
 
 	pCampaign_Manager = new cCampaign_Manager();
 	pLevel_Player = new cLevel_Player( NULL );
@@ -336,11 +392,13 @@ void Init_Game( void )
 	// note : set any sprite manager as it is set again on game mode switch
 	pHud_Manager = new cHud_Manager( pActive_Level->m_sprite_manager );
 	pLevel_Player->Init();
+#ifndef SMC_NO_EDITOR
 	pLevel_Editor = new cEditor_Level( pActive_Level->m_sprite_manager, pActive_Level );
-	/* note : set any sprite manager as cOverworld_Manager::Load sets it again 
+	/* note : set any sprite manager as cOverworld_Manager::Load sets it again
 	 * parent overworld is also set from there again
 	*/
 	pWorld_Editor = new cEditor_World( pActive_Level->m_sprite_manager, NULL );
+#endif
 	pMouseCursor = new cMouseCursor( pActive_Level->m_sprite_manager );
 	pKeyboard = new cKeyboard();
 	pJoystick = new cJoystick();
@@ -358,8 +416,12 @@ void Init_Game( void )
 	pSavegame = new cSavegame();
 
 	// cache
+	// On Android, skip bulk preloading — 800+ files take minutes on device
+	// storage. Images and sounds load on demand when first used instead.
+#ifndef __ANDROID__
 	Preload_Images( 1 );
 	Preload_Sounds( 1 );
+#endif
 	Loading_Screen_Exit();
 }
 
@@ -397,6 +459,7 @@ void Exit_Game( void )
 		pSound_Manager = NULL;
 	}
 
+#ifndef SMC_NO_EDITOR
 	if( pLevel_Editor )
 	{
 		delete pLevel_Editor;
@@ -408,6 +471,7 @@ void Exit_Game( void )
 		delete pWorld_Editor;
 		pWorld_Editor = NULL;
 	}
+#endif
 
 	if( pPreferences )
 	{
@@ -487,6 +551,7 @@ void Exit_Game( void )
 		pRenderer_current = NULL;
 	}
 
+#ifndef SMC_NO_CEGUI
 	// pGuiSystem / pGuiRenderer are NULL (Init_CEGUI is a stub since M12).
 	// No cleanup needed; guards remain in case CEGUI is re-enabled later.
 	if( pGuiSystem )
@@ -498,6 +563,7 @@ void Exit_Game( void )
 	{
 		pGuiRenderer = NULL;
 	}
+#endif // SMC_NO_CEGUI
 
 	if( pVideo )
 	{
@@ -567,8 +633,8 @@ bool Handle_Input_Global( SDL_Event *ev )
 				glViewport( 0, 0, draw_w, draw_h );
 				// CEGUI resize notification — no-op when CEGUI is not initialised (M12)
 #ifdef __ANDROID__
-				GLES2::Set_Projection( static_cast<float>(draw_w),
-				                       static_cast<float>(draw_h) );
+				GLES2::Set_Projection( static_cast<float>(game_res_w),
+				                       static_cast<float>(game_res_h) );
 #endif
 			}
 			else if( ev->window.event == SDL_WINDOWEVENT_FOCUS_LOST )
@@ -620,6 +686,7 @@ bool Handle_Input_Global( SDL_Event *ev )
 		}
 		case SDL_TEXTINPUT:
 		{
+#ifndef SMC_NO_CEGUI
 			// Text input was forwarded to CEGUI for editbox input.
 			// CEGUI is not initialised in M12; the editor (which uses CEGUI editboxes)
 			// handles its own text input internally via pGuiSystem when it is active.
@@ -637,10 +704,12 @@ bool Handle_Input_Global( SDL_Event *ev )
 					pGuiSystem->getDefaultGUIContext().injectChar( cp );
 				}
 			}
+#endif // SMC_NO_CEGUI
 			break;
 		}
 		case SDL_MOUSEWHEEL:
 		{
+#ifndef SMC_NO_CEGUI
 			// SDL2 mouse wheel events — forward to CEGUI only when it is initialised
 			if( pGuiSystem )
 			{
@@ -649,6 +718,7 @@ bool Handle_Input_Global( SDL_Event *ev )
 				else if( ev->wheel.y < 0 )
 					pGuiSystem->getDefaultGUIContext().injectMouseWheelChange( -1.0f );
 			}
+#endif // SMC_NO_CEGUI
 			break;
 		}
 		case SDL_JOYBUTTONDOWN:
@@ -731,6 +801,7 @@ bool Handle_Input_Global( SDL_Event *ev )
 			}
 
 			// send events
+#ifndef SMC_NO_EDITOR
 			if( Game_Mode == MODE_LEVEL )
 			{
 				// editor events
@@ -753,6 +824,7 @@ bool Handle_Input_Global( SDL_Event *ev )
 					}
 				}
 			}
+#endif
 			else if( Game_Mode == MODE_MENU )
 			{
 				if( pMenuCore->Handle_Event( ev ) )
@@ -833,11 +905,13 @@ void Update_Game( void )
 		LOG_DEBUG(GAME, "Update_Game: MODE_MENU");
 		pMenuCore->Update();
 	}
+#ifndef SMC_NO_EDITOR
 	else if( Game_Mode == MODE_LEVEL_SETTINGS )
 	{
 		LOG_DEBUG(GAME, "Update_Game: MODE_LEVEL_SETTINGS");
 		pLevel_Editor->m_settings_screen->Update();
 	}
+#endif
 
 	// gui
 	Gui_Handle_Time();
@@ -866,10 +940,12 @@ void Draw_Game( void )
 	{
 		pMenuCore->Draw();
 	}
+#ifndef SMC_NO_EDITOR
 	else if( Game_Mode == MODE_LEVEL_SETTINGS )
 	{
 		pLevel_Editor->m_settings_screen->Draw();
 	}
+#endif
 
 	// Mouse
 	pMouseCursor->Draw();

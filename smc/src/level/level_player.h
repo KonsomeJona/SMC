@@ -239,8 +239,10 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
+#endif
 
 	// current Maryo type
 	Maryo_type m_maryo_type;

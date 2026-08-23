@@ -27,10 +27,14 @@
 #include "../objects/path.h"
 #include "../input/mouse.h"
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
-#include "elements/CEGUIEditbox.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#include <CEGUI/widgets/Editbox.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -1067,6 +1071,7 @@ void cMoving_Platform :: Handle_Collision_Enemy( cObjectCollision *collision )
 	Handle_Move_Object_Collision( collision );
 }
 
+#ifndef SMC_NO_CEGUI
 void cMoving_Platform :: Editor_Activate( void )
 {
 	// get window manager
@@ -1123,7 +1128,7 @@ void cMoving_Platform :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_moving_platform_max_distance" ));
 	Editor_Add( UTF8_("Distance"), UTF8_("Movable distance into its direction if type is line or radius if circle."), editbox, 120 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_max_distance ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cMoving_Platform::Editor_Max_Distance_Text_Changed, this ) );
 
@@ -1131,7 +1136,7 @@ void cMoving_Platform :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_moving_platform_speed" ));
 	Editor_Add( UTF8_("Speed"), UTF8_("Maximum speed"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_speed, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cMoving_Platform::Editor_Speed_Text_Changed, this ) );
 
@@ -1139,7 +1144,7 @@ void cMoving_Platform :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_moving_platform_touch_time" ));
 	Editor_Add( UTF8_("Touch time"), UTF8_("Time when touched until shaking starts"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_touch_time, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cMoving_Platform::Editor_Touch_Time_Text_Changed, this ) );
 
@@ -1147,7 +1152,7 @@ void cMoving_Platform :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_moving_platform_shake_time" ));
 	Editor_Add( UTF8_("Shake time"), UTF8_("Time it's shaking until falling"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_shake_time, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cMoving_Platform::Editor_Shake_Time_Text_Changed, this ) );
 
@@ -1155,7 +1160,7 @@ void cMoving_Platform :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_moving_platform_move_time" ));
 	Editor_Add( UTF8_("Touch move time"), UTF8_("If set does not move until this time has elapsed after touched"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_touch_move_time, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cMoving_Platform::Editor_Touch_Move_Time_Text_Changed, this ) );
 
@@ -1163,7 +1168,7 @@ void cMoving_Platform :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_moving_platform_hor_middle_count" ));
 	Editor_Add( UTF8_("Hor image count"), UTF8_("Horizontal middle image count"), editbox, 120 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_middle_count ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cMoving_Platform::Editor_Hor_Middle_Count_Text_Changed, this ) );
 
@@ -1197,11 +1202,11 @@ void cMoving_Platform :: Editor_State_Update( void )
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
 
 	// path identifier
-	CEGUI::Editbox *editbox_path_identifier = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "editor_moving_platform_path_identifier" ));
+	CEGUI::Editbox *editbox_path_identifier = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_moving_platform_path_identifier" ));
 	// direction
-	CEGUI::Combobox *combobox_direction = static_cast<CEGUI::Combobox *>(wmgr.getWindow( "editor_moving_platform_direction" ));
+	CEGUI::Combobox *combobox_direction = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_moving_platform_direction" ));
 	// max distance
-	CEGUI::Editbox *editbox_max_distance = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "editor_moving_platform_max_distance" ));
+	CEGUI::Editbox *editbox_max_distance = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_moving_platform_max_distance" ));
 
 	if( m_move_type == MOVING_PLATFORM_TYPE_PATH || m_move_type == MOVING_PLATFORM_TYPE_PATH_BACKWARDS )
 	{
@@ -1391,6 +1396,10 @@ bool cMoving_Platform :: Editor_Image_Top_Right_Text_Changed( const CEGUI::Event
 
 	return 1;
 }
+#else
+void cMoving_Platform :: Editor_Activate( void ) {}
+void cMoving_Platform :: Editor_State_Update( void ) {}
+#endif // SMC_NO_CEGUI
 
 void cMoving_Platform :: Create_Name( void )
 {

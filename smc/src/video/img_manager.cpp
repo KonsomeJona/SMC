@@ -16,9 +16,11 @@
 #include "../video/img_manager.h"
 #include "../video/renderer.h"
 #include "../core/i18n.h"
+#ifndef SMC_NO_CEGUI
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIProgressBar.h"
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/ProgressBar.h>
+#endif
 
 namespace SMC
 {
@@ -113,13 +115,17 @@ cGL_Surface *cImage_Manager :: Copy( const std::string &path )
 void cImage_Manager :: Grab_Textures( bool from_file /* = 0 */, bool draw_gui /* = 0 */ )
 {
 	// progress bar
+#ifndef SMC_NO_CEGUI
 	CEGUI::ProgressBar *progress_bar = NULL;
+#endif
 
 	if( draw_gui )
 	{
+#ifndef SMC_NO_CEGUI
 		// get progress bar
-		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI::WindowManager::getSingleton().getWindow( "progress_bar" ));
+		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
 		progress_bar->setProgress( 0 );
+#endif
 		// set loading screen text
 		Loading_Screen_Draw_Text( _("Saving Textures") );
 	}
@@ -153,9 +159,10 @@ void cImage_Manager :: Grab_Textures( bool from_file /* = 0 */, bool draw_gui /*
 		// draw
 		if( draw_gui )
 		{
+#ifndef SMC_NO_CEGUI
 			// update progress
 			progress_bar->setProgress( static_cast<float>(loaded_files) / static_cast<float>(file_count) );
-
+#endif
 			Loading_Screen_Draw();
 		}
 	}
@@ -164,13 +171,17 @@ void cImage_Manager :: Grab_Textures( bool from_file /* = 0 */, bool draw_gui /*
 void cImage_Manager :: Restore_Textures( bool draw_gui /* = 0 */ )
 {
 	// progress bar
+#ifndef SMC_NO_CEGUI
 	CEGUI::ProgressBar *progress_bar = NULL;
+#endif
 
 	if( draw_gui )
 	{
+#ifndef SMC_NO_CEGUI
 		// get progress bar
-		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI::WindowManager::getSingleton().getWindow( "progress_bar" ));
+		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
 		progress_bar->setProgress( 0 );
+#endif
 		// set loading screen text
 		Loading_Screen_Draw_Text( _("Restoring Textures") );
 	}
@@ -195,9 +206,10 @@ void cImage_Manager :: Restore_Textures( bool draw_gui /* = 0 */ )
 		// draw
 		if( draw_gui )
 		{
+#ifndef SMC_NO_CEGUI
 			// update progress
 			progress_bar->setProgress( static_cast<float>(loaded_files) / static_cast<float>(file_count) );
-
+#endif
 			Loading_Screen_Draw();
 		}
 	}

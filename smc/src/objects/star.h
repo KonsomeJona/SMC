@@ -33,7 +33,7 @@ public:
 	cjStar( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
 	// destructor
 	virtual ~cjStar( void );
-	
+
 	// init defaults
 	void Init( void );
 	// copy

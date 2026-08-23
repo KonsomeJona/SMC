@@ -21,7 +21,12 @@
 #include "../video/video.h"
 #include "../core/collision.h"
 // CEGUI
-#include "CEGUIXMLSerializer.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLSerializer.h>
+  #include <CEGUI/XMLAttributes.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -211,7 +216,7 @@ public:
 	void Set_Color_Combine( const float red, const float green, const float blue, const GLint com_type );
 
 	/* Set if rotation affects the collision rect
-	 * only supports 90° steps currently
+	 * only supports 90ï¿½ steps currently
 	 * if enabled col_pos, col_rect and rect must be reset manually before changing rotation
 	*/
 	inline void Set_Rotation_Affects_Rect( bool enable = 0 )
@@ -416,8 +421,10 @@ public:
 	*/
 	virtual void Destroy( void );
 
+#ifndef SMC_NO_CEGUI
 	// editor add window object
 	void Editor_Add( const CEGUI::String &name, const CEGUI::String &tooltip, CEGUI::Window *window_setting, float obj_width, float obj_height = 28, bool advance_row = 1 );
+#endif
 	// editor activation
 	virtual void Editor_Activate( void );
 	// editor deactivation
@@ -429,8 +436,10 @@ public:
 	// editor state update
 	virtual void Editor_State_Update( void ) {};
 
+#ifndef SMC_NO_CEGUI
 	// editor image text changed event
 	bool Editor_Image_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// current image used for drawing
 	cGL_Surface *m_image;

@@ -15,6 +15,8 @@
 
 #include "../../core/filesystem/filesystem.h"
 #include "../../core/game_core.h"
+#ifndef SMC_NO_BOOST
+// boost filesystem
 // filesystem: boost on desktop, the C++17 standard one on Android (bionic has
 // no boost, and libc++ in NDK 26 ships <filesystem>). The two APIs match here
 // except for the file_type enumerators, spelled fs::file_type::regular in the
@@ -26,9 +28,17 @@
 	#include "boost/filesystem/convenience.hpp"
 	namespace fs = boost::filesystem;
 #endif
+#endif
 // needed for the stat function and to get the user directory on unix
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifdef SMC_NO_BOOST
+#include <dirent.h>
+#include <errno.h>
+#endif
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #if _WIN32
 	// needed to get the user directory (SHGetFolderPath)
 	#include <shlobj.h>
@@ -59,6 +69,7 @@ std::string Trim_Filename( std::string filename, bool keep_dir /* = 1 */, bool k
 
 bool File_Exists( const std::string &filename )
 {
+#ifndef SMC_NO_BOOST
 // fixme : boost should use a codecvt_facet but for now we convert to UCS-2
 #ifdef _WIN32
 	fs::file_type type = fs::status( fs::path( utf8_to_ucs2( filename ) ) ).type();
@@ -71,10 +82,17 @@ bool File_Exists( const std::string &filename )
 #else
 	return type == fs::regular_file || type == fs::symlink_file;
 #endif
+#else
+	struct stat file_info;
+	if( stat( filename.c_str(), &file_info ) != 0 )
+		return false;
+	return S_ISREG(file_info.st_mode) || S_ISLNK(file_info.st_mode);
+#endif
 }
 
 bool Dir_Exists( const std::string &dir )
 {
+#ifndef SMC_NO_BOOST
 // fixme : boost should use a codecvt_facet but for now we convert to UCS-2
 #ifdef _WIN32
 	fs::file_type type = fs::status( fs::path( utf8_to_ucs2( dir ) ) ).type();
@@ -86,6 +104,12 @@ bool Dir_Exists( const std::string &dir )
 	return type == fs::file_type::directory || type == fs::file_type::symlink;
 #else
 	return type == fs::directory_file || type == fs::symlink_file;
+#endif
+#else
+	struct stat file_info;
+	if( stat( dir.c_str(), &file_info ) != 0 )
+		return false;
+	return S_ISDIR(file_info.st_mode) || S_ISLNK(file_info.st_mode);
 #endif
 }
 
@@ -111,11 +135,16 @@ bool Delete_Dir( const std::string &dir )
 
 bool Delete_Dir_And_Content( const std::string &dir )
 {
+#ifndef SMC_NO_BOOST
 // fixme : boost should use a codecvt_facet but for now we convert to UCS-2
 #ifdef _WIN32
 	return fs::remove_all( fs::path( utf8_to_ucs2( dir ).c_str() ) ) > 0;
 #else
 	return fs::remove_all( fs::path( dir ) ) > 0;
+#endif
+#else
+	// Android fallback: not implemented (recursive delete not needed on Android)
+	return false;
 #endif
 }
 
@@ -139,6 +168,8 @@ bool Create_Directory( const std::string &dir )
 // fixme : boost should use a codecvt_facet but for now we convert to UCS-2
 #ifdef _WIN32
 	return CreateDirectory( utf8_to_ucs2( dir ).c_str(), NULL ) != 0;
+#elif defined(SMC_NO_BOOST)
+	return mkdir( dir.c_str(), 0755 ) == 0;
 #else
 	return fs::create_directory( fs::path( dir ) );
 #endif
@@ -146,11 +177,25 @@ bool Create_Directory( const std::string &dir )
 
 bool Create_Directories( const std::string &dir )
 {
+#ifndef SMC_NO_BOOST
 // fixme : boost should use a codecvt_facet but for now we convert to UCS-2
 #ifdef _WIN32
 	return fs::create_directories( fs::path( utf8_to_ucs2( dir ).c_str() ) );
 #else
 	return fs::create_directories( fs::path( dir ) );
+#endif
+#else
+	// Android fallback: create directories recursively using mkdir
+	std::string path = dir;
+	for( std::string::iterator itr = path.begin(); itr != path.end(); ++itr )
+	{
+		if( *itr == '/' && itr != path.begin() )
+		{
+			std::string sub( path.begin(), itr );
+			mkdir( sub.c_str(), 0755 );
+		}
+	}
+	return mkdir( path.c_str(), 0755 ) == 0 || errno == EEXIST;
 #endif
 }
 
@@ -192,6 +237,7 @@ vector<std::string> Get_Directory_Files( const std::string &dir, const std::stri
 {
 	vector<std::string> valid_files;
 
+#ifndef SMC_NO_BOOST
 // fixme : boost should use a codecvt_facet but for now we convert to UCS-2
 #ifdef _WIN32
 	fs::path full_path( utf8_to_ucs2( dir ) );
@@ -239,6 +285,45 @@ vector<std::string> Get_Directory_Files( const std::string &dir, const std::stri
 			printf( "%s %s\n", dir_itr->path().string().c_str(), ex.what() );
 		}
 	}
+#else
+	// Android fallback: use POSIX dirent
+	DIR *dp = opendir( dir.c_str() );
+	if( dp )
+	{
+		struct dirent *ep;
+		while( (ep = readdir( dp )) != NULL )
+		{
+			const std::string filename_str = ep->d_name;
+
+			// skip hidden entries
+			if( filename_str.find( "." ) == 0 )
+				continue;
+
+			const std::string full_entry = dir + "/" + filename_str;
+
+			struct stat entry_info;
+			if( stat( full_entry.c_str(), &entry_info ) != 0 )
+				continue;
+
+			if( S_ISDIR(entry_info.st_mode) )
+			{
+				if( with_directories )
+					valid_files.push_back( full_entry );
+
+				if( search_in_sub_directories )
+				{
+					vector<std::string> new_valid_files = Get_Directory_Files( full_entry, file_type, with_directories );
+					valid_files.insert( valid_files.end(), new_valid_files.begin(), new_valid_files.end() );
+				}
+			}
+			else if( file_type.empty() || filename_str.rfind( file_type ) != std::string::npos )
+			{
+				valid_files.push_back( full_entry );
+			}
+		}
+		closedir( dp );
+	}
+#endif
 
 	return valid_files;
 }
@@ -261,7 +346,11 @@ std::string Get_Temp_Directory( void )
 
 	return str_path;
 #else
+#ifndef SMC_NO_BOOST
 	return fs::temp_directory_path().generic_string();
+#else
+	return "/tmp";
+#endif
 #endif
 }
 
@@ -286,6 +375,11 @@ std::string Get_User_Directory( void )
 	WriteConsole( std_out, str.c_str(), lstrlen(str.c_str()), &chars, NULL );*/
 
 	return str_path + "/smc/";
+#elif defined(__ANDROID__)
+	{
+		const char *dir = getenv( "SMC_USER_DIR" );
+		return dir ? std::string(dir) + "/" : "";
+	}
 #elif __unix__
 	return (std::string)getenv( "HOME" ) + "/.smc/";
 #elif __APPLE__

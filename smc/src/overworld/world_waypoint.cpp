@@ -24,11 +24,13 @@
 #include "../core/i18n.h"
 #include "../video/gl_surface.h"
 #include "../core/filesystem/filesystem.h"
+#ifndef SMC_NO_CEGUI
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#endif
 
 namespace SMC
 {
@@ -413,6 +415,7 @@ std::string cWaypoint :: Get_Destination( bool with_dir /* = 0 */, bool with_end
 	return name;
 }
 
+#ifndef SMC_NO_CEGUI
 void cWaypoint :: Editor_Activate( void )
 {
 	// get window manager
@@ -553,6 +556,9 @@ bool cWaypoint :: Editor_Access_Select( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cWaypoint :: Editor_Activate( void ) {}
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

@@ -18,7 +18,7 @@
 
 #include "../core/global_basic.h"
 // SDL
-#include "SDL.h"
+#include "core/sdl2_compat.h"
 
 namespace SMC
 {

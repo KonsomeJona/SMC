@@ -27,6 +27,8 @@
 #include "../user/preferences.h"
 #include "../level/level_editor.h"
 #include "../overworld/world_editor.h"
+#include "core/sdl2_compat.h"
+#include "../core/debug_log.h"
 
 namespace SMC
 {
@@ -51,26 +53,40 @@ void cKeyboard :: Reset_Keys( void )
 
 bool cKeyboard :: CEGUI_Handle_Key_Up( SDLKey key ) const
 {
+#ifndef SMC_NO_CEGUI
 	// inject the scancode directly
-	if( pGuiSystem->injectKeyUp( SDLKey_to_CEGUIKey( key ) ) )
+	if( pGuiSystem->getDefaultGUIContext().injectKeyUp( static_cast<CEGUI::Key::Scan>(SDLKey_to_CEGUIKey( key )) ) )
 	{
 		// input was processed by the gui system
 		return 1;
 	}
-
+#endif // SMC_NO_CEGUI
 	return 0;
 }
 
 bool cKeyboard :: Key_Up( SDLKey key )
 {
-	// set key to 0
-	m_keys[key] = 0;
+	LOG_DEBUG(INPUT, "Key_Up: key=%s sym=%d", SDL_GetKeyName(key), key);
 
-	// input was processed by the gui system
-	if( CEGUI_Handle_Key_Up( key ) )
+	// set key to 0
+	SDL_Scancode sc = SDL_GetScancodeFromKey( key );
+	if( sc < SDL_NUM_SCANCODES ) m_keys[sc] = 0;
+
+	// In game modes, don't let CEGUI block key up events
+#ifndef SMC_NO_CEGUI
+	if( Game_Mode == MODE_MENU || Game_Mode == MODE_LEVEL || Game_Mode == MODE_OVERWORLD )
 	{
-		return 1;
+		CEGUI_Handle_Key_Up( key );
 	}
+	else
+	{
+		if( CEGUI_Handle_Key_Up( key ) )
+		{
+			LOG_DEBUG(CEGUI_LOG, "Key_Up: CEGUI consumed key=%s", SDL_GetKeyName(key));
+			return 1;
+		}
+	}
+#endif // SMC_NO_CEGUI
 
 	// handle key in the current mode
 	if( Game_Mode == MODE_LEVEL )
@@ -95,36 +111,45 @@ bool cKeyboard :: Key_Up( SDLKey key )
 
 bool cKeyboard :: CEGUI_Handle_Key_Down( SDLKey key ) const
 {
+#ifndef SMC_NO_CEGUI
 	// inject the scancode
-	if( pGuiSystem->injectKeyDown( SDLKey_to_CEGUIKey( key ) ) == 1 )
+	if( pGuiSystem->getDefaultGUIContext().injectKeyDown( static_cast<CEGUI::Key::Scan>(SDLKey_to_CEGUIKey( key )) ) == 1 )
 	{
 		// input got processed by the gui system
 		return 1;
 	}
 
-	// use for translated unicode value
-	if( input_event.key.keysym.unicode != 0 )
-	{
-		if( pGuiSystem->injectChar( input_event.key.keysym.unicode ) )
-		{
-			// input got processed by the gui system
-			return 1;
-		}
-	}
-
+	// Unicode text input is handled via SDL_TEXTINPUT events
+#endif // SMC_NO_CEGUI
 	return 0;
 }
 
 bool cKeyboard :: Key_Down( SDLKey key )
 {
-	// input was processed by the gui system
-	if( CEGUI_Handle_Key_Down( key ) )
-	{
-		return 1;
-	}
+	LOG_DEBUG(INPUT, "Key_Down: key=%s sym=%d scancode=%d", SDL_GetKeyName(key), key, SDL_GetScancodeFromKey(key));
 
 	// set key to 1
-	m_keys[key] = 1;
+	SDL_Scancode sc = SDL_GetScancodeFromKey( key );
+	if( sc < SDL_NUM_SCANCODES ) m_keys[sc] = 1;
+
+	// In menu/level/overworld mode, handle game input first before CEGUI
+	// This prevents CEGUI from eating arrow keys and Enter that the game needs
+#ifndef SMC_NO_CEGUI
+	if( Game_Mode == MODE_MENU || Game_Mode == MODE_LEVEL || Game_Mode == MODE_OVERWORLD )
+	{
+		// still inject to CEGUI but don't let it block game input
+		CEGUI_Handle_Key_Down( key );
+	}
+	else
+	{
+		// For other modes (editor, settings), let CEGUI have priority
+		if( CEGUI_Handle_Key_Down( key ) )
+		{
+			LOG_DEBUG(CEGUI_LOG, "Key_Down: CEGUI consumed key=%s", SDL_GetKeyName(key));
+			return 1;
+		}
+	}
+#endif // SMC_NO_CEGUI
 
 	// ## first the internal keys
 
@@ -166,8 +191,10 @@ bool cKeyboard :: Key_Down( SDLKey key )
 	}
 
 	// handle key in the current mode
+	LOG_DEBUG(INPUT, "Key_Down: dispatching to Game_Mode=%d", Game_Mode);
 	if( Game_Mode == MODE_LEVEL )
 	{
+		LOG_DEBUG(INPUT, "Key_Down: forwarding to MODE_LEVEL handler");
 		// processed by the level
 		if( pActive_Level->Key_Down( key ) )
 		{
@@ -176,6 +203,7 @@ bool cKeyboard :: Key_Down( SDLKey key )
 	}
 	else if( Game_Mode == MODE_OVERWORLD )
 	{
+		LOG_DEBUG(INPUT, "Key_Down: forwarding to MODE_OVERWORLD handler");
 		// processed by the overworld
 		if( pActive_Overworld->Key_Down( key ) )
 		{
@@ -184,6 +212,7 @@ bool cKeyboard :: Key_Down( SDLKey key )
 	}
 	else if( Game_Mode == MODE_MENU )
 	{
+		LOG_DEBUG(INPUT, "Key_Down: forwarding to MODE_MENU handler");
 		// processed by the menu
 		if( pMenuCore->Key_Down( key ) )
 		{
@@ -192,11 +221,14 @@ bool cKeyboard :: Key_Down( SDLKey key )
 	}
 	else if( Game_Mode == MODE_LEVEL_SETTINGS )
 	{
+		LOG_DEBUG(INPUT, "Key_Down: forwarding to MODE_LEVEL_SETTINGS handler");
+#ifndef SMC_NO_EDITOR
 		// processed by the level settings
 		if( pLevel_Editor->m_settings_screen->Key_Down( key ) )
 		{
 			return 1;
 		}
+#endif // SMC_NO_EDITOR
 	}
 
 	// set fixed speed factor mode
@@ -235,12 +267,16 @@ bool cKeyboard :: Key_Down( SDLKey key )
 	// load a level
 	else if( key == SDLK_l && pKeyboard->Is_Ctrl_Down() && !( Game_Mode == MODE_OVERWORLD && pOverworld_Manager->m_debug_mode ) && Game_Mode != MODE_LEVEL_SETTINGS )
 	{
+#ifndef SMC_NO_EDITOR
 		pLevel_Editor->Function_Load();
+#endif // SMC_NO_EDITOR
 	}
 	// load an overworld
 	else if( key == SDLK_w && pKeyboard->Is_Ctrl_Down() && !( Game_Mode == MODE_OVERWORLD && pOverworld_Manager->m_debug_mode ) && Game_Mode != MODE_LEVEL_SETTINGS )
 	{
+#ifndef SMC_NO_EDITOR
 		pWorld_Editor->Function_Load();
+#endif // SMC_NO_EDITOR
 	}
 	// sound toggle
 	else if( key == SDLK_F10 )
@@ -308,6 +344,7 @@ bool cKeyboard :: Key_Down( SDLKey key )
 
 unsigned int cKeyboard :: SDLKey_to_CEGUIKey( const SDLKey key ) const
 {
+#ifndef SMC_NO_CEGUI
     switch( key )
     {
     case SDLK_BACKSPACE:    return CEGUI::Key::Backspace;
@@ -419,6 +456,9 @@ unsigned int cKeyboard :: SDLKey_to_CEGUIKey( const SDLKey key ) const
     case SDLK_POWER:        return CEGUI::Key::Power;
     default:                return 0;
     }
+#else
+    return 0;
+#endif // SMC_NO_CEGUI
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */

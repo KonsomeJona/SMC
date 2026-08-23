@@ -26,8 +26,12 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "CEGUIFontManager.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/FontManager.h>
+#include <CEGUI/GUIContext.h>
+#include <CEGUI/Window.h>
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -884,12 +888,14 @@ cDebugDisplay :: cDebugDisplay( cSprite_Manager *sprite_manager )
 	m_active_counter = -1;
 
 	// debug text window
-	m_window_debug_text = CEGUI::WindowManager::getSingleton().loadWindowLayout( "debugtext.layout" );
-	pGuiSystem->getGUISheet()->addChildWindow( m_window_debug_text );
+#ifndef SMC_NO_CEGUI
+	m_window_debug_text = CEGUI::WindowManager::getSingleton().loadLayoutFromFile( "debugtext.layout" );
+	pGuiSystem->getDefaultGUIContext().getRootWindow()->addChild( m_window_debug_text );
 	// debug text
-	m_text_debug_text = static_cast<CEGUI::Window *>(CEGUI::WindowManager::getSingleton().getWindow( "text_debugmessage" ));
+	m_text_debug_text = static_cast<CEGUI::Window *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "text_debugmessage" ));
 	// hide
 	m_text_debug_text->setVisible( 0 );
+#endif // SMC_NO_CEGUI
 
 	// debug box positions
 	float tempx = static_cast<float>(game_res_w) - 200.0f;
@@ -932,8 +938,10 @@ cDebugDisplay :: cDebugDisplay( cSprite_Manager *sprite_manager )
 
 cDebugDisplay :: ~cDebugDisplay( void )
 {
-	pGuiSystem->getGUISheet()->removeChildWindow( m_window_debug_text );
+#ifndef SMC_NO_CEGUI
+	pGuiSystem->getDefaultGUIContext().getRootWindow()->removeChild( m_window_debug_text );
 	CEGUI::WindowManager::getSingleton().destroyWindow( m_window_debug_text );
+#endif // SMC_NO_CEGUI
 
 	for( HudSpriteList::iterator itr = m_sprites.begin(); itr != m_sprites.end(); ++itr )
 	{
@@ -957,7 +965,9 @@ void cDebugDisplay :: Update( void )
 		m_text.clear();
 		m_text_old.clear();
 
+#ifndef SMC_NO_CEGUI
 		m_text_debug_text->setVisible( 0 );
+#endif // SMC_NO_CEGUI
 		return;
 	}
 
@@ -968,6 +978,7 @@ void cDebugDisplay :: Update( void )
 	if( m_text.compare( m_text_old ) != 0 )
 	{
 		m_text_old = m_text;
+#ifndef SMC_NO_CEGUI
 		CEGUI::String gui_text = reinterpret_cast<const CEGUI::utf8*>(m_text.c_str());
 
 		// display the new text
@@ -990,8 +1001,9 @@ void cDebugDisplay :: Update( void )
 		// add newlines
 		text_height *= 1 + std::count(m_text.begin(), m_text.end(), '\n');
 
-		m_text_debug_text->setSize( CEGUI::UVector2( CEGUI::UDim( 0, ( text_width + 15 ) * global_upscalex ), CEGUI::UDim( 0, ( text_height + 15 ) * global_upscaley ) ) );
+		m_text_debug_text->setSize( CEGUI::USize( CEGUI::UDim( 0, ( text_width + 15 ) * global_upscalex ), CEGUI::UDim( 0, ( text_height + 15 ) * global_upscaley ) ) );
 		m_text_debug_text->setXPosition( CEGUI::UDim( 0, ( ( game_res_w * 0.5f ) - text_width * 0.5f ) * global_upscalex ) );
+#endif // SMC_NO_CEGUI
 	}
 }
 

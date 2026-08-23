@@ -73,6 +73,7 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor type option selected event
 	bool Editor_Type_Select( const CEGUI::EventArgs &event );
 	// editor destination text changed event
@@ -83,6 +84,7 @@ public:
 	bool Editor_Backward_Direction_Select( const CEGUI::EventArgs &event );
 	// editor direction forward option selected event
 	bool Editor_Forward_Direction_Select( const CEGUI::EventArgs &event );
+#endif
 
 	// forward direction
 	ObjectDirection m_direction_forward;

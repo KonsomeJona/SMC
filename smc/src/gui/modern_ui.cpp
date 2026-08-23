@@ -16,20 +16,12 @@
 namespace SMC { /* pulling in SMC globals */ }
 using namespace SMC;
 
+#include "../gui/ui_palette.h"
+
 // ---------------------------------------------------------------------------
-// Palette — matches help_card.cpp exactly
+// Timing constants
 // ---------------------------------------------------------------------------
-#define RGBA(r,g,b,a) Color( static_cast<Uint8>(r), static_cast<Uint8>(g), static_cast<Uint8>(b), static_cast<Uint8>(a) )
-static const Color COL_CARD_BG    = RGBA( 255, 248, 220, 245 );
-static const Color COL_HEADER_BG  = RGBA( 218, 165,  32, 255 );
-static const Color COL_BORDER     = RGBA( 139,  90,  43, 200 );
-static const Color COL_BTN_BG     = RGBA( 218, 165,  32, 255 );
-static const Color COL_BTN_BORDER = RGBA( 139,  90,  43, 255 );
-static const Color COL_TITLE      = RGBA( 255, 255, 255, 255 );
-static const Color COL_BODY       = RGBA(  60,  30,   0, 255 );
-static const Color COL_SELECTED   = RGBA( 218, 165,  32, 255 );
-static const Color COL_HOVER      = RGBA( 255, 248, 220, 200 );
-#undef RGBA
+static const Uint32 DCLICK_MS = 300;  // double-click window in milliseconds
 
 // ---------------------------------------------------------------------------
 // Z-depth constants
@@ -278,12 +270,12 @@ int Scroll_List( float x, float y, float w, float h,
         {
             Uint32 now = SDL_GetTicks();
             bool double_click = ( s_last_clicked_item == i )
-                             && ( now - s_last_click_time < 300 );
+                             && ( now - s_last_click_time < DCLICK_MS );
 
             s_last_clicked_item = i;
             s_last_click_time   = now;
 
-            result = double_click ? ( i | 0x8000 ) : i;
+            result = double_click ? ( i | SCROLL_LIST_DCLICK_FLAG ) : i;
         }
     }
 
@@ -325,9 +317,8 @@ bool Toggle_Row( float x, float y, float w,
     pVideo->Draw_Rect( btn_x, btn_y, btn_w, btn_h, Z_CONT, &btn_bg );
 
     // Button label
-    std::string btn_label = value ? "ON" : "OFF";
     Color btn_text = value ? COL_TITLE : COL_BODY;
-    Draw_Text_Centered( btn_label, btn_x, btn_y, btn_w, btn_h, Z_TEXT, btn_text, pd );
+    Draw_Text_Centered( value ? "ON" : "OFF", btn_x, btn_y, btn_w, btn_h, Z_TEXT, btn_text, pd );
 
     // Hit test
     if( s_mouse_clicked && Hit( btn_x, btn_y, btn_w, btn_h ) )

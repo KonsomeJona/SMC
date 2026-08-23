@@ -26,11 +26,15 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
-#include "elements/CEGUIEditbox.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#include <CEGUI/widgets/Editbox.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -776,6 +780,7 @@ void cThromp :: Handle_out_of_Level( ObjectDirection dir )
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cThromp :: Editor_Activate( void )
 {
 	// get window manager
@@ -804,7 +809,7 @@ void cThromp :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_thromp_max_distance" ));
 	Editor_Add( UTF8_("Distance"), UTF8_("Detection distance into its direction"), editbox, 90 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_max_distance) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cThromp::Editor_Max_Distance_Text_Changed, this ) );
 
@@ -812,7 +817,7 @@ void cThromp :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_thromp_speed" ));
 	Editor_Add( UTF8_("Speed"), UTF8_("Speed when activated"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_speed, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cThromp::Editor_Speed_Text_Changed, this ) );
 
@@ -859,6 +864,9 @@ bool cThromp :: Editor_Speed_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cThromp :: Editor_Activate( void ) {}
+#endif
 
 void cThromp :: Create_Name( void )
 {

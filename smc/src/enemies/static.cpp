@@ -24,11 +24,15 @@
 #include "../objects/path.h"
 #include "../core/filesystem/filesystem.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -364,6 +368,7 @@ void cStaticEnemy :: Handle_Collision_Enemy( cObjectCollision *collision )
 	enemy->DownGrade( 1 );
 }
 
+#ifndef SMC_NO_CEGUI
 void cStaticEnemy :: Editor_Activate( void )
 {
 	// get window manager
@@ -380,7 +385,7 @@ void cStaticEnemy :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_static_enemy_rotation_speed" ));
 	Editor_Add( UTF8_("Rotation Speed"), UTF8_("Rotation Speed"), editbox, 120 );
 
-	editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_rotation_speed, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cStaticEnemy::Editor_Rotation_Speed_Text_Changed, this ) );
 
@@ -395,7 +400,7 @@ void cStaticEnemy :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_static_enemy_speed" ));
 	Editor_Add( UTF8_("Speed"), UTF8_("Maximum speed"), editbox, 120 );
 
-	editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_speed, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cStaticEnemy::Editor_Speed_Text_Changed, this ) );
 
@@ -421,7 +426,7 @@ void cStaticEnemy :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_static_enemy_ice_resistance" ));
 	Editor_Add( UTF8_("Ice Resistance"), UTF8_("Resistance against Ice (0.0-1.0)"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_ice_resistance, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cStaticEnemy::Editor_Ice_Resistance_Text_Changed, this ) );
     
@@ -497,9 +502,12 @@ bool cStaticEnemy :: Editor_Ice_Resistance_Text_Changed( const CEGUI::EventArgs 
 	{
 		m_ice_resistance = 1.0f;
 	}
-	
+
 	return 1;
 }
+#else
+void cStaticEnemy :: Editor_Activate( void ) {}
+#endif
 
 void cStaticEnemy :: Create_Name( void )
 {

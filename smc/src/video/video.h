@@ -309,9 +309,7 @@ public:
 
 	// window manager information
 	SDL_SysWMinfo wm_info;
-// Android is __unix__ too, but has no GLX and no boost: EGL owns the
-// context there, and the optional render thread is desktop-only.
-#if defined( __unix__ ) && !defined( __ANDROID__ )
+#if defined(__unix__) && !defined(__ANDROID__)
 	// current opengl context
 	GLXContext glx_context;
 #endif
@@ -349,9 +347,11 @@ void Loading_Screen_Exit( void );
 // Video Handler
 extern cVideo *pVideo;
 
+#ifndef SMC_NO_CEGUI
 // GUI System
 extern CEGUI::OpenGLRenderer *pGuiRenderer;
 extern CEGUI::System *pGuiSystem;
+#endif
 
 // Screen
 extern SDL_Surface *screen;

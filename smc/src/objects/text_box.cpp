@@ -24,8 +24,12 @@
 #include "../audio/audio.h"
 #include "../level/level.h"
 // CEGUI — only the base XML/editor infrastructure; MultiLineEditbox removed (M9)
+#ifndef SMC_NO_CEGUI
 #include <CEGUI/WindowManager.h>
 #include <CEGUI/widgets/Editbox.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -135,6 +139,7 @@ void cText_Box :: Set_Text( const std::string &str_text )
  * CEGUI module dependency, and consistent with the rest of the editor UI.
  * The window height constant above is updated accordingly (200→28 px).
  */
+#ifndef SMC_NO_CEGUI
 void cText_Box :: Editor_Activate( void )
 {
 	// BaseBox Settings first
@@ -163,6 +168,9 @@ bool cText_Box :: Editor_Text_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cText_Box :: Editor_Activate( void ) {}
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

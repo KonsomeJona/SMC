@@ -33,7 +33,7 @@ public:
 	cEnemyStopper( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
 	// destructor
 	virtual ~cEnemyStopper( void );
-	
+
 	// init defaults
 	void Init( void );
 	// copy

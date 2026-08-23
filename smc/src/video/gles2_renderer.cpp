@@ -10,6 +10,7 @@
 #ifdef __ANDROID__
 
 #include "gles2_renderer.h"
+#include <SDL.h>
 #include <GLES2/gl2.h>
 #include <cstdio>
 #include <cmath>
@@ -140,6 +141,7 @@ static GLuint link_program(GLuint vert, GLuint frag)
 
 void Init(void)
 {
+    SDL_Log("GLES2::Init: enter, GL_VERSION=%s", (const char *)glGetString(GL_VERSION));
     // --- Textured program ---
     GLuint v = compile_shader(GL_VERTEX_SHADER,   k_vert_textured);
     GLuint f = compile_shader(GL_FRAGMENT_SHADER, k_frag_textured);
@@ -155,6 +157,7 @@ void Init(void)
         s_attr_tex_uv   = glGetAttribLocation (s_prog_tex, "a_texcoord");
     }
 
+    SDL_Log("GLES2::Init: textured program = %u", s_prog_tex);
     // --- Colored program ---
     v = compile_shader(GL_VERTEX_SHADER,   k_vert_colored);
     f = compile_shader(GL_FRAGMENT_SHADER, k_frag_colored);
@@ -404,6 +407,44 @@ void Draw_Circle(float cx, float cy, float radius,
 // ---------------------------------------------------------------------------
 // Draw_Line
 // ---------------------------------------------------------------------------
+void Draw_Triangle(float x1, float y1, float x2, float y2, float x3, float y3,
+                   Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+    if (!s_prog_col || !s_vbo) return;
+
+    float fr = r / 255.0f;
+    float fg = g / 255.0f;
+    float fb = b / 255.0f;
+    float fa = a / 255.0f;
+
+    // Layout per vertex: [px, py, r, g, b, a]  (6 floats)
+    float vdata[3 * 6] = {
+        x1, y1, fr, fg, fb, fa,
+        x2, y2, fr, fg, fb, fa,
+        x3, y3, fr, fg, fb, fa,
+    };
+
+    glUseProgram(s_prog_col);
+    glUniformMatrix4fv(s_loc_col_proj, 1, GL_FALSE, s_proj);
+
+    glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vdata), vdata);
+
+    const GLsizei stride = 6 * sizeof(float);
+    glEnableVertexAttribArray(s_attr_col_pos);
+    glEnableVertexAttribArray(s_attr_col_col);
+    glVertexAttribPointer(s_attr_col_pos, 2, GL_FLOAT, GL_FALSE, stride,
+                          (const void*)(0));
+    glVertexAttribPointer(s_attr_col_col, 4, GL_FLOAT, GL_FALSE, stride,
+                          (const void*)(2 * sizeof(float)));
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    glDisableVertexAttribArray(s_attr_col_pos);
+    glDisableVertexAttribArray(s_attr_col_col);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void Draw_Line(float x1, float y1, float x2, float y2,
                Uint8 r, Uint8 g, Uint8 b, Uint8 a, float /*width*/)
 {

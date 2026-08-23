@@ -31,6 +31,7 @@ public:
 	cRokko( cSprite_Manager *sprite_manager );
 	// create from stream
 	cRokko( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cRokko( void );
 
@@ -98,10 +99,12 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
 	// editor speed text changed event
 	bool Editor_Speed_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// smoke particle counter
 	float m_smoke_counter;

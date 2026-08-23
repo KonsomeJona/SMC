@@ -15,8 +15,11 @@
 
 #include "../core/global_basic.h"
 #include "../core/i18n.h"
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include "core/sdl2_compat.h"
+#ifndef __ANDROID__
+  #include <GL/glew.h>
+  #include <SDL2/SDL_opengl.h>
+#endif
 
 namespace SMC
 {
@@ -25,6 +28,10 @@ namespace SMC
 
 void I18N_Init( void )
 {
+#ifdef __ANDROID__
+	// gettext / libintl not available on Android — no-op
+	debug_print( "I18N_Init: skipped on Android (no gettext)\n" );
+#else
 	const char *sys_locale = setlocale( LC_ALL, "" );
 
 	if( sys_locale == NULL )
@@ -48,6 +55,7 @@ void I18N_Init( void )
 
 	debug_print( "Translation support with gettext set to:\n\tDirectory %s\n\tCodeset: %s\n\tText domain: %s\n",
 		textdomain_directory, textdomain_codeset, textdomain_default );
+#endif
 }
 
 #ifdef _WIN32

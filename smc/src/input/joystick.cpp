@@ -556,7 +556,7 @@ bool cJoystick :: Handle_Button_Up_Event( SDL_Event *ev )
 
 std::string cJoystick :: Get_Name( void ) const
 {
-	return SDL_JoystickName( m_current_joystick );
+	return SDL_JoystickNameForIndex( m_current_joystick );
 }
 
 vector<std::string> cJoystick :: Get_Names( void ) const
@@ -568,7 +568,7 @@ vector<std::string> cJoystick :: Get_Names( void ) const
 	// joystick names
 	for( int i = 0; i < joy_count; i++ )
 	{
-		names.push_back( SDL_JoystickName( i ) );
+		names.push_back( SDL_JoystickNameForIndex( i ) );
 	}
 
 	return names;

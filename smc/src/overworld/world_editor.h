@@ -23,6 +23,7 @@ namespace SMC
 
 /* *** *** *** *** *** *** *** cEditor_World *** *** *** *** *** *** *** *** *** *** */
 
+#ifndef SMC_NO_EDITOR
 class cEditor_World : public cEditor
 {
 public:
@@ -62,11 +63,14 @@ public:
 	// parent overworld
 	cOverworld *m_overworld;
 };
+#endif // SMC_NO_EDITOR
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 
 // The World Editor
+#ifndef SMC_NO_EDITOR
 extern cEditor_World *pWorld_Editor;
+#endif
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

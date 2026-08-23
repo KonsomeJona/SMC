@@ -24,19 +24,33 @@
 #include "../gui/hud.h"
 #include "../audio/random_sound.h"
 // CEGUI
-#include "CEGUIXMLHandler.h"
-#include "CEGUIXMLAttributes.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLHandler.h>
+  #include <CEGUI/XMLAttributes.h>
+  #include <CEGUI/XMLSerializer.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
 
 /* *** *** *** *** *** *** *** *** cOverworld_description *** *** *** *** *** *** *** *** *** */
 
-class cOverworld_description : public CEGUI::XMLHandler
+// cegui_android_compat.h supplies a real CEGUI::XMLHandler on Android,
+// so both builds derive from the same base.
+#define CEGUI_OVERWORLD_BASE CEGUI::XMLHandler
+
+class cOverworld_description : public CEGUI_OVERWORLD_BASE
 {
 public:
 	cOverworld_description( void );
 	virtual ~cOverworld_description( void );
+
+#ifndef SMC_NO_CEGUI
+	// Required by CEGUI 0.8 XMLHandler
+	virtual const CEGUI::String& getDefaultResourceGroup() const { static CEGUI::String s; return s; }
+#endif
 
 	// Load
 	void Load( void );
@@ -80,11 +94,16 @@ class cAnimation_Manager;
 
 typedef vector<cWaypoint *> WaypointList;
 
-class cOverworld : public CEGUI::XMLHandler
+class cOverworld : public CEGUI_OVERWORLD_BASE
 {
 public:
 	cOverworld( void );
 	virtual ~cOverworld( void );
+
+#ifndef SMC_NO_CEGUI
+	// Required by CEGUI 0.8 XMLHandler
+	virtual const CEGUI::String& getDefaultResourceGroup() const { static CEGUI::String s; return s; }
+#endif
 
 	// New
 	bool New( std::string name );
@@ -214,7 +233,7 @@ private:
 	virtual void elementStart( const CEGUI::String &element, const CEGUI::XMLAttributes &attributes );
 	// XML element end
 	virtual void elementEnd( const CEGUI::String &element );
- 
+
 	// XML element property list
 	CEGUI::XMLAttributes m_xml_attributes;
 };

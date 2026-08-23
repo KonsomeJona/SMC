@@ -58,7 +58,7 @@ public:
 	cMoving_Platform( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
 	// destructor
 	~cMoving_Platform( void );
-	
+
 	// init defaults
 	void Init( void );
 	/* late initialization
@@ -144,6 +144,7 @@ public:
 	virtual void Editor_Activate( void );
 	// editor state update
 	virtual void Editor_State_Update( void );
+#ifndef SMC_NO_CEGUI
 	// editor events
 	bool Editor_Move_Type_Select( const CEGUI::EventArgs &event );
 	bool Editor_Path_Identifier_Text_Changed( const CEGUI::EventArgs &event );
@@ -157,6 +158,7 @@ public:
 	bool Editor_Touch_Time_Text_Changed( const CEGUI::EventArgs &event );
 	bool Editor_Shake_Time_Text_Changed( const CEGUI::EventArgs &event );
 	bool Editor_Touch_Move_Time_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// platform moving type
 	Moving_Platform_Type m_move_type;

@@ -33,6 +33,7 @@ public:
 	cKrush( cSprite_Manager *sprite_manager );
 	// create from stream
 	cKrush( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cKrush( void );
 
@@ -91,8 +92,10 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
+#endif
 };
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */

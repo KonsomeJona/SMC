@@ -102,10 +102,12 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor useable count text changed event
 	bool Editor_Useable_Count_Text_Changed( const CEGUI::EventArgs &event );
 	// editor invisible option selected event
 	bool Editor_Invisible_Select( const CEGUI::EventArgs &event );
+#endif
 
 	// animation type
 	std::string m_anim_type;

@@ -34,6 +34,7 @@ void string_replace_all( std::string &str, const std::string &search, const std:
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cegui_string_replace_all( CEGUI::String &str, const CEGUI::String &search, const CEGUI::String &format )
 {
 	size_t pos = 0;
@@ -44,6 +45,7 @@ void cegui_string_replace_all( CEGUI::String &str, const CEGUI::String &search, 
 		pos += format.length();
 	}
 }
+#endif
 
 std::string string_trim_from_end( std::string str, const char search )
 {

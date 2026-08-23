@@ -20,7 +20,11 @@
 #include "../core/i18n.h"
 #include "../core/game_core.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -186,7 +190,9 @@ void cjStar :: Draw( cSurface_Request *request /* = NULL */ )
 		return;
 	}
 
+#ifndef __ANDROID__
 	Set_Color_Combine( m_glim_counter / 0.8f, m_glim_counter / 0.9f, m_glim_counter, GL_ADD );
+#endif
 
 	cPowerUp::Draw();
 }

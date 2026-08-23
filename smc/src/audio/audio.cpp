@@ -20,6 +20,7 @@
 #include "../user/preferences.h"
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
+#include "../core/debug_log.h"
 
 namespace SMC
 {
@@ -110,6 +111,8 @@ int cAudio_Sound :: Play( int use_res_id /* = -1 */, int loops /* = 0 */ )
 	m_resource_id = use_res_id;
 	// play sound
 	m_channel = Mix_PlayChannel( -1, m_data->m_chunk, loops );
+	const char *mix_err = Mix_GetError();
+	if(mix_err && mix_err[0]) LOG_DEBUG(AUDIO, "Play_Sound error: %s", mix_err);
 	// add callback if sound finished playing
 	Mix_ChannelFinished( &Finished_Sound );
 
@@ -157,6 +160,7 @@ cAudio :: ~cAudio( void )
 
 bool cAudio :: Init( void )
 {
+	LOG_INIT("Audio Init called");
 	// Get current device parameters
 	int dev_frequency = 0;
 	Uint16 dev_format = 0;
@@ -257,6 +261,7 @@ bool cAudio :: Init( void )
 		}
 
 		m_initialised = 1;
+		LOG_DEBUG(AUDIO, "Audio system initialized: buffer=%d hz=%d channels=%d", m_audio_buffer, pPreferences->m_audio_hz, m_audio_channels);
 	}
 
 
@@ -299,6 +304,7 @@ bool cAudio :: Init( void )
 		m_sound_enabled = 0;
 	}
 
+	LOG_DEBUG(AUDIO, "Audio Init complete: music_enabled=%d sound_enabled=%d sound_vol=%d music_vol=%d", m_music_enabled, m_sound_enabled, m_sound_volume, m_music_volume);
 	return 1;
 }
 
@@ -439,6 +445,7 @@ cSound *cAudio :: Get_Sound_File( std::string filename ) const
 
 bool cAudio :: Play_Sound( std::string filename, int res_id /* = -1 */, int volume /* = -1 */, int loops /* = 0 */ )
 {
+	LOG_DEBUG(AUDIO, "Play_Sound: file=%s res_id=%d volume=%d loops=%d", filename.c_str(), res_id, volume, loops);
 	if( !m_initialised || !m_sound_enabled )
 	{
 		return 0;
@@ -518,6 +525,7 @@ bool cAudio :: Play_Sound( std::string filename, int res_id /* = -1 */, int volu
 
 bool cAudio :: Play_Music( std::string filename, int loops /* = 0 */, bool force /* = 1 */, unsigned int fadein_ms /* = 0 */ )
 {
+	LOG_DEBUG(AUDIO, "Play_Music: file=%s loops=%d force=%d fadein_ms=%u", filename.c_str(), loops, force, fadein_ms);
 	if( filename.find( DATA_DIR "/" GAME_MUSIC_DIR "/" ) == std::string::npos )
 	{
 		filename.insert( 0, DATA_DIR "/" GAME_MUSIC_DIR "/" );
@@ -563,24 +571,24 @@ bool cAudio :: Play_Music( std::string filename, int loops /* = 0 */, bool force
 		// loaded
 		if( m_music )
 		{
+			int result;
 			// no fade in
 			if( !fadein_ms )
 			{
-				Mix_PlayMusic( m_music, loops );
+				result = Mix_PlayMusic( m_music, loops );
 			}
 			// fade in
 			else
 			{
-				Mix_FadeInMusic( m_music, loops, fadein_ms );
+				result = Mix_FadeInMusic( m_music, loops, fadein_ms );
 			}
+			LOG_DEBUG(AUDIO, "Music play result=%d playing=%d error=%s",
+				result, Mix_PlayingMusic(), Mix_GetError());
 		}
 		// not loaded
-		else 
+		else
 		{
-			if( m_debug )
-			{
-				printf( "Couldn't load music file : %s\n", filename.c_str() );
-			}
+			printf( "Couldn't load music file : %s (error: %s)\n", filename.c_str(), Mix_GetError() );
 
 			// failed to play
 			return 0;

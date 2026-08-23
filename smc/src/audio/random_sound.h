@@ -96,6 +96,7 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor filename text changed event
 	bool Editor_Filename_Text_Changed( const CEGUI::EventArgs &event );
 	// editor continuous changed event
@@ -112,6 +113,7 @@ public:
 	bool Editor_Volume_Reduction_Begin_Text_Changed( const CEGUI::EventArgs &event );
 	// editor volume reduction end text changed event
 	bool Editor_Volume_Reduction_End_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 private:
 	// the audio filename to play

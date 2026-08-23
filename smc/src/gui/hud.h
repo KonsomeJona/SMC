@@ -255,7 +255,9 @@ public:
 	float m_counter;
 
 	// CEGUI debug text
+#ifndef SMC_NO_CEGUI
 	CEGUI::Window *m_window_debug_text, *m_text_debug_text;
+#endif
 
 	// last game mode
 	GameMode m_game_mode_last;

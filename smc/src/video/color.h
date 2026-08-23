@@ -17,9 +17,11 @@
 #define SMC_COLOR_H
 
 // SDL
-#include "SDL.h"
+#include "core/sdl2_compat.h"
 // CEGUI
-#include "CEGUIcolour.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/Colour.h>
+#endif
 
 namespace SMC
 {
@@ -79,10 +81,12 @@ public:
 		return color;
 	}
 
-	inline CEGUI::colour Get_cegui_Color( void ) const
+#ifndef SMC_NO_CEGUI
+	inline CEGUI::Colour Get_cegui_Color( void ) const
 	{
-		return CEGUI::colour( static_cast<float>(red) / 255, static_cast<float>(green) / 255, static_cast<float>(blue) / 255, static_cast<float>(alpha) / 255 );
+		return CEGUI::Colour( static_cast<float>(red) / 255, static_cast<float>(green) / 255, static_cast<float>(blue) / 255, static_cast<float>(alpha) / 255 );
 	}
+#endif // SMC_NO_CEGUI
 
 	// += operator
 	inline void operator += ( const Color &c )

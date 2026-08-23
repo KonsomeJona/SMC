@@ -31,6 +31,7 @@ public:
 	cGee( cSprite_Manager *sprite_manager );
 	// create from stream
 	cGee( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cGee( void );
 
@@ -103,6 +104,7 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
 	// editor max distance text changed event
@@ -113,6 +115,7 @@ public:
 	bool Editor_Wait_Time_Text_Changed( const CEGUI::EventArgs &event );
 	// editor fly distance text changed event
 	bool Editor_Fly_Distance_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// color
 	DefaultColor m_color_type;

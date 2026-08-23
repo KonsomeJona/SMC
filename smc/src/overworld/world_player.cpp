@@ -314,8 +314,10 @@ void cOverworld_Player :: Action_Interact( input_identifier key_type )
 	else if( key_type == INP_EXIT )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( MODE_OVERWORLD ) );
+#endif
 	}
 }
 
@@ -340,10 +342,12 @@ void cOverworld_Player :: Activate_Waypoint( void )
 	{
 		// Enter Level
 		Game_Action = GA_ENTER_LEVEL;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Start.add( "music_fadeout", "1000" );
-		Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_FIXED_COLORBOX ) );
+		Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_FIXED_COLORBOX ) );
 		Game_Action_Data_Middle.add( "load_level", waypoint->Get_Destination() );
-		Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_RANDOM ) );
+		Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_RANDOM ) );
+#endif
 	}
 	// world link waypoint
 	else if( waypoint->m_waypoint_type == WAYPOINT_WORLD_LINK )
@@ -358,11 +362,13 @@ void cOverworld_Player :: Activate_Waypoint( void )
 		if( str_world.compare( "credits" ) == 0 )
 		{
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Start.add( "music_fadeout", "1500" );
-			Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_HORIZONTAL_VERTICAL ) );
+			Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_HORIZONTAL_VERTICAL ) );
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_CREDITS ) );
 			Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( MODE_OVERWORLD ) );
-			Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_RANDOM ) );
+			Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_RANDOM ) );
+#endif
 		}
 		// world link
 		else
@@ -370,11 +376,13 @@ void cOverworld_Player :: Activate_Waypoint( void )
 			if( pOverworld_Manager->Get( str_world ) )
 			{
 				Game_Action = GA_ENTER_WORLD;
+#ifndef SMC_NO_CEGUI
 				Game_Action_Data_Start.add( "music_fadeout", "1500" );
-				Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_BLACK_TILED_RECTS ) );
+				Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK_TILED_RECTS ) );
 				Game_Action_Data_Middle.add( "enter_world", str_world.c_str() );
 				Game_Action_Data_Middle.add( "world_player_waypoint", overworld_origin->m_description->m_path.c_str() );
-				Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_BLACK ) );
+				Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
+#endif
 			}
 			else
 			{

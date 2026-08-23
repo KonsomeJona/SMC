@@ -94,14 +94,15 @@ android {
     sourceSets {
         main {
             // Bundle smc/data/ as APK assets so extractAssets() can copy them
-            // to internal storage at runtime.  The path is relative to the
-            // app/ module directory (android/app/).
+            // to internal storage at runtime.
             //
-            // Gradle merges multiple srcDirs, so any files placed manually
-            // under src/main/assets/ also remain in the APK.
+            // Listing ../../smc/data directly would drop its *contents* at the
+            // root of assets/, but SMCActivity extracts the "data" subtree and
+            // DATA_DIR points at <filesDir>/data. So the tree is staged under
+            // a generated directory that already has the "data" level.
             assets.srcDirs = [
                 'src/main/assets',
-                '../../smc/data'
+                layout.buildDirectory.dir('generated/gameAssets').get().asFile
             ]
         }
     }
@@ -127,4 +128,15 @@ dependencies {
     // implementation 'org.libsdl.app:SDL2_image:2.8.0@aar'
     // implementation 'org.libsdl.app:SDL2_mixer:2.8.0@aar'
     // implementation 'org.libsdl.app:SDL2_ttf:2.22.0@aar'
+}
+
+// Stage smc/data/ as generated/gameAssets/data/ so it lands in the APK under
+// assets/data/ (see sourceSets above).
+def stageGameData = tasks.register('stageGameData', Copy) {
+    from("$projectDir/../../smc/data")
+    into(layout.buildDirectory.dir('generated/gameAssets/data'))
+}
+
+tasks.named('preBuild') {
+    dependsOn stageGameData
 }

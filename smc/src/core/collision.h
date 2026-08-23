@@ -22,7 +22,7 @@
 #include "../core/global_game.h"
 #include "../core/obj_manager.h"
 #include "../core/math/rect.h"
-#include "SDL.h"
+#include "core/sdl2_compat.h"
 
 namespace SMC
 {

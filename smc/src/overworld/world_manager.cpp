@@ -22,7 +22,9 @@
 #include "../input/mouse.h"
 #include "../video/animation.h"
 // CEGUI
-#include "CEGUIXMLParser.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLParser.h>
+#endif
 
 namespace SMC
 {
@@ -145,8 +147,10 @@ bool cOverworld_Manager :: Set_Active( cOverworld *world )
 
 	pActive_Overworld = world;
 
+#ifndef SMC_NO_EDITOR
 	pWorld_Editor->Set_Sprite_Manager( world->m_sprite_manager );
 	pWorld_Editor->Set_Overworld( world );
+#endif
 	m_camera->Set_Sprite_Manager( world->m_sprite_manager );
 	pOverworld_Player->Set_Sprite_Manager( world->m_sprite_manager );
 	pOverworld_Player->Set_Overworld( world );

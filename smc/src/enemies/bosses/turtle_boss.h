@@ -43,6 +43,7 @@ public:
 	cTurtleBoss( cSprite_Manager *sprite_manager );
 	// create from stream
 	cTurtleBoss( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cTurtleBoss( void );
 
@@ -121,6 +122,7 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
 	// editor max hits text changed event
@@ -131,6 +133,7 @@ public:
 	bool Editor_Shell_Time_Text_Changed( const CEGUI::EventArgs &event );
 	// editor level ends if killed option selected event
 	bool Editor_Level_Ends_If_Killed( const CEGUI::EventArgs &event );
+#endif
 
 	// internal turtle state
 	TurtleBoss_state m_turtle_state;

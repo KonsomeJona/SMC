@@ -43,6 +43,7 @@ public:
 	cTurtle( cSprite_Manager *sprite_manager );
 	// create from stream
 	cTurtle( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cTurtle( void );
 
@@ -112,8 +113,10 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
+#endif
 
 	// internal turtle state
 	Turtle_state m_turtle_state;

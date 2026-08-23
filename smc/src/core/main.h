@@ -16,7 +16,7 @@
 #ifndef SMC_MAIN_H
 #define SMC_MAIN_H
 
-#include "SDL.h"
+#include "core/sdl2_compat.h"
 
 namespace SMC
 {

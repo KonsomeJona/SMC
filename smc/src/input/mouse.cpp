@@ -106,7 +106,9 @@ cMouseCursor :: ~cMouseCursor( void )
 void cMouseCursor :: Set_Active( bool enabled )
 {
 	cMovingSprite::Set_Active( enabled );
-	CEGUI::MouseCursor::getSingleton().setVisible( enabled );
+#ifndef SMC_NO_CEGUI
+	CEGUI::System::getSingleton().getDefaultGUIContext().getMouseCursor().setVisible( enabled );
+#endif // SMC_NO_CEGUI
 }
 
 void cMouseCursor :: Reset( bool clear_copy_buffer /* = 1 */ )
@@ -123,7 +125,9 @@ void cMouseCursor :: Reset( bool clear_copy_buffer /* = 1 */ )
 	// change to default cursor
 	if( m_mover_mode )
 	{
-		CEGUI::MouseCursor::getSingleton().setImage( "TaharezLook", "MouseArrow" );
+#ifndef SMC_NO_CEGUI
+		CEGUI::System::getSingleton().getDefaultGUIContext().getMouseCursor().setImage( "TaharezLook/MouseArrow" );
+#endif // SMC_NO_CEGUI
 	}
 
 	m_mover_mode = 0;
@@ -145,7 +149,10 @@ bool cMouseCursor :: Handle_Event( SDL_Event *ev )
 	{
 		case SDL_MOUSEMOTION:
 		{
-			pGuiSystem->injectMousePosition( static_cast<float>(ev->motion.x), static_cast<float>(ev->motion.y) );
+			// SDL2 mouse coords are in window (logical) space, matching our glOrtho projection
+#ifndef SMC_NO_CEGUI
+			pGuiSystem->getDefaultGUIContext().injectMousePosition( static_cast<float>(ev->motion.x), static_cast<float>(ev->motion.y) );
+#endif // SMC_NO_CEGUI
 			Update_Position();
 			break;
 		}
@@ -185,48 +192,38 @@ bool cMouseCursor :: Handle_Mouse_Down( Uint8 button )
 		// mouse buttons
 		case SDL_BUTTON_LEFT:
 		{
-			if( CEGUI::System::getSingleton().injectMouseButtonDown( CEGUI::LeftButton ) )
+#ifndef SMC_NO_CEGUI
+			if( CEGUI::System::getSingleton().getDefaultGUIContext().injectMouseButtonDown( CEGUI::LeftButton ) )
 			{
 				return 1;
 			}
+#endif // SMC_NO_CEGUI
 			m_left = 1;
 			break;
 		}
 		case SDL_BUTTON_MIDDLE:
 		{
-			if( CEGUI::System::getSingleton().injectMouseButtonDown( CEGUI::MiddleButton ) )
+#ifndef SMC_NO_CEGUI
+			if( CEGUI::System::getSingleton().getDefaultGUIContext().injectMouseButtonDown( CEGUI::MiddleButton ) )
 			{
 				return 1;
 			}
+#endif // SMC_NO_CEGUI
 			m_middle = 1;
 			break;
 		}
 		case SDL_BUTTON_RIGHT:
 		{
-			if( CEGUI::System::getSingleton().injectMouseButtonDown( CEGUI::RightButton ) )
+#ifndef SMC_NO_CEGUI
+			if( CEGUI::System::getSingleton().getDefaultGUIContext().injectMouseButtonDown( CEGUI::RightButton ) )
 			{
 				return 1;
 			}
+#endif // SMC_NO_CEGUI
 			m_right = 1;
 			break;
 		}
-		// mouse wheel
-		case SDL_BUTTON_WHEELDOWN:
-		{
-			if( CEGUI::System::getSingleton().injectMouseWheelChange( -1 ) )
-			{
-				return 1;
-			}
-			break;
-		}
-		case SDL_BUTTON_WHEELUP:
-		{
-			if( CEGUI::System::getSingleton().injectMouseWheelChange( +1 ) )
-			{
-				return 1;
-			}
-			break;
-		}
+		// mouse wheel is handled via SDL_MOUSEWHEEL event
 		default:
 		{
 			break;
@@ -269,28 +266,34 @@ bool cMouseCursor :: Handle_Mouse_Up( Uint8 button )
 		case SDL_BUTTON_LEFT:
 		{
 			m_left = 0;
-			if( CEGUI::System::getSingleton().injectMouseButtonUp( CEGUI::LeftButton ) )
+#ifndef SMC_NO_CEGUI
+			if( CEGUI::System::getSingleton().getDefaultGUIContext().injectMouseButtonUp( CEGUI::LeftButton ) )
 			{
 				return 1;
 			}
+#endif // SMC_NO_CEGUI
 		}
 		break;
 		case SDL_BUTTON_MIDDLE:
 		{
 			m_middle = 0;
-			if( CEGUI::System::getSingleton().injectMouseButtonUp( CEGUI::MiddleButton ) )
+#ifndef SMC_NO_CEGUI
+			if( CEGUI::System::getSingleton().getDefaultGUIContext().injectMouseButtonUp( CEGUI::MiddleButton ) )
 			{
 				return 1;
 			}
+#endif // SMC_NO_CEGUI
 		}
 		break;
 		case SDL_BUTTON_RIGHT:
 		{
 			m_right = 0;
-			if( CEGUI::System::getSingleton().injectMouseButtonUp( CEGUI::RightButton ) )
+#ifndef SMC_NO_CEGUI
+			if( CEGUI::System::getSingleton().getDefaultGUIContext().injectMouseButtonUp( CEGUI::RightButton ) )
 			{
 				return 1;
 			}
+#endif // SMC_NO_CEGUI
 		}
 		break;
 		default:
@@ -335,14 +338,16 @@ cObjectCollision *cMouseCursor :: Get_First_Editor_Collsion( float px /* = 0.0f 
 		return NULL;
 	}
 
+#ifndef SMC_NO_CEGUI
 	// Get CEGUI Window containing the mouse
-	CEGUI::Window *mouse_window = pGuiSystem->getWindowContainingMouse();
+	CEGUI::Window *mouse_window = pGuiSystem->getDefaultGUIContext().getWindowContainingMouse();
 
 	// if mouse is over a blocking CEGUI window
 	if( mouse_window && !mouse_window->isMousePassThroughEnabled() )
 	{
 		return NULL;
 	}
+#endif // SMC_NO_CEGUI
 
 	// mouse rect
 	GL_rect mouse_rect;
@@ -515,6 +520,7 @@ void cMouseCursor :: Left_Click_Down( void )
 		// select same object types
 		if( pKeyboard->Is_Ctrl_Down() && pKeyboard->Is_Shift_Down() )
 		{
+#ifndef SMC_NO_EDITOR
 			if( Game_Mode == MODE_LEVEL )
 			{
 				pLevel_Editor->Select_Same_Object_Types( m_hovering_object->m_obj );
@@ -523,6 +529,7 @@ void cMouseCursor :: Left_Click_Down( void )
 			{
 				pWorld_Editor->Select_Same_Object_Types( m_hovering_object->m_obj );
 			}
+#endif // SMC_NO_EDITOR
 		}
 
 		Update_Snap_Pos();
@@ -1618,14 +1625,16 @@ void cMouseCursor :: Toggle_Mover_Mode( void )
 {
 	m_mover_mode = !m_mover_mode;
 
+#ifndef SMC_NO_CEGUI
 	if( m_mover_mode )
 	{
-		CEGUI::MouseCursor::getSingleton().setImage( "TaharezLook", "MouseMoveCursor" );
+		CEGUI::System::getSingleton().getDefaultGUIContext().getMouseCursor().setImage( "TaharezLook/MouseMoveCursor" );
 	}
 	else
 	{
-		CEGUI::MouseCursor::getSingleton().setImage( "TaharezLook", "MouseArrow" );
+		CEGUI::System::getSingleton().getDefaultGUIContext().getMouseCursor().setImage( "TaharezLook/MouseArrow" );
 	}
+#endif // SMC_NO_CEGUI
 }
 
 void cMouseCursor :: Mover_Update( Sint16 move_x, Sint16 move_y )
@@ -1638,10 +1647,10 @@ void cMouseCursor :: Mover_Update( Sint16 move_x, Sint16 move_y )
 	// mouse moves the camera
 	pActive_Camera->Move( move_x, move_y );
 	// keep mouse at it's position
-	SDL_WarpMouse( static_cast<Uint16>(m_x * global_upscalex), static_cast<Uint16>(m_y * global_upscaley) );
+	SDL_WarpMouseInWindow( g_sdl_window, static_cast<Uint16>(m_x * global_upscalex), static_cast<Uint16>(m_y * global_upscaley) );
 
 	SDL_Event inEvent;
-	SDL_PeepEvents( &inEvent, 1, SDL_GETEVENT, SDL_MOUSEMOTIONMASK );
+	SDL_PeepEvents( &inEvent, 1, SDL_GETEVENT, SDL_MOUSEMOTION, SDL_MOUSEMOTION );
 
 	while( SDL_PollEvent( &inEvent ) )
 	{

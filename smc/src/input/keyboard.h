@@ -19,7 +19,7 @@
 #include "../core/global_basic.h"
 #include "../core/global_game.h"
 // SDL
-#include "SDL.h"
+#include "core/sdl2_compat.h"
 
 namespace SMC
 {
@@ -55,27 +55,35 @@ public:
 	*/
 	bool Key_Down( SDLKey key );
 
+	// Check if a key (by keycode) is currently pressed
+	inline bool Is_Key_Pressed( SDLKey keycode ) const
+	{
+		SDL_Scancode sc = SDL_GetScancodeFromKey( keycode );
+		if( sc >= 0 && sc < SDL_NUM_SCANCODES ) return m_keys[sc] != 0;
+		return false;
+	};
+
 	// Is the CTRL key pressed
 	inline bool Is_Ctrl_Down( void ) const
 	{
-		return m_keys[SDLK_RCTRL] || m_keys[SDLK_LCTRL];
+		return m_keys[SDL_SCANCODE_RCTRL] || m_keys[SDL_SCANCODE_LCTRL];
 	};
 	// Is the SHIFT key pressed
 	inline bool Is_Shift_Down( void ) const
 	{
-		return m_keys[SDLK_RSHIFT] || m_keys[SDLK_LSHIFT];
+		return m_keys[SDL_SCANCODE_RSHIFT] || m_keys[SDL_SCANCODE_LSHIFT];
 	};
 	// Is the ALT key pressed
 	inline bool Is_Alt_Down( void ) const
 	{
-		return m_keys[SDLK_RALT] || m_keys[SDLK_LALT];
+		return m_keys[SDL_SCANCODE_RALT] || m_keys[SDL_SCANCODE_LALT];
 	};
 
 	// Translate a SDLKey to the proper CEGUI::Key
 	unsigned int SDLKey_to_CEGUIKey( const SDLKey key ) const;
 
-	// Pressed keys
-	Uint8 m_keys[SDLK_LAST];
+	// Pressed keys (indexed by SDL_Scancode)
+	Uint8 m_keys[SDL_NUM_SCANCODES];
 };
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */

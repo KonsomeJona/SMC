@@ -18,10 +18,12 @@
 
 #include "../core/global_basic.h"
 #include "../core/global_game.h"
-#include "SDL.h"
+#include "core/sdl2_compat.h"
 #include <algorithm>
 // CEGUI
-#include "CEGUIString.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/String.h>
+#endif
 
 namespace SMC
 {
@@ -30,7 +32,15 @@ namespace SMC
  * todo : use boost::algorithm::replace_all ?
 */
 void string_replace_all( std::string &str, const std::string &search, const std::string &format );
+#ifndef SMC_NO_CEGUI
 void cegui_string_replace_all( CEGUI::String &str, const CEGUI::String &search, const CEGUI::String &format );
+#else
+// CEGUI::String is a plain std::string in the Android compat layer.
+inline void cegui_string_replace_all( std::string &str, const std::string &search, const std::string &format )
+{
+	string_replace_all( str, search, format );
+}
+#endif
 
 /* Remove all occurrences of the search in the string
  * todo : use boost::algorithm::erase_all ?

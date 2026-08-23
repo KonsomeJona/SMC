@@ -20,7 +20,13 @@
 #include "../objects/sprite.h"
 #include "../core/camera.h"
 // CEGUI
-#include "CEGUIPropertyHelper.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/PropertyHelper.h>
+  #include <CEGUI/XMLAttributes.h>
+  #include <CEGUI/XMLSerializer.h>
+#else
+  #include "cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -35,12 +41,17 @@ extern GameMode Game_Mode;
 extern GameModeType Game_Mode_Type;
 // next global Game Action
 extern GameAction Game_Action;
-// Game Action data
+// Game Action pointer
+extern void *Game_Action_ptr;
+#ifndef SMC_NO_CEGUI
+// Game Action data (CEGUI XML attributes for desktop game event dispatch)
 extern CEGUI::XMLAttributes Game_Action_Data_Start;
 extern CEGUI::XMLAttributes Game_Action_Data_Middle;
 extern CEGUI::XMLAttributes Game_Action_Data_End;
-// Game Action pointer
-extern void *Game_Action_ptr;
+#else
+// Android: which menu to load on the next GA_ENTER_MENU action (replaces CEGUI "load_menu" attribute)
+extern MenuID g_android_next_menu;
+#endif
 
 // internal game resolution and is used for global scaling
 extern int game_res_w;
@@ -106,11 +117,11 @@ void Preload_Sounds( bool draw_gui = 0 );
 void Write_Property( CEGUI::XMLSerializer &stream, const CEGUI::String &name, CEGUI::String val );
 inline void Write_Property( CEGUI::XMLSerializer &stream, const CEGUI::String &name, int val )
 {
-	Write_Property( stream, name, CEGUI::PropertyHelper::intToString( val ) );
+	Write_Property( stream, name, CEGUI::PropertyHelper<int>::toString( val ) );
 };
 inline void Write_Property( CEGUI::XMLSerializer &stream, const CEGUI::String &name, unsigned int val )
 {
-	Write_Property( stream, name, CEGUI::PropertyHelper::uintToString( val ) );
+	Write_Property( stream, name, CEGUI::PropertyHelper<unsigned int>::toString( val ) );
 };
 inline void Write_Property( CEGUI::XMLSerializer &stream, const CEGUI::String &name, Uint64 val )
 {
@@ -122,8 +133,9 @@ inline void Write_Property( CEGUI::XMLSerializer &stream, const CEGUI::String &n
 };
 inline void Write_Property( CEGUI::XMLSerializer &stream, const CEGUI::String &name, float val )
 {
-	Write_Property( stream, name, CEGUI::PropertyHelper::floatToString( val ) );
+	Write_Property( stream, name, CEGUI::PropertyHelper<float>::toString( val ) );
 };
+
 
 // Changes the image path in the given xml attributes to the new one
 void Relocate_Image( CEGUI::XMLAttributes &xml_attributes, const std::string &filename_old, const std::string &filename_new, const CEGUI::String &attribute_name = "image" );

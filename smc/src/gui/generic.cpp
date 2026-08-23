@@ -38,12 +38,14 @@
 #endif
 
 // CEGUI — still needed to compile the header-declared CEGUI member types
+#ifndef SMC_NO_CEGUI
 #include <CEGUI/WindowManager.h>
 #include <CEGUI/FontManager.h>
 #include <CEGUI/widgets/Editbox.h>
 #include <CEGUI/widgets/FrameWindow.h>
 #include <CEGUI/widgets/PushButton.h>
 #include <CEGUI/widgets/MultiLineEditbox.h>
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -146,7 +148,9 @@ static void Draw_Input_Field( float fx, float fy, float fw, float fh,
 cDialogBox :: cDialogBox( void )
 {
 	finished = 0;
+#ifndef SMC_NO_CEGUI
 	window = NULL;
+#endif
 	mouse_hide = 0;
 }
 
@@ -192,7 +196,9 @@ cDialogBox_Text :: cDialogBox_Text( void )
 : cDialogBox()
 {
 	layout_file = "box_text.layout";
+#ifndef SMC_NO_CEGUI
 	box_editbox = NULL;
+#endif
 }
 
 cDialogBox_Text :: ~cDialogBox_Text( void )
@@ -328,12 +334,14 @@ std::string cDialogBox_Text :: Enter( std::string default_text,
 	return text;
 }
 
+#ifndef SMC_NO_CEGUI
 bool cDialogBox_Text :: Button_window_quit_clicked( const CEGUI::EventArgs &event )
 {
 	// Legacy CEGUI callback — no longer wired up, but must exist for the header.
 	finished = 1;
 	return 1;
 }
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** cDialogBox_Question *** *** *** *** *** *** *** *** *** *** */
 
@@ -341,7 +349,9 @@ cDialogBox_Question :: cDialogBox_Question( void )
 : cDialogBox()
 {
 	layout_file = "box_question.layout";
+#ifndef SMC_NO_CEGUI
 	box_window = NULL;
+#endif
 	return_value = -1;
 }
 
@@ -485,6 +495,7 @@ int cDialogBox_Question :: Enter( std::string text, bool with_cancel /* = 0 */ )
 	return return_value;
 }
 
+#ifndef SMC_NO_CEGUI
 bool cDialogBox_Question :: Button_yes_clicked( const CEGUI::EventArgs &event )
 {
 	// Legacy CEGUI callback — no longer wired up.
@@ -506,11 +517,13 @@ bool cDialogBox_Question :: Button_cancel_clicked( const CEGUI::EventArgs &event
 	finished = 1;
 	return 1;
 }
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** Functions *** *** *** *** *** *** *** *** *** *** */
 
 void Gui_Handle_Time( void )
 {
+#ifndef SMC_NO_CEGUI
 	static float last_time_pulse = 0;
 
 	// get current "run-time" in seconds
@@ -521,6 +534,7 @@ void Gui_Handle_Time( void )
 
 	// store the new time as the last time
 	last_time_pulse = t;
+#endif // SMC_NO_CEGUI
 }
 
 void Draw_Static_Text( const std::string &text, const Color *color_text /* = &white */, const Color *color_bg /* = NULL */, bool wait_for_input /* = 1 */ )
@@ -528,6 +542,7 @@ void Draw_Static_Text( const std::string &text, const Color *color_text /* = &wh
 	// fixme : Can't handle multiple lines of text. Change to MultiLineEditbox or use HorzFormatting=WordWrapLeftAligned property.
 	bool draw = 1;
 
+#ifndef SMC_NO_CEGUI
 	// Statictext window
 	CEGUI::Window *window_statictext = CEGUI::WindowManager::getSingleton().loadLayoutFromFile( "statictext.layout" );
 	pGuiSystem->getDefaultGUIContext().getRootWindow()->addChild( window_statictext );
@@ -551,6 +566,7 @@ void Draw_Static_Text( const std::string &text, const Color *color_text /* = &wh
 	text_height *= 1 + std::count(text.begin(), text.end(), '\n');
 	// set window height
 	text_default->setHeight( CEGUI::UDim( 0, text_height + ( 12 * global_upscaley ) ) );
+#endif // SMC_NO_CEGUI
 
 	while( draw )
 	{
@@ -601,8 +617,10 @@ void Draw_Static_Text( const std::string &text, const Color *color_text /* = &wh
 		Clear_Input_Events();
 	}
 
+#ifndef SMC_NO_CEGUI
 	pGuiSystem->getDefaultGUIContext().getRootWindow()->removeChild( window_statictext );
 	CEGUI::WindowManager::getSingleton().destroyWindow( window_statictext );
+#endif // SMC_NO_CEGUI
 }
 
 std::string Box_Text_Input( const std::string &default_text, const std::string &title_text, bool auto_no_text /* = 1 */ )
@@ -757,6 +775,7 @@ void Set_Clipboard_Content( std::string str )
 
 bool GUI_Copy_To_Clipboard( bool cut )
 {
+#ifndef SMC_NO_CEGUI
 	CEGUI::Window *sheet = pGuiSystem->getDefaultGUIContext().getRootWindow();
 
 	// no sheet
@@ -823,10 +842,14 @@ bool GUI_Copy_To_Clipboard( bool cut )
 
 	Set_Clipboard_Content( sel_text.c_str() );
 	return 1;
+#else
+	return 0;
+#endif // SMC_NO_CEGUI
 }
 
 bool GUI_Paste_From_Clipboard( void )
 {
+#ifndef SMC_NO_CEGUI
 	CEGUI::Window *sheet = pGuiSystem->getDefaultGUIContext().getRootWindow();
 
 	// no sheet
@@ -899,6 +922,9 @@ bool GUI_Paste_From_Clipboard( void )
 	}
 
 	return 1;
+#else
+	return 0;
+#endif // SMC_NO_CEGUI
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */

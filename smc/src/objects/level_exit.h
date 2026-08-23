@@ -88,6 +88,7 @@ public:
 	virtual void Editor_Activate( void );
 	// editor state update
 	virtual void Editor_State_Update( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
 	// editor motion option selected event
@@ -98,6 +99,7 @@ public:
 	bool Editor_Destination_Entry_Text_Changed( const CEGUI::EventArgs &event );
 	// editor path identifier text changed event
 	bool Editor_Path_Identifier_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// level exit type
 	Level_Exit_type m_exit_type;

@@ -25,10 +25,14 @@
 #include "../core/sprite_manager.h"
 #include "../core/i18n.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -1064,6 +1068,7 @@ void cTurtle :: Handle_Collision_Massive( cObjectCollision *collision )
 
 void cTurtle :: Editor_Activate( void )
 {
+#ifndef SMC_NO_CEGUI
 	// get window manager
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
 
@@ -1079,8 +1084,10 @@ void cTurtle :: Editor_Activate( void )
 
 	// init
 	Editor_Init();
+#endif // SMC_NO_CEGUI
 }
 
+#ifndef SMC_NO_CEGUI
 bool cTurtle :: Editor_Direction_Select( const CEGUI::EventArgs &event )
 {
 	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
@@ -1090,6 +1097,7 @@ bool cTurtle :: Editor_Direction_Select( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#endif // SMC_NO_CEGUI
 
 void cTurtle :: Create_Name( void )
 {

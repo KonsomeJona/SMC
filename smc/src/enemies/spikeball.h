@@ -31,6 +31,7 @@ public:
 	cSpikeball( cSprite_Manager *sprite_manager );
 	// create from stream
 	cSpikeball( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cSpikeball( void );
 
@@ -95,8 +96,10 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
+#endif
 
 	// Color
 	DefaultColor m_color_type;

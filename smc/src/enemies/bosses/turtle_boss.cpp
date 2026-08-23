@@ -24,11 +24,15 @@
 #include "../../core/sprite_manager.h"
 #include "../../core/i18n.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
-#include "elements/CEGUIEditbox.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#include <CEGUI/widgets/Editbox.h>
+#else
+#include "../../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -1166,6 +1170,7 @@ void cTurtleBoss :: Handle_Collision_Massive( cObjectCollision *collision )
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cTurtleBoss :: Editor_Activate( void )
 {
 	// get window manager
@@ -1185,7 +1190,7 @@ void cTurtleBoss :: Editor_Activate( void )
 	CEGUI::Editbox *editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_turtle_boss_max_hits" ));
 	Editor_Add( UTF8_("Hits"), UTF8_("Hits until a downgrade"), editbox, 120 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_max_hits ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cTurtleBoss::Editor_Max_Hits_Text_Changed, this ) );
 
@@ -1193,7 +1198,7 @@ void cTurtleBoss :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_turtle_boss_max_downgrade_count" ));
 	Editor_Add( UTF8_("Downgrades"), UTF8_("Downgrades until death"), editbox, 120 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_max_downgrade_count ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cTurtleBoss::Editor_Max_Downgrade_Counts_Text_Changed, this ) );
 
@@ -1201,7 +1206,7 @@ void cTurtleBoss :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_turtle_boss_max_shell_time" ));
 	Editor_Add( UTF8_("Shell Time"), UTF8_("Time running as shell to rise again"), editbox, 200 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_shell_time, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cTurtleBoss::Editor_Shell_Time_Text_Changed, this ) );
 
@@ -1282,6 +1287,9 @@ bool cTurtleBoss :: Editor_Level_Ends_If_Killed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cTurtleBoss :: Editor_Activate( void ) {}
+#endif
 
 void cTurtleBoss :: Create_Name( void )
 {

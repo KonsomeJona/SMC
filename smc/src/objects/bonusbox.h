@@ -32,6 +32,7 @@ public:
 	cBonusBox( cSprite_Manager *sprite_manager );
 	// create from stream
 	cBonusBox( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cBonusBox( void );
 
@@ -82,6 +83,7 @@ public:
 	virtual void Editor_Activate( void );
 	// editor state update
 	virtual void Editor_State_Update( void );
+#ifndef SMC_NO_CEGUI
 	// editor animation option selected event
 	bool Editor_Animation_Select( const CEGUI::EventArgs &event );
 	// editor item option selected event
@@ -90,6 +92,7 @@ public:
 	bool Editor_Force_best_item_Select( const CEGUI::EventArgs &event );
 	// editor gold color option selected event
 	bool Editor_Gold_Color_Select( const CEGUI::EventArgs &event );
+#endif
 
 	// force best possible item
 	bool m_force_best_item;

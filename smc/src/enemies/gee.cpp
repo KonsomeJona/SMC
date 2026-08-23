@@ -21,11 +21,15 @@
 #include "../input/mouse.h"
 #include "../core/i18n.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -672,6 +676,7 @@ void cGee :: Handle_Collision_Massive( cObjectCollision *collision )
 	Send_Collision( collision );
 }
 
+#ifndef SMC_NO_CEGUI
 void cGee :: Editor_Activate( void )
 {
 	// get window manager
@@ -691,7 +696,7 @@ void cGee :: Editor_Activate( void )
 	CEGUI::Editbox *editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_gee_max_distance" ));
 	Editor_Add( UTF8_("Distance"), UTF8_("Movable distance"), editbox, 90 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_max_distance ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cGee::Editor_Max_Distance_Text_Changed, this ) );
 
@@ -717,7 +722,7 @@ void cGee :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_gee_wait_time" ));
 	Editor_Add( UTF8_("Wait time"), UTF8_("Time to wait until moving again after a stop"), editbox, 90 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_wait_time, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cGee::Editor_Wait_Time_Text_Changed, this ) );
 
@@ -725,7 +730,7 @@ void cGee :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_gee_fly_distance" ));
 	Editor_Add( UTF8_("Fly distance"), UTF8_("The distance to move each time"), editbox, 90 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_fly_distance ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cGee::Editor_Fly_Distance_Text_Changed, this ) );
 
@@ -789,6 +794,9 @@ bool cGee :: Editor_Fly_Distance_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cGee :: Editor_Activate( void ) {}
+#endif
 
 void cGee :: Create_Name( void )
 {

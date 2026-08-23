@@ -27,10 +27,14 @@
 #include "../user/preferences.h"
 #include "../input/keyboard.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIListbox.h"
-#include "elements/CEGUIListboxItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Listbox.h>
+#include <CEGUI/widgets/ListboxItem.h>
+#endif // SMC_NO_CEGUI
+#include "../core/debug_log.h"
+#include "../gui/modern_ui.h"
 
 namespace SMC
 {
@@ -104,7 +108,11 @@ void cMenu_Item :: Draw( cSurface_Request *request /* = NULL */ )
 		float strength = m_image->m_w * ( m_scale_x - 1 );
 
 		// boost color to yellow
+#ifndef __ANDROID__
 		Set_Color_Combine( strength / 40, strength / 40, 0, GL_ADD );
+#else
+		Set_Color_Combine( strength / 40, strength / 40, 0, 0 );
+#endif
 
 		m_pos_x = m_start_pos_x;
 		m_pos_y = m_start_pos_y;
@@ -320,6 +328,8 @@ cMenuCore :: ~cMenuCore( void )
 
 bool cMenuCore :: Handle_Event( SDL_Event *ev )
 {
+	ModernUI::Feed_Event( *ev );
+
 	switch( ev->type )
 	{
 	case SDL_MOUSEMOTION:
@@ -339,10 +349,16 @@ bool cMenuCore :: Handle_Event( SDL_Event *ev )
 
 bool cMenuCore :: Key_Down( SDLKey key )
 {
-	// Down (todo: detect event for joystick better)
+	LOG_DEBUG(MENU, "Key_Down: key=%s active_item=%d total_items=%u", SDL_GetKeyName(key), m_handler->m_active, m_handler->Get_Size());
+
+	// Down
 	if( key == SDLK_DOWN || key == pPreferences->m_key_down )
 	{
-		if( m_handler->Get_Size() <= static_cast<unsigned int>( m_handler->m_active + 1 ) )
+		if( m_handler->m_active < 0 )
+		{
+			m_handler->Set_Active( 0 );
+		}
+		else if( m_handler->Get_Size() <= static_cast<unsigned int>( m_handler->m_active + 1 ) )
 		{
 			m_handler->Set_Active( 0 );
 		}
@@ -350,11 +366,16 @@ bool cMenuCore :: Key_Down( SDLKey key )
 		{
 			m_handler->Set_Active( m_handler->m_active + 1 );
 		}
+		LOG_DEBUG(MENU, "Navigate DOWN -> now active=%d", m_handler->m_active);
 	}
-	// Up (todo: detect event for joystick better)
+	// Up
 	else if( key == SDLK_UP || key == pPreferences->m_key_up )
 	{
-		if( m_handler->m_active <= 0 )
+		if( m_handler->m_active < 0 )
+		{
+			m_handler->Set_Active( m_handler->Get_Size() > 0 ? m_handler->Get_Size() - 1 : 0 );
+		}
+		else if( m_handler->m_active <= 0 )
 		{
 			m_handler->Set_Active( m_handler->Get_Size() - 1 );
 		}
@@ -362,10 +383,17 @@ bool cMenuCore :: Key_Down( SDLKey key )
 		{
 			m_handler->Set_Active( m_handler->m_active - 1 );
 		}
+		LOG_DEBUG(MENU, "Navigate UP -> now active=%d", m_handler->m_active);
 	}
 	// Activate Button
 	else if( key == SDLK_RETURN || key == SDLK_KP_ENTER )
 	{
+		// Auto-select first item if nothing is selected (touch/gamepad users)
+		if( m_handler->m_active < 0 && m_handler->Get_Size() > 0 )
+		{
+			m_handler->Set_Active( 0 );
+		}
+		LOG_DEBUG(MENU, "ENTER pressed, activating menu item %d", m_handler->m_active);
 		if( m_menu_data )
 		{
 			m_menu_data->m_action = 1;
@@ -374,17 +402,18 @@ bool cMenuCore :: Key_Down( SDLKey key )
 	// Fast Debug Level entering
 	else if( key == SDLK_x && pKeyboard->Is_Ctrl_Down() )
 	{
+#ifndef SMC_NO_CEGUI
 		// random level name
 		std::string lvl_name;
 
-		if( !CEGUI::WindowManager::getSingleton().isWindowPresent( "listbox_levels" ) )
+		if( !pGuiSystem->getDefaultGUIContext().getRootWindow()->isChild( "listbox_levels" ) )
 		{
 			// Create temporary start menu
 			cMenu_Start *menu_start = new cMenu_Start();
 
 			menu_start->Init();
 			// get levels listbox
-			CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI::WindowManager::getSingleton().getWindow( "listbox_levels" ));
+			CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" ));
 			// select random level
 			listbox_levels->setItemSelectState( rand() % listbox_levels->getItemCount(), 1 );
 			// get level name
@@ -396,17 +425,19 @@ bool cMenuCore :: Key_Down( SDLKey key )
 		else
 		{
 			// Get levels listbox
-			CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI::WindowManager::getSingleton().getWindow( "listbox_levels" ));
+			CEGUI::Listbox *listbox_levels = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "listbox_levels" ));
 			// select random level
 			listbox_levels->setItemSelectState( rand() % listbox_levels->getItemCount(), 1 );
 			// get level name
 			lvl_name = listbox_levels->getFirstSelectedItem()->getText().c_str();
 			static_cast<cMenu_Start *>(pMenuCore->m_menu_data)->Load_Level( lvl_name );
 		}
+#endif // SMC_NO_CEGUI
 	}
 	// exit
 	else if( key == SDLK_ESCAPE )
 	{
+		LOG_DEBUG(MENU, "ESCAPE pressed, exiting menu");
 		m_menu_data->Exit();
 	}
 	else

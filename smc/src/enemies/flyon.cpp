@@ -24,11 +24,15 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -665,6 +669,7 @@ void cFlyon :: Handle_Collision_Player( cObjectCollision *collision )
 	pLevel_Player->DownGrade_Player();
 }
 
+#ifndef SMC_NO_CEGUI
 void cFlyon :: Editor_Activate( void )
 {
 	// get window manager
@@ -693,7 +698,7 @@ void cFlyon :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_flyon_max_distance" ));
 	Editor_Add( UTF8_("Distance"), _("Movable Distance into its direction"), editbox, 90 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_max_distance) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cFlyon::Editor_Max_Distance_Text_Changed, this ) );
 
@@ -701,7 +706,7 @@ void cFlyon :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_flyon_speed" ));
 	Editor_Add( UTF8_("Speed"), UTF8_("Initial speed when jumping out"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_speed, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cFlyon::Editor_Speed_Text_Changed, this ) );
 
@@ -748,6 +753,9 @@ bool cFlyon :: Editor_Speed_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cFlyon :: Editor_Activate( void ) {}
+#endif
 
 void cFlyon :: Create_Name( void )
 {

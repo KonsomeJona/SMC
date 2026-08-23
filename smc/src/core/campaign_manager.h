@@ -20,8 +20,12 @@
 #include "../core/global_game.h"
 #include "../core/obj_manager.h"
 // CEGUI
-#include "CEGUIXMLHandler.h"
-#include "CEGUIXMLAttributes.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLHandler.h>
+  #include <CEGUI/XMLAttributes.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -73,11 +77,15 @@ public:
 
 /* *** *** *** *** *** *** *** cCampaign_XML_Handler *** *** *** *** *** *** *** *** *** *** */
 
+#ifndef SMC_NO_CEGUI
 class cCampaign_XML_Handler : public CEGUI::XMLHandler
 {
 public:
 	cCampaign_XML_Handler( const CEGUI::String &filename );
 	virtual ~cCampaign_XML_Handler( void );
+
+	// Required by CEGUI 0.8 XMLHandler
+	virtual const CEGUI::String& getDefaultResourceGroup() const { static CEGUI::String s; return s; }
 
 	// XML element start
 	virtual void elementStart( const CEGUI::String &element, const CEGUI::XMLAttributes &attributes );
@@ -90,6 +98,7 @@ public:
 	// object we are constructing
 	cCampaign *m_campaign;
 };
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

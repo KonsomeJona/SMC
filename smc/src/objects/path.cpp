@@ -24,11 +24,15 @@
 #include "../enemies/static.h"
 #include "../objects/moving_platform.h"
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
-#include "elements/CEGUIPushButton.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#include <CEGUI/widgets/PushButton.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -534,7 +538,7 @@ void cPath :: Load_From_XML( CEGUI::XMLAttributes &attributes )
 		}
 
 		cPath_Segment obj;
-		
+
 		obj.Set_Pos( attributes.getValueAsFloat( "segment_" + str_pos + "_x1" ), attributes.getValueAsFloat( "segment_" + str_pos + "_y1" ), attributes.getValueAsFloat( "segment_" + str_pos + "_x2" ), attributes.getValueAsFloat( "segment_" + str_pos + "_y2" ) );
 
 		m_segments.push_back( obj );
@@ -771,6 +775,7 @@ bool cPath :: Is_Draw_Valid( void )
 	return 1;
 }
 
+#ifndef SMC_NO_CEGUI
 void cPath :: Editor_Activate( void )
 {
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
@@ -846,7 +851,7 @@ void cPath :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "path_segment_x1" ));
 	Editor_Add( UTF8_("Pos X1"), UTF8_("Line position X1"), editbox, 150 );
 
-	editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_segments[m_editor_selected_segment].m_x1) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cPath::Editor_Pos_X1_Text_Changed, this ) );
 
@@ -854,7 +859,7 @@ void cPath :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "path_segment_y1" ));
 	Editor_Add( UTF8_("Y1"), UTF8_("Line position Y1"), editbox, 150, 28, 0 );
 
-	editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_segments[m_editor_selected_segment].m_y1) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cPath::Editor_Pos_Y1_Text_Changed, this ) );
 
@@ -862,7 +867,7 @@ void cPath :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "path_segment_x2" ));
 	Editor_Add( UTF8_("Pos X2"), UTF8_("Line position X2"), editbox, 150 );
 
-	editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_segments[m_editor_selected_segment].m_x2) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cPath::Editor_Pos_X2_Text_Changed, this ) );
 
@@ -870,7 +875,7 @@ void cPath :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "path_segment_y2" ));
 	Editor_Add( UTF8_("Y2"), UTF8_("Line position Y2"), editbox, 150, 28, 0 );
 
-	editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[-+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_segments[m_editor_selected_segment].m_y2) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cPath::Editor_Pos_Y2_Text_Changed, this ) );
 
@@ -883,7 +888,7 @@ void cPath :: Editor_State_Update( void )
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
 
 	// selected segment
-	CEGUI::Combobox *combobox = static_cast<CEGUI::Combobox *>(wmgr.getWindow( "path_selected_segment" ));
+	CEGUI::Combobox *combobox = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "path_selected_segment" ));
 	combobox->resetList();
 
 	for( unsigned int count = 0; count < m_segments.size(); count++ )
@@ -895,16 +900,16 @@ void cPath :: Editor_State_Update( void )
 
 	// Set selected segment values
 	// x1
-	CEGUI::Editbox *editbox_x1 = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "path_segment_x1" ));
+	CEGUI::Editbox *editbox_x1 = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "path_segment_x1" ));
 	editbox_x1->setText( float_to_string( m_segments[m_editor_selected_segment].m_x1, 6, 0 ) );
 	// y1
-	CEGUI::Editbox *editbox_y1 = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "path_segment_y1" ));
+	CEGUI::Editbox *editbox_y1 = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "path_segment_y1" ));
 	editbox_y1->setText( float_to_string( m_segments[m_editor_selected_segment].m_y1, 6, 0 ) );
 	// x2
-	CEGUI::Editbox *editbox_x2 = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "path_segment_x2" ));
+	CEGUI::Editbox *editbox_x2 = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "path_segment_x2" ));
 	editbox_x2->setText( float_to_string( m_segments[m_editor_selected_segment].m_x2, 6, 0 ) );
 	// y2
-	CEGUI::Editbox *editbox_y2 = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "path_segment_y2" ));
+	CEGUI::Editbox *editbox_y2 = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "path_segment_y2" ));
 	editbox_y2->setText( float_to_string( m_segments[m_editor_selected_segment].m_y2, 6, 0 ) );
 
 	// do not allow to change the start point position
@@ -1068,6 +1073,10 @@ bool cPath :: Editor_Pos_Y2_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cPath :: Editor_Activate( void ) {}
+void cPath :: Editor_State_Update( void ) {}
+#endif // SMC_NO_CEGUI
 
 void cPath :: Editor_Segment_Pos_Changed( void )
 {

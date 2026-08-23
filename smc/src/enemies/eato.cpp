@@ -21,11 +21,15 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -328,6 +332,7 @@ void cEato :: Handle_Collision_Player( cObjectCollision *collision )
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cEato :: Editor_Activate( void )
 {
 	// get window manager
@@ -378,6 +383,9 @@ bool cEato :: Editor_Image_Dir_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cEato :: Editor_Activate( void ) {}
+#endif
 
 void cEato :: Create_Name( void )
 {

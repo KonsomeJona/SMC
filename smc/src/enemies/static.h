@@ -32,6 +32,7 @@ public:
 	cStaticEnemy( cSprite_Manager *sprite_manager );
 	// create from stream
 	cStaticEnemy( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cStaticEnemy( void );
 
@@ -94,6 +95,7 @@ public:
 
 	// leveleditor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor image text changed event
 	bool Editor_Image_Text_Changed( const CEGUI::EventArgs &event );
 	// editor rotation speed text changed event
@@ -106,6 +108,7 @@ public:
 	bool Editor_Fire_Resistant_Select( const CEGUI::EventArgs &event );
 	// editor ice resistance text changed event
 	bool Editor_Ice_Resistance_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// image filename
 	std::string m_img_filename;

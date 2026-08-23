@@ -33,13 +33,17 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
 // CEGUI
-#include "CEGUIXMLParser.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIFrameWindow.h"
-#include "elements/CEGUIPushButton.h"
-#include "elements/CEGUITabControl.h"
-#include "elements/CEGUIScrollbar.h"
-#include "CEGUIGeometryBuffer.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLParser.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/FrameWindow.h>
+#include <CEGUI/widgets/PushButton.h>
+#include <CEGUI/widgets/TabControl.h>
+#include <CEGUI/widgets/Scrollbar.h>
+#include <CEGUI/GeometryBuffer.h>
+#else
+  #include "cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -63,8 +67,8 @@ cEditor_Object_Settings_Item :: ~cEditor_Object_Settings_Item( void )
 
 /* *** *** *** *** *** *** *** *** cEditor_CEGUI_Texture *** *** *** *** *** *** *** *** *** */
 
-cEditor_CEGUI_Texture :: cEditor_CEGUI_Texture( CEGUI::OpenGLRenderer& owner, GLuint tex, const CEGUI::Size& size )
-: CEGUI::OpenGLTexture( owner, tex, size )
+cEditor_CEGUI_Texture :: cEditor_CEGUI_Texture( CEGUI::OpenGLRendererBase& owner, const CEGUI::String& name, GLuint tex, const CEGUI::Sizef& size )
+: CEGUI::OpenGLTexture( owner, name, tex, size )
 {
 
 }
@@ -96,8 +100,8 @@ cEditor_Item_Object :: cEditor_Item_Object( const std::string &text, const CEGUI
 {
 	m_parent = parent;
 	list_text = new CEGUI::ListboxTextItem( reinterpret_cast<const CEGUI::utf8*>(text.c_str()) );
-	list_text->setSelectionColours( CEGUI::colour( 0.33f, 0.33f, 0.33f ) );
-	list_text->setSelectionBrushImage( "TaharezLook", "ListboxSelectionBrush" );
+	list_text->setSelectionColours( CEGUI::Colour( 0.33f, 0.33f, 0.33f ) );
+	list_text->setSelectionBrushImage( "TaharezLook/ListboxSelectionBrush" );
 
 	m_image = NULL;
 	sprite_obj = NULL;
@@ -110,8 +114,8 @@ cEditor_Item_Object :: ~cEditor_Item_Object( void )
 
 	if( m_image )
 	{
-		delete m_image->getTexture();
-		CEGUI::ImagesetManager::getSingleton().destroy( *m_image );
+		// TODO: CEGUI 0.8 - texture lifetime managed by renderer, image by ImageManager
+		CEGUI::ImageManager::getSingleton().destroy( *m_image );
 		m_image = NULL;
 	}
 	
@@ -146,15 +150,16 @@ void cEditor_Item_Object :: Init( cSprite *sprite )
 	preview_scale = pVideo->Get_Scale( sprite_obj->m_start_image, static_cast<float>(pPreferences->m_editor_item_image_size) * 2.0f, static_cast<float>(pPreferences->m_editor_item_image_size) );
 
 	// create CEGUI link
-	cEditor_CEGUI_Texture *texture = new cEditor_CEGUI_Texture( *pGuiRenderer, sprite_obj->m_start_image->m_image, CEGUI::Size( sprite_obj->m_start_image->m_tex_w, sprite_obj->m_start_image->m_tex_h ) );
-	CEGUI::String imageset_name = "editor_item " + list_text->getText() + " " + CEGUI::PropertyHelper::uintToString( m_parent->getItemCount() );
-	m_image = &CEGUI::ImagesetManager::getSingleton().create( imageset_name, *texture );
-	m_image->defineImage( "default", CEGUI::Point(0, 0), texture->getSize(), CEGUI::Point(0, 0) );
+	CEGUI::String imageset_name = "editor_item " + list_text->getText() + " " + CEGUI::PropertyHelper<unsigned int>::toString( m_parent->getItemCount() );
+	cEditor_CEGUI_Texture *texture = new cEditor_CEGUI_Texture( *pGuiRenderer, imageset_name, sprite_obj->m_start_image->m_image, CEGUI::Sizef( sprite_obj->m_start_image->m_tex_w, sprite_obj->m_start_image->m_tex_h ) );
+	m_image = static_cast<CEGUI::BasicImage*>( &CEGUI::ImageManager::getSingleton().create( "BasicImage", imageset_name ) );
+	m_image->setTexture( texture );
+	m_image->setArea( CEGUI::Rectf( CEGUI::Vector2f(0, 0), texture->getSize() ) );
 }
 
-CEGUI::Size cEditor_Item_Object :: getPixelSize( void ) const
+CEGUI::Sizef cEditor_Item_Object :: getPixelSize( void ) const
 {
-	CEGUI::Size tmp = list_text->getPixelSize();
+	CEGUI::Sizef tmp = list_text->getPixelSize();
 
 	if( pPreferences->m_editor_show_item_images )
 	{
@@ -164,12 +169,12 @@ CEGUI::Size cEditor_Item_Object :: getPixelSize( void ) const
 	return tmp;
 }
 
-void cEditor_Item_Object :: draw( CEGUI::GeometryBuffer &buffer, const CEGUI::Rect &targetRect, float alpha, const CEGUI::Rect *clipper ) const
+void cEditor_Item_Object :: draw( CEGUI::GeometryBuffer &buffer, const CEGUI::Rectf &targetRect, float alpha, const CEGUI::Rectf *clipper ) const
 {
 	// image
 	if( m_image && pPreferences->m_editor_show_item_images )
 	{
-		m_image->draw( buffer, CEGUI::Rect(CEGUI::Point(0, 0), m_image->getTexture()->getSize()), CEGUI::Rect(targetRect.d_left + 15, targetRect.d_top + 22, targetRect.d_left + 15 + (sprite_obj->m_start_image->m_start_w * preview_scale * global_upscalex), targetRect.d_top + 22 + (sprite_obj->m_start_image->m_start_h * preview_scale * global_upscaley) ), clipper, CEGUI::ColourRect(CEGUI::colour(1.0f, 1.0f, 1.0f, alpha)), CEGUI::TopLeftToBottomRight );
+		m_image->render( buffer, CEGUI::Rectf(targetRect.left() + 15, targetRect.top() + 22, targetRect.left() + 15 + (sprite_obj->m_start_image->m_start_w * preview_scale * global_upscalex), targetRect.top() + 22 + (sprite_obj->m_start_image->m_start_h * preview_scale * global_upscaley) ), clipper, CEGUI::ColourRect(CEGUI::Colour(1.0f, 1.0f, 1.0f, alpha)) );
 	}
 	// name text
 	list_text->draw( buffer, targetRect, alpha, clipper );
@@ -191,8 +196,8 @@ cEditor_Menu_Object :: ~cEditor_Menu_Object( void )
 
 void cEditor_Menu_Object :: Init( void )
 {
-	setSelectionColours( CEGUI::colour( 0.33f, 0.33f, 0.33f ) );
-	setSelectionBrushImage( "TaharezLook", "ListboxSelectionBrush" );
+	setSelectionColours( CEGUI::Colour( 0.33f, 0.33f, 0.33f ) );
+	setSelectionBrushImage( "TaharezLook/ListboxSelectionBrush" );
 }
 
 /* *** *** *** *** *** *** *** cEditor *** *** *** *** *** *** *** *** *** *** */
@@ -224,26 +229,26 @@ void cEditor :: Init( void )
 	}
 
 	// Create Editor CEGUI Window
-	m_editor_window = CEGUI::WindowManager::getSingleton().loadWindowLayout( "editor.layout" );
-	pGuiSystem->getGUISheet()->addChildWindow( m_editor_window );
+	m_editor_window = CEGUI::WindowManager::getSingleton().loadLayoutFromFile( "editor.layout" );
+	pGuiSystem->getDefaultGUIContext().getRootWindow()->addChild( m_editor_window );
 
 	// Get TabControl
-	m_tabcontrol_menu = static_cast<CEGUI::TabControl *>(CEGUI::WindowManager::getSingleton().getWindow( "tabcontrol_editor" ));
+	m_tabcontrol_menu = static_cast<CEGUI::TabControl *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "tabcontrol_editor" ));
 	// fixme : CEGUI does not detect the mouse enter event if in the listbox or any other window in it
 	// TabControl Menu Tab Events
-	m_tabcontrol_menu->getTabContents( "editor_tab_menu" )->subscribeEvent( CEGUI::Window::EventMouseEnters, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
+	m_tabcontrol_menu->getTabContents( "editor_tab_menu" )->subscribeEvent( CEGUI::Window::EventMouseEntersArea, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
 	// TabControl Items Tab Events
-	m_tabcontrol_menu->getTabContents( "editor_tab_items" )->subscribeEvent( CEGUI::Window::EventMouseEnters, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
+	m_tabcontrol_menu->getTabContents( "editor_tab_items" )->subscribeEvent( CEGUI::Window::EventMouseEntersArea, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
 
 	// Get Menu Listbox
-	m_listbox_menu = static_cast<CEGUI::Listbox *>(CEGUI::WindowManager::getSingleton().getWindow( "editor_menu" ));
+	m_listbox_menu = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_menu" ));
 	// Menu Listbox events
-	m_listbox_menu->subscribeEvent( CEGUI::Window::EventMouseEnters, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
+	m_listbox_menu->subscribeEvent( CEGUI::Window::EventMouseEntersArea, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
 	m_listbox_menu->subscribeEvent( CEGUI::Listbox::EventSelectionChanged, CEGUI::Event::Subscriber( &cEditor::Menu_Select, this ) );
 	// Get Items Listbox
-	m_listbox_items = static_cast<CEGUI::Listbox *>(CEGUI::WindowManager::getSingleton().getWindow( "editor_items" ));
+	m_listbox_items = static_cast<CEGUI::Listbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_items" ));
 	// Items Listbox events
-	m_listbox_items->subscribeEvent( CEGUI::Window::EventMouseEnters, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
+	m_listbox_items->subscribeEvent( CEGUI::Window::EventMouseEntersArea, CEGUI::Event::Subscriber( &cEditor::Editor_Mouse_Enter, this ) );
 	m_listbox_items->subscribeEvent( CEGUI::Listbox::EventSelectionChanged, CEGUI::Event::Subscriber( &cEditor::Item_Select, this ) );
 
 	// Get Items
@@ -274,7 +279,7 @@ void cEditor :: Unload( void )
 	Unload_Item_Menu();
 
 	// close help window
-	if( CEGUI::WindowManager::getSingleton().isWindowPresent( "editor_help_window" ) )
+	if( pGuiSystem->getDefaultGUIContext().getRootWindow()->isChild( "editor_help_window" ) )
 	{
 		Window_Help_Exit_Clicked( CEGUI::EventArgs() );
 	}
@@ -282,7 +287,7 @@ void cEditor :: Unload( void )
 	// if editor window is loaded
 	if( m_editor_window )
 	{
-		pGuiSystem->getGUISheet()->removeChildWindow( m_editor_window );
+		pGuiSystem->getDefaultGUIContext().getRootWindow()->removeChild( m_editor_window );
 		CEGUI::WindowManager::getSingleton().destroyWindow( m_editor_window );
 		m_editor_window = NULL;
 		m_listbox_menu = NULL;
@@ -395,7 +400,7 @@ void cEditor :: Update( void )
 	}
 
 	// if visible
-	if( m_listbox_menu->isVisible( 1 ) )
+	if( m_listbox_menu->isVisible() )
 	{
 		// if timed out
 		if( m_menu_timer >= speedfactor_fps * 2 )
@@ -435,10 +440,10 @@ void cEditor :: Update( void )
 				m_editor_window->setAlpha( new_alpha );
 			}
 			// inactive counter
-			else if( Is_Float_Equal( m_editor_window->getXPosition().asRelative( 1 ), 0.0f ) )
+			else if( Is_Float_Equal( m_editor_window->getXPosition().d_scale * ( 1 ), 0.0f ) )
 			{
 				// if mouse is over the window
-				if( m_tabcontrol_menu->isHit( CEGUI::MouseCursor::getSingletonPtr()->getPosition() ) )
+				if( m_tabcontrol_menu->isHit( CEGUI::System::getSingleton().getDefaultGUIContext().getMouseCursor().getPosition(), true ) )
 				{
 					m_menu_timer = 0.0f;
 				}
@@ -543,7 +548,7 @@ void cEditor :: Process_Input( void )
 	}
 
 	// Camera Movement
-	if( pKeyboard->m_keys[SDLK_RIGHT] || pJoystick->m_right )
+	if( pKeyboard->m_keys[SDL_SCANCODE_RIGHT] || pJoystick->m_right )
 	{
 		if( pKeyboard->Is_Shift_Down() )
 		{
@@ -554,7 +559,7 @@ void cEditor :: Process_Input( void )
 			pActive_Camera->Move( m_camera_speed * pFramerate->m_speed_factor * pPreferences->m_scroll_speed, 0.0f );
 		}
 	}
-	else if( pKeyboard->m_keys[SDLK_LEFT] || pJoystick->m_left )
+	else if( pKeyboard->m_keys[SDL_SCANCODE_LEFT] || pJoystick->m_left )
 	{
 		if( pKeyboard->Is_Shift_Down() )
 		{
@@ -565,7 +570,7 @@ void cEditor :: Process_Input( void )
 			pActive_Camera->Move( -( m_camera_speed * pFramerate->m_speed_factor * pPreferences->m_scroll_speed ), 0.0f );
 		}
 	}
-	if( pKeyboard->m_keys[SDLK_UP] || pJoystick->m_up )
+	if( pKeyboard->m_keys[SDL_SCANCODE_UP] || pJoystick->m_up )
 	{
 		if( pKeyboard->Is_Shift_Down() )
 		{
@@ -576,7 +581,7 @@ void cEditor :: Process_Input( void )
 			pActive_Camera->Move( 0.0f, -( m_camera_speed * pFramerate->m_speed_factor * pPreferences->m_scroll_speed ) );
 		}
 	}
-	else if( pKeyboard->m_keys[SDLK_DOWN] || pJoystick->m_down )
+	else if( pKeyboard->m_keys[SDL_SCANCODE_DOWN] || pJoystick->m_down )
 	{
 		if( pKeyboard->Is_Shift_Down() )
 		{
@@ -641,7 +646,7 @@ bool cEditor :: Key_Down( SDLKey key )
 	// help
 	else if( key == SDLK_F1 )
 	{
-		if( CEGUI::WindowManager::getSingleton().isWindowPresent( "editor_help_window" ) )
+		if( pGuiSystem->getDefaultGUIContext().getRootWindow()->isChild( "editor_help_window" ) )
 		{
 			Window_Help_Exit_Clicked( CEGUI::EventArgs() );
 		}
@@ -649,13 +654,13 @@ bool cEditor :: Key_Down( SDLKey key )
 		{
 			CEGUI::FrameWindow *window_help = static_cast<CEGUI::FrameWindow *>(CEGUI::WindowManager::getSingleton().createWindow( "TaharezLook/FrameWindow", "editor_help_window" ));
 			window_help->setPosition( CEGUI::UVector2( CEGUI::UDim( 0, ( game_res_w * 0.1f ) * global_upscalex ), CEGUI::UDim( 0, ( game_res_h * 0.1f ) * global_upscalex ) ) );
-			window_help->setSize( CEGUI::UVector2( CEGUI::UDim( 0, ( game_res_w * 0.8f ) * global_upscalex ), CEGUI::UDim( 0, ( game_res_h * 0.8f ) * global_upscalex ) )  );
+			window_help->setSize( CEGUI::USize( CEGUI::UDim( 0, ( game_res_w * 0.8f ) * global_upscalex ), CEGUI::UDim( 0, ( game_res_h * 0.8f ) * global_upscalex ) )  );
 			window_help->getCloseButton()->subscribeEvent( CEGUI::PushButton::EventClicked, CEGUI::Event::Subscriber( &cEditor::Window_Help_Exit_Clicked, this ) );
 			window_help->setText( "Editor Help" );
 
 			CEGUI::Window *text_help = CEGUI::WindowManager::getSingleton().createWindow( "TaharezLook/StaticText", "editor_help_text" );
 			text_help->setPosition( CEGUI::UVector2( CEGUI::UDim( 0.00f, 0.0f ), CEGUI::UDim( 0.00f, 0.0f ) ) );
-			text_help->setSize( CEGUI::UVector2( CEGUI::UDim( 1, 0.0f ), CEGUI::UDim( 1, 0.0f ) )  );
+			text_help->setSize( CEGUI::USize( CEGUI::UDim( 1, 0.0f ), CEGUI::UDim( 1, 0.0f ) )  );
 			text_help->setProperty( "VertScrollbar", "True" );
 			text_help->setProperty( "FrameEnabled", "False" );
 			text_help->setProperty( "BackgroundEnabled", "False" );
@@ -709,9 +714,9 @@ bool cEditor :: Key_Down( SDLKey key )
 				" \n"
 			);
 
-			CEGUI::Window *guisheet = pGuiSystem->getGUISheet();
-			window_help->addChildWindow( text_help );
-			guisheet->addChildWindow( window_help );
+			CEGUI::Window *guisheet = pGuiSystem->getDefaultGUIContext().getRootWindow();
+			window_help->addChild( text_help );
+			guisheet->addChild( window_help );
 		}
 	}
 	// focus level start
@@ -1024,7 +1029,7 @@ void cEditor :: Set_Sprite_Manager( cSprite_Manager *sprite_manager )
 	m_sprite_manager = sprite_manager;
 }
 
-void cEditor :: Add_Menu_Object( const std::string &name, std::string tags, CEGUI::colour normal_color /* = CEGUI::colour( 1, 1, 1 ) */ )
+void cEditor :: Add_Menu_Object( const std::string &name, std::string tags, CEGUI::Colour normal_color /* = CEGUI::Colour( 1, 1, 1 ) */ )
 {
 	// Create Menu Object
 	cEditor_Menu_Object *new_menu = new cEditor_Menu_Object( name );
@@ -1045,7 +1050,7 @@ void cEditor :: Add_Menu_Object( const std::string &name, std::string tags, CEGU
 		tags.erase( 0, 6 );
 
 		// header color rect
-		new_menu->setTextColours( normal_color, normal_color, CEGUI::colour( 0.5f, 0.5f, 0.5f ), CEGUI::colour( 0.5f, 0.5f, 0.5f ) );
+		new_menu->setTextColours( normal_color, normal_color, CEGUI::Colour( 0.5f, 0.5f, 0.5f ), CEGUI::Colour( 0.5f, 0.5f, 0.5f ) );
 		// not selectable
 		new_menu->setDisabled( 1 );
 		// set tooltip
@@ -1204,7 +1209,7 @@ bool cEditor :: Load_Item_Menu( std::string item_tags )
 void cEditor :: Unload_Item_Menu( void )
 {
 	// already unloaded
-	if( !CEGUI::WindowManager::getSingleton().isWindowPresent( "editor_items" ) )
+	if( !pGuiSystem->getDefaultGUIContext().getRootWindow()->isChild( "editor_items" ) )
 	{
 		return;
 	}
@@ -1565,7 +1570,7 @@ bool cEditor :: Editor_Mouse_Enter( const CEGUI::EventArgs &event )
 	}
 
 	// if not visible
-	if( !m_listbox_items->isVisible( 1 ) )
+	if( !m_listbox_items->isVisible() )
 	{
 		// fade in
 		m_editor_window->setXPosition( CEGUI::UDim( 0, 0 ) );
@@ -1690,8 +1695,8 @@ bool cEditor :: Is_Tag_Available( const std::string &str, const std::string &tag
 
 bool cEditor :: Window_Help_Exit_Clicked( const CEGUI::EventArgs &event )
 {
-	CEGUI::Window *window_help = CEGUI::WindowManager::getSingleton().getWindow( "editor_help_window" );
-	pGuiSystem->getGUISheet()->removeChildWindow( window_help );
+	CEGUI::Window *window_help = CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_help_window" );
+	pGuiSystem->getDefaultGUIContext().getRootWindow()->removeChild( window_help );
 	CEGUI::WindowManager::getSingleton().destroyWindow( window_help );
 
 	return 1;
@@ -1770,7 +1775,7 @@ void cEditor :: Handle_Menu( const CEGUI::XMLAttributes &attributes )
 	std::string name = m_xml_attributes.getValueAsString( "name" ).c_str();
 	std::string tags = m_xml_attributes.getValueAsString( "tags" ).c_str();
 
-	Add_Menu_Object( name, tags, CEGUI::PropertyHelper::stringToColour( m_xml_attributes.getValueAsString( "color", "FFFFFFFF" ) ) );
+	Add_Menu_Object( name, tags, CEGUI::PropertyHelper<CEGUI::Colour>::fromString( m_xml_attributes.getValueAsString( "color", "FFFFFFFF" ) ) );
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */

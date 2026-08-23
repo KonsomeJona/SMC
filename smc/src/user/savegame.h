@@ -18,8 +18,12 @@
 
 #include "../objects/sprite.h"
 // CEGUI
-#include "CEGUIXMLHandler.h"
-#include "CEGUIXMLAttributes.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLHandler.h>
+  #include <CEGUI/XMLAttributes.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -210,6 +214,7 @@ class cSavegame_XML_Handler : public CEGUI::XMLHandler
 public:
 	cSavegame_XML_Handler( const std::string &filename );
 	virtual ~cSavegame_XML_Handler( void );
+
 
 	/* Returns the savegame data
 	 * The returned savegame should be deleted if not used anymore

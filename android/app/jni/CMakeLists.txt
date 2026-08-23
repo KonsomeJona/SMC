@@ -19,20 +19,16 @@ endif()
 # Collect all C++ sources, then remove files that are not compatible with
 # the Android / no-editor / no-CEGUI build.
 # ---------------------------------------------------------------------------
-file(GLOB_RECURSE ALL_SMC_SOURCES "${SMC_SRC}/*.cpp")
+file(GLOB_RECURSE ALL_SMC_SOURCES CONFIGURE_DEPENDS "${SMC_SRC}/*.cpp")
 
 # Files that depend on desktop GL / CEGUI / editor UI — excluded on Android.
 set(ANDROID_EXCLUDED_SOURCES
-    # video.cpp has desktop GL and CEGUI calls that need to be ported
-    "${SMC_SRC}/video/video.cpp"
-    # Editor files (CEGUI-heavy)
+    # Editor files (CEGUI-heavy, excluded via SMC_NO_EDITOR)
     "${SMC_SRC}/core/editor.cpp"
     "${SMC_SRC}/level/level_editor.cpp"
     "${SMC_SRC}/overworld/world_editor.cpp"
-    # Level settings UI (CEGUI)
-    "${SMC_SRC}/level/level_settings.cpp"
-    # Help card (CEGUI)
-    "${SMC_SRC}/gui/help_card.cpp"
+    # Spinner widget (CEGUI, editor-only)
+    "${SMC_SRC}/gui/spinner.cpp"
 )
 
 # Remove excluded sources from the full list
@@ -70,15 +66,9 @@ find_library(EGL_LIB        EGL      REQUIRED)
 # ---------------------------------------------------------------------------
 # Build the shared library that SDL2 will dlopen()
 # ---------------------------------------------------------------------------
-# CEGUI compatibility layer (XML on TinyXML2 + inert editor-widget stubs).
-# Lets the ~50 game files that still include CEGUI headers compile unchanged.
-list(APPEND ALL_SMC_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cegui_compat/cegui_compat.cpp")
-
 add_library(smc SHARED ${ALL_SMC_SOURCES})
 
 target_include_directories(smc PRIVATE
-    # first: "CEGUIXMLAttributes.h" & co. must resolve to the shims
-    cegui_compat
     # <SDL2/SDL_image.h> style includes, kept from the desktop build
     sdl2_compat_include
     # libintl.h no-op shim — bionic has no gettext
@@ -98,10 +88,15 @@ target_compile_definitions(smc PRIVATE
     SMC_NO_CEGUI
     SMC_NO_EDITOR
     SMC_NO_BOOST
-    # Data directory is set at runtime via env var SMC_DATA_DIR (see SMCActivity.java)
-    DATA_DIR=""
-    # Suppress debug logging in release; remove for debug builds
-    $<$<NOT:$<CONFIG:Debug>>:SMC_DEBUG_LOG_DISABLE>
+    # DATA_DIR is baked into 141 literal concatenations (DATA_DIR "/" GUI_FONT_DIR
+    # "/x.ttf"), so it cannot carry the runtime path. It keeps its default value
+    # of "data" and main() chdir()s to SMC_USER_DIR, the parent of the extracted
+    # data/ tree — see core/main.cpp.
+    # Suppress debug logging in release only. The debug variant is compiled as
+    # RelWithDebInfo (see build.gradle: -O2 plus symbols, the plain Debug -O0
+    # runs 5-10x slower), so testing for CONFIG:Debug silenced the debug build
+    # too — which is exactly where the logs are needed.
+    $<$<CONFIG:Release>:SMC_DEBUG_LOG_DISABLE>
 )
 
 # Android requires position-independent code for shared libs

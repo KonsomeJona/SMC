@@ -15,6 +15,11 @@
 
 #include "../gui/spinner.h"
 #include "../core/game_core.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/Exceptions.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace CEGUI
 {
@@ -33,6 +38,33 @@ SMC_Spinner :: SMC_Spinner( const String& type, const String& name )
 SMC_Spinner :: ~SMC_Spinner( void )
 {
 
+}
+
+void SMC_Spinner :: initialiseComponents( void )
+{
+	try
+	{
+		Spinner::initialiseComponents();
+	}
+	catch( CEGUI::InvalidRequestException& )
+	{
+		// CEGUI may not have a RegexMatcher — ignore validation string errors.
+		// Ensure input mode is set so getTextFromValue() works.
+		d_inputMode = FloatingPoint;
+	}
+}
+
+void SMC_Spinner :: setTextInputMode( TextInputMode mode )
+{
+	try
+	{
+		Spinner::setTextInputMode( mode );
+	}
+	catch( CEGUI::InvalidRequestException& )
+	{
+		// No RegexMatcher — just set the mode without validation string
+		d_inputMode = mode;
+	}
 }
 
 String SMC_Spinner :: getTextFromValue( void ) const

@@ -37,8 +37,10 @@ int Tab_Bar( float x, float y, float w, float h,
 // Scrollable item list: draws items, highlights selected.
 // scroll_offset is in item units (0 = top). Modified in-place when scrolled.
 // Returns index of clicked item, -1 if none.
-// Double-click (within 300ms on same item) sets bit 0x8000:
-//   use (result & ~0x8000) to get index, (result & 0x8000) != 0 means double-click.
+// Double-click (within SCROLL_LIST_DCLICK_MS on same item) sets SCROLL_LIST_DCLICK_FLAG:
+//   use (result & ~SCROLL_LIST_DCLICK_FLAG) to get index,
+//   (result & SCROLL_LIST_DCLICK_FLAG) != 0 means double-click.
+static const int SCROLL_LIST_DCLICK_FLAG = 0x8000;
 int Scroll_List( float x, float y, float w, float h,
                  const std::vector<std::string> &items, int selected,
                  int &scroll_offset, std::vector<SMC::cGL_Surface*> &pd );

@@ -20,8 +20,12 @@
 #include "../core/obj_manager.h"
 #include "../core/camera.h"
 // CEGUI
-#include "CEGUIXMLHandler.h"
-#include "CEGUIXMLAttributes.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLHandler.h>
+  #include <CEGUI/XMLAttributes.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {

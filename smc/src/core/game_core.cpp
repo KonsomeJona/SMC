@@ -18,7 +18,9 @@
 #include "../input/keyboard.h"
 #include "../input/mouse.h"
 #include "../input/joystick.h"
+#ifndef SMC_NO_EDITOR
 #include "../level/level_editor.h"
+#endif
 #include "../level/level_player.h"
 #include "../video/renderer.h"
 #include "../level/level.h"
@@ -30,10 +32,14 @@
 #include "../objects/level_exit.h"
 #include "../gui/menu_data.h"
 #include "../user/savegame.h"
+#ifndef SMC_NO_EDITOR
 #include "../overworld/world_editor.h"
+#endif
+#ifndef SMC_NO_CEGUI
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIProgressBar.h"
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/ProgressBar.h>
+#endif
 
 namespace SMC
 {
@@ -44,9 +50,13 @@ bool game_exit = 0;
 GameMode Game_Mode = MODE_NOTHING;
 GameModeType Game_Mode_Type = MODE_TYPE_DEFAULT;
 GameAction Game_Action = GA_NONE;
+#ifndef SMC_NO_CEGUI
 CEGUI::XMLAttributes Game_Action_Data_Start;
 CEGUI::XMLAttributes Game_Action_Data_Middle;
 CEGUI::XMLAttributes Game_Action_Data_End;
+#else
+MenuID g_android_next_menu = MENU_MAIN;
+#endif
 void *Game_Action_ptr = NULL;
 
 int game_res_w = 800;
@@ -81,33 +91,38 @@ void Handle_Game_Events( void )
 		const GameMode current_game_mode = Game_Mode;
 		const GameModeType current_game_mode_type = Game_Mode_Type;
 		const GameAction current_game_action = Game_Action;
+#ifndef SMC_NO_CEGUI
 		const CEGUI::XMLAttributes current_game_action_data_start = Game_Action_Data_Start;
 		const CEGUI::XMLAttributes current_game_action_data_middle = Game_Action_Data_Middle;
 		const CEGUI::XMLAttributes current_game_action_data_end = Game_Action_Data_End;
+#endif
 		void *current_game_action_ptr = Game_Action_ptr;
 		// clear
 		Game_Action = GA_NONE;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Start = CEGUI::XMLAttributes();
 		Game_Action_Data_Middle = CEGUI::XMLAttributes();
 		Game_Action_Data_End = CEGUI::XMLAttributes();
+#endif
 		Game_Action_ptr = NULL;
 
 		// handle player downgrade
 		if( current_game_action == GA_DOWNGRADE_PLAYER )
 		{
+#ifndef SMC_NO_CEGUI
 			Handle_Generic_Game_Events( current_game_action_data_start );
 			pLevel_Player->DownGrade_Player( 0, current_game_action_data_middle.getValueAsBool( "downgrade_force" ) );
 			Handle_Generic_Game_Events( current_game_action_data_middle );
 			Handle_Generic_Game_Events( current_game_action_data_end );
+#else
+			pLevel_Player->DownGrade_Player();
+#endif
 		}
 		// activate level exit
 		else if( current_game_action == GA_ACTIVATE_LEVEL_EXIT )
 		{
-			Handle_Generic_Game_Events( current_game_action_data_start );
 			cLevel_Exit *level_exit = static_cast<cLevel_Exit *>(current_game_action_ptr);
 			level_exit->Activate();
-			Handle_Generic_Game_Events( current_game_action_data_middle );
-			Handle_Generic_Game_Events( current_game_action_data_end );
 		}
 		// full events
 		else
@@ -131,15 +146,31 @@ void Handle_Game_Events( void )
 				new_mode = MODE_LEVEL_SETTINGS;
 			}
 
+#ifndef SMC_NO_CEGUI
 			Handle_Generic_Game_Events( current_game_action_data_start );
+#endif
 			Leave_Game_Mode( new_mode );
+#ifndef SMC_NO_CEGUI
 			Handle_Generic_Game_Events( current_game_action_data_middle );
+#else
+			// Android: no CEGUI event system — load the target menu directly.
+			// Handle_Generic_Game_Events would normally call pMenuCore->Load().
+			if( new_mode == MODE_MENU )
+			{
+				MenuID menu_to_load = g_android_next_menu;
+				g_android_next_menu = MENU_MAIN;  // reset to default for next time
+				pMenuCore->Load( menu_to_load );
+			}
+#endif
 			Enter_Game_Mode( new_mode );
+#ifndef SMC_NO_CEGUI
 			Handle_Generic_Game_Events( current_game_action_data_end );
+#endif
 		}
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void Handle_Generic_Game_Events( const CEGUI::XMLAttributes &action_data )
 {
 	if( action_data.exists( "music_fadeout" ) )
@@ -279,6 +310,7 @@ void Handle_Generic_Game_Events( const CEGUI::XMLAttributes &action_data )
 		}
 	}
 }
+#endif // SMC_NO_CEGUI
 
 void Leave_Game_Mode( const GameMode next_mode )
 {
@@ -296,7 +328,9 @@ void Leave_Game_Mode( const GameMode next_mode )
 	}
 	else if( Game_Mode == MODE_LEVEL_SETTINGS )
 	{
+#ifndef SMC_NO_EDITOR
 		pLevel_Editor->m_settings_screen->Leave();
+#endif
 	}
 }
 
@@ -325,7 +359,9 @@ void Enter_Game_Mode( const GameMode new_mode )
 	// mode gets settings
 	else if( new_mode == MODE_LEVEL_SETTINGS )
 	{
+#ifndef SMC_NO_EDITOR
 		pLevel_Editor->m_settings_screen->Enter();
+#endif
 	}
 }
 
@@ -345,17 +381,19 @@ void Clear_Input_Events( void )
 
 void Preload_Images( bool draw_gui /* = 0 */ )
 {
+#ifndef SMC_NO_CEGUI
 	// progress bar
 	CEGUI::ProgressBar *progress_bar = NULL;
 
 	if( draw_gui )
 	{
 		// get progress bar
-		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI::WindowManager::getSingleton().getWindow( "progress_bar" ));
+		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
 		progress_bar->setProgress( 0 );
 		// set loading screen text
 		Loading_Screen_Draw_Text( _("Loading Images") );
 	}
+#endif
 
 	// image files
 	vector<std::string> image_files;
@@ -475,10 +513,11 @@ void Preload_Images( bool draw_gui /* = 0 */ )
 
 		if( draw_gui )
 		{
+#ifndef SMC_NO_CEGUI
 			// update progress
 			progress_bar->setProgress( static_cast<float>(loaded_files) / static_cast<float>(file_count) );
-
 			Loading_Screen_Draw();
+#endif
 		}
 	}
 }
@@ -491,17 +530,19 @@ void Preload_Sounds( bool draw_gui /* = 0 */ )
 		return;
 	}
 
+#ifndef SMC_NO_CEGUI
 	// progress bar
 	CEGUI::ProgressBar *progress_bar = NULL;
 
 	if( draw_gui )
 	{
 		// get progress bar
-		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI::WindowManager::getSingleton().getWindow( "progress_bar" ));
+		progress_bar = static_cast<CEGUI::ProgressBar *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "progress_bar" ));
 		progress_bar->setProgress( 0 );
 		// set loading screen text
 		Loading_Screen_Draw_Text( _("Loading Sounds") );
 	}
+#endif
 
 	// sound files
 	vector<std::string> sound_files;
@@ -605,6 +646,7 @@ void Preload_Sounds( bool draw_gui /* = 0 */ )
 		// count files
 		loaded_files++;
 
+#ifndef SMC_NO_CEGUI
 		if( draw_gui )
 		{
 			// update progress
@@ -612,6 +654,7 @@ void Preload_Sounds( bool draw_gui /* = 0 */ )
 
 			Loading_Screen_Draw();
 		}
+#endif
 	}
 }
 

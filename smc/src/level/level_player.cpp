@@ -35,10 +35,13 @@
 #include "../video/gl_surface.h"
 #include "../core/filesystem/filesystem.h"
 #include "../video/renderer.h"
+#ifndef SMC_NO_CEGUI
 // CEGUI
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#endif // SMC_NO_CEGUI
+#include "../core/debug_log.h"
 
 namespace SMC
 {
@@ -179,7 +182,7 @@ bool cLevel_Player :: Set_On_Ground( cSprite *obj, bool set_on_top /* = 1 */ )
 		}
 
 		// if massive ground and ducking key is pressed
-		if( m_ground_object->m_massive_type == MASS_MASSIVE && pKeyboard->m_keys[pPreferences->m_key_down] )
+		if( m_ground_object->m_massive_type == MASS_MASSIVE && pKeyboard->Is_Key_Pressed(pPreferences->m_key_down) )
 		{
 			Start_Ducking();
 		}
@@ -209,10 +212,12 @@ void cLevel_Player :: DownGrade_Player( bool delayed /* = 1 */, bool force /* = 
 	if( delayed )
 	{
 		Game_Action = GA_DOWNGRADE_PLAYER;
+#ifndef SMC_NO_CEGUI
 		if( force )
 		{
 			Game_Action_Data_Middle.add( "downgrade_force", "1" );
 		}
+#endif // SMC_NO_CEGUI
 
 		return;
 	}
@@ -397,9 +402,9 @@ animation_end:
 				}
 			}
 
-			Uint8 *keys = SDL_GetKeyState( NULL );
+			const Uint8 *keys = SDL_GetKeyboardState( NULL );
 			// Escape stops
-			if( keys[SDLK_ESCAPE] || keys[SDLK_RETURN] || keys[SDLK_SPACE] || keys[pPreferences->m_key_action] )
+			if( keys[SDL_GetScancodeFromKey( SDLK_ESCAPE )] || keys[SDL_GetScancodeFromKey( SDLK_RETURN )] || keys[SDL_GetScancodeFromKey( SDLK_SPACE )] || keys[SDL_GetScancodeFromKey( pPreferences->m_key_action )] )
 			{
 				break;
 			}
@@ -433,18 +438,22 @@ animation_end:
 	if( m_lives < 0 )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		// reset saved data
 		Game_Action_Data_Middle.add( "reset_save", "1" );
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
+#endif // SMC_NO_CEGUI
 	}
 	// custom level
 	else if( Game_Mode_Type == MODE_TYPE_LEVEL_CUSTOM )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_START ) );
 		Game_Action_Data_Middle.add( "menu_start_current_level", Trim_Filename( pActive_Level->m_level_filename, 0, 0 ) );
 		// reset saved data
 		Game_Action_Data_Middle.add( "reset_save", "1" );
+#endif // SMC_NO_CEGUI
 	}
 	// back to overworld
 	else
@@ -454,12 +463,14 @@ animation_end:
 	}
 
 	// fade out
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Start.add( "music_fadeout", "1500" );
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 	// delay unload level
 	Game_Action_Data_Middle.add( "unload_levels", "1" );
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_BLACK ) );
+	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
+#endif // SMC_NO_CEGUI
 }
 
 void cLevel_Player :: Move_Player( float velocity, float vel_wrongway )
@@ -673,7 +684,7 @@ void cLevel_Player :: Update_Walking( void )
 	}
 
 	// only if left or right is pressed
-	if( pKeyboard->m_keys[pPreferences->m_key_left] || pKeyboard->m_keys[pPreferences->m_key_right] || pJoystick->m_left || pJoystick->m_right )
+	if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) || pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) || pJoystick->m_left || pJoystick->m_right )
 	{
 		float ground_mod = 1.0f;
 
@@ -796,7 +807,7 @@ void cLevel_Player :: Update_Staying( void )
 	}
 
 	// if left and right is not pressed
-	if( !pKeyboard->m_keys[pPreferences->m_key_left] && !pKeyboard->m_keys[pPreferences->m_key_right] && !pJoystick->m_left && !pJoystick->m_right )
+	if( !pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) && !pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) && !pJoystick->m_left && !pJoystick->m_right )
 	{
 		// walking
 		if( m_velx )
@@ -878,7 +889,7 @@ void cLevel_Player :: Update_Flying( void )
 		}
 
 		// move down 
-		if( pKeyboard->m_keys[pPreferences->m_key_down] || pJoystick->m_down )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_down) || pJoystick->m_down )
 		{
 			const float max_vel = 5.0f * Get_Vel_Modifier();
 
@@ -888,7 +899,7 @@ void cLevel_Player :: Update_Flying( void )
 			}
 		}
 		// move up
-		else if( pKeyboard->m_keys[pPreferences->m_key_up] || pJoystick->m_up )
+		else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_up) || pJoystick->m_up )
 		{
 			const float max_vel = -5.0f * Get_Vel_Modifier();
 
@@ -911,7 +922,7 @@ void cLevel_Player :: Update_Flying( void )
 	else
 	{
 		// move left
-		if( ( pKeyboard->m_keys[pPreferences->m_key_left] || pJoystick->m_left ) && !m_ducked_counter )
+		if( ( pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) || pJoystick->m_left ) && !m_ducked_counter )
 		{
 			if( !m_parachute )
 			{
@@ -934,7 +945,7 @@ void cLevel_Player :: Update_Flying( void )
 			}
 		}
 		// move right
-		else if( ( pKeyboard->m_keys[pPreferences->m_key_right] || pJoystick->m_right ) && !m_ducked_counter )
+		else if( ( pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) || pJoystick->m_right ) && !m_ducked_counter )
 		{
 			if( !m_parachute )
 			{
@@ -1205,20 +1216,20 @@ void cLevel_Player :: Update_Climbing( void )
 	if( Is_On_Climbable() )
 	{
 		// set velocity
-		if( pKeyboard->m_keys[pPreferences->m_key_left] || pJoystick->m_left )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) || pJoystick->m_left )
 		{
 			m_velx = -2.0f * Get_Vel_Modifier();
 		}
-		else if( pKeyboard->m_keys[pPreferences->m_key_right] || pJoystick->m_right )
+		else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) || pJoystick->m_right )
 		{
 			m_velx = 2.0f * Get_Vel_Modifier();
 		}
 
-		if( pKeyboard->m_keys[pPreferences->m_key_up] || pJoystick->m_up )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_up) || pJoystick->m_up )
 		{
 			m_vely = -4.0f * Get_Vel_Modifier();
 		}
-		else if( pKeyboard->m_keys[pPreferences->m_key_down] || pJoystick->m_down )
+		else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_down) || pJoystick->m_down )
 		{
 			m_vely = 4.0f * Get_Vel_Modifier();
 		}
@@ -1272,23 +1283,28 @@ bool cLevel_Player :: Is_On_Climbable( float move_y /* = 0.0f */ )
 
 void cLevel_Player :: Start_Jump_Keytime( void )
 {
-	if( m_god_mode || m_state == STA_STAY || m_state == STA_WALK || m_state == STA_RUN || m_state == STA_FALL || m_state == STA_FLY || m_state == STA_JUMP || ( m_state == STA_CLIMB && !pKeyboard->m_keys[pPreferences->m_key_up] ) )
+	LOG_DEBUG(PLAYER, "Start_Jump_Keytime: state=%d god_mode=%d", m_state, m_god_mode);
+	if( m_god_mode || m_state == STA_STAY || m_state == STA_WALK || m_state == STA_RUN || m_state == STA_FALL || m_state == STA_FLY || m_state == STA_JUMP || ( m_state == STA_CLIMB && !pKeyboard->Is_Key_Pressed(pPreferences->m_key_up) ) )
 	{
 		m_up_key_time = speedfactor_fps / 4;
+		LOG_DEBUG(PLAYER, "Start_Jump_Keytime: set up_key_time=%.2f", m_up_key_time);
 	}
 }
 
 void cLevel_Player :: Update_Jump_Keytime( void )
 {
+	LOG_DEBUG(PLAYER, "Update_Jump_Keytime: force_jump=%d up_key_time=%.2f ground=%d state=%d", m_force_jump, m_up_key_time, m_ground_object != NULL, m_state);
 	// handle jumping start
 	if( m_force_jump || ( m_up_key_time && ( m_ground_object || m_god_mode || m_state == STA_CLIMB ) ) )
 	{
+		LOG_DEBUG(PLAYER, "Update_Jump_Keytime: starting jump");
 		Start_Jump();
 	}
 }
 
 void cLevel_Player :: Start_Jump( float deaccel /* = 0.08f */ )
 {
+	LOG_DEBUG(PLAYER, "Start_Jump: deaccel=%.3f next_jump_power=%.2f next_jump_accel=%.2f force=%d", deaccel, m_next_jump_power, m_next_jump_accel, m_force_jump);
 	// play sound
 	if( m_next_jump_sound )
 	{
@@ -1326,10 +1342,11 @@ void cLevel_Player :: Start_Jump( float deaccel /* = 0.08f */ )
 	bool jump_key = 0;
 
 	// if jump key pressed
-	if( pKeyboard->m_keys[pPreferences->m_key_jump] || ( pPreferences->m_joy_analog_jump && pJoystick->m_up ) || pJoystick->Button( pPreferences->m_joy_button_jump ) )
+	if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_jump) || ( pPreferences->m_joy_analog_jump && pJoystick->m_up ) || pJoystick->Button( pPreferences->m_joy_button_jump ) )
 	{
 		jump_key = 1;
 	}
+	LOG_DEBUG(PLAYER, "Start_Jump: jump_key=%d (key_pressed=%d)", jump_key, pKeyboard->Is_Key_Pressed(pPreferences->m_key_jump));
 
 	// todo : is this needed ?
 	// avoid that we are set on the ground again
@@ -1420,7 +1437,7 @@ void cLevel_Player :: Update_Jump( void )
 	}
 
 	// jumping physics
-	if( pKeyboard->m_keys[pPreferences->m_key_jump] || ( pPreferences->m_joy_analog_jump && pJoystick->m_up ) || pJoystick->Button( pPreferences->m_joy_button_jump ) )
+	if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_jump) || ( pPreferences->m_joy_analog_jump && pJoystick->m_up ) || pJoystick->Button( pPreferences->m_joy_button_jump ) )
 	{
 		Add_Velocity_Y( -( m_jump_accel_up + ( m_vely * m_jump_vel_deaccel ) / Get_Vel_Modifier() ) );
 		m_jump_power -= pFramerate->m_speed_factor;
@@ -1432,7 +1449,7 @@ void cLevel_Player :: Update_Jump( void )
 	}
 	
 	// left right physics
-	if( ( pKeyboard->m_keys[pPreferences->m_key_left] || pJoystick->m_left ) && !m_ducked_counter )
+	if( ( pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) || pJoystick->m_left ) && !m_ducked_counter )
 	{
 		const float max_vel = -10.0f * Get_Vel_Modifier();
 
@@ -1442,7 +1459,7 @@ void cLevel_Player :: Update_Jump( void )
 		}
 		
 	}	
-	else if( ( pKeyboard->m_keys[pPreferences->m_key_right] || pJoystick->m_right ) && !m_ducked_counter )
+	else if( ( pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) || pJoystick->m_right ) && !m_ducked_counter )
 	{
 		const float max_vel = 10.0f * Get_Vel_Modifier();
 
@@ -1520,7 +1537,7 @@ void cLevel_Player :: Update_Item( void )
 	}
 
 	// if control is pressed search for items in front of the player
-	if( pKeyboard->m_keys[pPreferences->m_key_action] || pJoystick->Button( pPreferences->m_joy_button_action ) )
+	if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_action) || pJoystick->Button( pPreferences->m_joy_button_action ) )
 	{
 		// next position velocity with extra size
 		float check_x = ( m_velx > 0.0f ) ? ( m_velx + 5.0f ) : ( m_velx - 5.0f );
@@ -2530,7 +2547,9 @@ void cLevel_Player :: Draw( cSurface_Request *request /* = NULL */ )
 		// star invincible
 		if( m_invincible_star > 0.0f )
 		{
+#ifndef __ANDROID__
 			Set_Color_Combine( m_invincible_mod / 130, m_invincible_mod / 130, m_invincible_mod / 180, GL_ADD );
+#endif
 		}
 		// default invincible
 		else
@@ -3269,7 +3288,7 @@ float cLevel_Player :: Get_Vel_Modifier( void ) const
 	float vel_mod = 1.0f;
 
 	// if running key is pressed or always run
-	if( pPreferences->m_always_run || pKeyboard->m_keys[pPreferences->m_key_action] || pJoystick->Button( pPreferences->m_joy_button_action ) )
+	if( pPreferences->m_always_run || pKeyboard->Is_Key_Pressed(pPreferences->m_key_action) || pJoystick->Button( pPreferences->m_joy_button_action ) )
 	{
 		vel_mod = 1.5f;
 	}
@@ -3289,6 +3308,7 @@ float cLevel_Player :: Get_Vel_Modifier( void ) const
 
 void cLevel_Player :: Action_Jump( bool enemy_jump /* = 0 */ )
 {
+	LOG_DEBUG(PLAYER, "Action_Jump: enemy_jump=%d ducked_counter=%.2f state=%d", enemy_jump, m_ducked_counter, m_state);
 	if( m_ducked_counter )
 	{
 		// power jump
@@ -3369,9 +3389,11 @@ void cLevel_Player :: Action_Interact( input_identifier key_type )
 				// if leaving level
 				if( level_exit->m_dest_level.empty() && level_exit->m_dest_entry.empty() )
 				{
+#ifndef SMC_NO_CEGUI
 					Game_Action_Data_Start.add( "music_fadeout", "1000" );
+#endif // SMC_NO_CEGUI
 				}
-				
+
 				return;
 			}
 			// climbable
@@ -3419,7 +3441,9 @@ void cLevel_Player :: Action_Interact( input_identifier key_type )
 							// if leaving level
 							if( level_exit->m_dest_level.empty() && level_exit->m_dest_entry.empty() )
 							{
+#ifndef SMC_NO_CEGUI
 								Game_Action_Data_Start.add( "music_fadeout", "1000" );
+#endif // SMC_NO_CEGUI
 							}
 							return;
 						}
@@ -3480,7 +3504,9 @@ void cLevel_Player :: Action_Interact( input_identifier key_type )
 							// if leaving level
 							if( level_exit->m_dest_level.empty() && level_exit->m_dest_entry.empty() )
 							{
+#ifndef SMC_NO_CEGUI
 								Game_Action_Data_Start.add( "music_fadeout", "1000" );
+#endif // SMC_NO_CEGUI
 							}
 							return;
 						}
@@ -3540,7 +3566,9 @@ void cLevel_Player :: Action_Interact( input_identifier key_type )
 							// if leaving level
 							if( level_exit->m_dest_level.empty() && level_exit->m_dest_entry.empty() )
 							{
+#ifndef SMC_NO_CEGUI
 								Game_Action_Data_Start.add( "music_fadeout", "1000" );
+#endif // SMC_NO_CEGUI
 							}
 							return;
 						}
@@ -3583,6 +3611,7 @@ void cLevel_Player :: Action_Interact( input_identifier key_type )
 	else if( key_type == INP_EXIT )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( MODE_LEVEL ) );
 
 		if( Game_Mode_Type == MODE_TYPE_LEVEL_CUSTOM )
@@ -3594,6 +3623,7 @@ void cLevel_Player :: Action_Interact( input_identifier key_type )
 		{
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 		}
+#endif // SMC_NO_CEGUI
 	}
 }
 
@@ -3645,7 +3675,7 @@ void cLevel_Player :: Action_Stop_Interact( input_identifier key_type )
 	else if( key_type == INP_LEFT )
 	{
 		// if key in opposite direction is still pressed only change direction
-		if( pKeyboard->m_keys[pPreferences->m_key_right] || pJoystick->m_right )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) || pJoystick->m_right )
 		{
 			m_direction = DIR_RIGHT;
 		}
@@ -3658,7 +3688,7 @@ void cLevel_Player :: Action_Stop_Interact( input_identifier key_type )
 	else if( key_type == INP_RIGHT )
 	{
 		// if key in opposite direction is still pressed only change direction
-		if( pKeyboard->m_keys[pPreferences->m_key_left] || pJoystick->m_left )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) || pJoystick->m_left )
 		{
 			m_direction = DIR_LEFT;
 		}
@@ -4047,7 +4077,7 @@ Col_Valid_Type cLevel_Player :: Validate_Collision( cSprite *obj )
 	else if( obj->m_massive_type == MASS_HALFMASSIVE )
 	{
 		// fall through
-		if( pKeyboard->m_keys[pPreferences->m_key_down] )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_down) )
 		{
 			return COL_VTYPE_NOT_VALID;
 		}
@@ -4107,28 +4137,28 @@ Col_Valid_Type cLevel_Player :: Validate_Collision( cSprite *obj )
 				if( levelexit->m_exit_type == LEVEL_EXIT_WARP )
 				{
 					// joystick events are sent as keyboard keys
-					if( pKeyboard->m_keys[pPreferences->m_key_up] )
+					if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_up) )
 					{
 						if( levelexit->m_start_direction == DIR_UP )
 						{
 							Action_Interact( INP_UP );
 						}
 					}
-					else if( pKeyboard->m_keys[pPreferences->m_key_down] )
+					else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_down) )
 					{
 						if( levelexit->m_start_direction == DIR_DOWN )
 						{
 							Action_Interact( INP_DOWN );
 						}
 					}
-					else if( pKeyboard->m_keys[pPreferences->m_key_right] )
+					else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_right) )
 					{
 						if( levelexit->m_start_direction == DIR_RIGHT )
 						{
 							Action_Interact( INP_RIGHT );
 						}
 					}
-					else if( pKeyboard->m_keys[pPreferences->m_key_left] )
+					else if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_left) )
 					{
 						if( levelexit->m_start_direction == DIR_LEFT )
 						{
@@ -4323,7 +4353,7 @@ void cLevel_Player :: Handle_Collision_Massive( cObjectCollision *collision )
 	if( col_obj->m_massive_type == MASS_CLIMBABLE && m_state != STA_CLIMB && m_state != STA_FLY )
 	{
 		// if not climbing and player wants to climb
-		if( pKeyboard->m_keys[pPreferences->m_key_up] || pJoystick->m_up || ( ( pKeyboard->m_keys[pPreferences->m_key_down] || pJoystick->m_down ) && !m_ground_object ) )
+		if( pKeyboard->Is_Key_Pressed(pPreferences->m_key_up) || pJoystick->m_up || ( ( pKeyboard->Is_Key_Pressed(pPreferences->m_key_down) || pJoystick->m_down ) && !m_ground_object ) )
 		{
 			// start climbing
 			Start_Climbing();
@@ -4548,6 +4578,7 @@ void cLevel_Player :: Handle_out_of_Level( ObjectDirection dir )
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cLevel_Player :: Editor_Activate( void )
 {
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
@@ -4575,6 +4606,9 @@ bool cLevel_Player :: Editor_Direction_Select( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cLevel_Player :: Editor_Activate( void ) {}
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

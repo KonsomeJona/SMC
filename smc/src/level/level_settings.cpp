@@ -27,6 +27,7 @@
 #include "../core/i18n.h"
 #include "../gui/modern_ui.h"
 #include "../video/gl_surface.h"
+#ifndef SMC_NO_CEGUI
 // CEGUI (still needed for Game_Action_Data_Start/End and XMLAttributes helpers)
 #include <CEGUI/WindowManager.h>
 #include <CEGUI/widgets/Spinner.h>
@@ -38,6 +39,7 @@
 #include <CEGUI/widgets/Slider.h>
 #include <CEGUI/widgets/Listbox.h>
 #include <CEGUI/widgets/ListboxTextItem.h>
+#endif // SMC_NO_CEGUI
 
 #include <cstdio>
 #include <algorithm>
@@ -239,11 +241,13 @@ cLevel_Settings :: cLevel_Settings( cSprite_Manager *sprite_manager, cLevel *lev
     m_active      = 0;
     m_level       = level;
     m_camera      = new cCamera( sprite_manager );
+#ifndef SMC_NO_CEGUI
     m_gui_window  = NULL;
     m_tabcontrol  = NULL;
     m_spinner_difficulty   = NULL;
     m_slider_difficulty    = NULL;
     m_text_difficulty_name = NULL;
+#endif // SMC_NO_CEGUI
 }
 
 cLevel_Settings :: ~cLevel_Settings( void )
@@ -295,12 +299,14 @@ void cLevel_Settings :: Exit( void )
 {
     // Back to level
     Game_Action = GA_ENTER_LEVEL;
+#ifndef SMC_NO_CEGUI
     Game_Action_Data_Start.add( "screen_fadeout",
         CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
     Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
     Game_Action_Data_End.add( "screen_fadein",
         CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
     Game_Action_Data_End.add( "screen_fadein_speed", "3" );
+#endif // SMC_NO_CEGUI
 }
 
 void cLevel_Settings :: Enter( void )
@@ -804,6 +810,7 @@ void cLevel_Settings :: Set_Sprite_Manager( cSprite_Manager *sprite_manager )
 // CEGUI callback stubs (interface kept for binary compatibility)
 // ---------------------------------------------------------------------------
 
+#ifndef SMC_NO_CEGUI
 bool cLevel_Settings :: Add_Background_Image( const CEGUI::EventArgs &event )
 {
     return 1;
@@ -831,20 +838,9 @@ bool cLevel_Settings :: Update_BG_Colors( const CEGUI::EventArgs &event )
     return 1;
 }
 
-void cLevel_Settings :: Load_BG_Image_List( void )
-{
-    Rebuild_BG_Image_List( m_level );
-}
-
 bool cLevel_Settings :: Update_BG_Image( const CEGUI::EventArgs &event )
 {
     return 1;
-}
-
-void cLevel_Settings :: Clear_Layer_Field( void )
-{
-    g_ls.bg_selected = -1;
-    Load_Selected_BG_Fields();
 }
 
 bool cLevel_Settings :: Spinner_Difficulty_Changed( const CEGUI::EventArgs &event )
@@ -855,6 +851,18 @@ bool cLevel_Settings :: Spinner_Difficulty_Changed( const CEGUI::EventArgs &even
 bool cLevel_Settings :: Slider_Difficulty_Changed( const CEGUI::EventArgs &event )
 {
     return 1;
+}
+#endif // SMC_NO_CEGUI
+
+void cLevel_Settings :: Load_BG_Image_List( void )
+{
+    Rebuild_BG_Image_List( m_level );
+}
+
+void cLevel_Settings :: Clear_Layer_Field( void )
+{
+    g_ls.bg_selected = -1;
+    Load_Selected_BG_Fields();
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */

@@ -165,9 +165,14 @@ void cGL_Surface :: Save( const std::string &filename )
 	// create image data
 	GLubyte *data = new GLubyte[m_tex_w * m_tex_h * 4];
 	// read texture
+#ifndef __ANDROID__
 	glGetTexImage( GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, static_cast<GLvoid *>(data) );
 	// save
 	pVideo->Save_Surface( filename, data, m_tex_w, m_tex_h );
+#else
+	// glGetTexImage is not available in OpenGL ES 2; skip texture readback on Android
+	printf( "Warning: cGL_Surface :: Save : texture readback not supported on Android (GLES2)\n" );
+#endif
 	// clear data
 	delete[] data;
 }
@@ -208,9 +213,17 @@ cSaved_Texture *cGL_Surface :: Get_Software_Texture( bool only_filename /* = 0 *
 		glBindTexture( GL_TEXTURE_2D, m_image );
 
 		// texture settings
+#ifndef __ANDROID__
 		glGetTexLevelParameteriv( GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &soft_tex->m_width );
 		glGetTexLevelParameteriv( GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &soft_tex->m_height );
 		glGetTexLevelParameteriv( GL_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &soft_tex->m_format );
+#else
+		// GL_TEXTURE_WIDTH/HEIGHT/INTERNAL_FORMAT queries are not available in GLES2;
+		// fall back to the stored object dimensions and assume RGBA.
+		soft_tex->m_width  = static_cast<GLint>( m_tex_w );
+		soft_tex->m_height = static_cast<GLint>( m_tex_h );
+		soft_tex->m_format = GL_RGBA;
+#endif
 
 		glGetTexParameteriv( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, &soft_tex->m_wrap_s );
 		glGetTexParameteriv( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, &soft_tex->m_wrap_t );
@@ -236,7 +249,15 @@ cSaved_Texture *cGL_Surface :: Get_Software_Texture( bool only_filename /* = 0 *
 		// texture data
 		soft_tex->m_pixels = new GLubyte[soft_tex->m_width * soft_tex->m_height * bpp];
 
+#ifndef __ANDROID__
 		glGetTexImage( GL_TEXTURE_2D, 0, soft_tex->m_format, GL_UNSIGNED_BYTE, soft_tex->m_pixels );
+#else
+		// glGetTexImage is not available in OpenGL ES 2; zero the buffer and skip readback.
+		// The pixels will be NULL-equivalent for downstream restore; Load_Software_Texture
+		// will reload from file when m_pixels is zeroed/unused.
+		memset( soft_tex->m_pixels, 0, soft_tex->m_width * soft_tex->m_height * bpp );
+		printf( "Warning: cGL_Surface :: Get_Software_Texture : texture readback not supported on Android (GLES2)\n" );
+#endif
 	}
 
 	// surface pointer

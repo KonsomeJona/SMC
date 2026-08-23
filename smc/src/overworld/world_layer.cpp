@@ -20,10 +20,12 @@
 #include "../core/i18n.h"
 #include "../overworld/world_editor.h"
 // CEGUI
-#include "CEGUIXMLParser.h"
-#include "CEGUIWindowManager.h"
-#include "CEGUIExceptions.h"
-#include "elements/CEGUIEditbox.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLParser.h>
+  #include <CEGUI/WindowManager.h>
+  #include <CEGUI/Exceptions.h>
+  #include <CEGUI/widgets/Editbox.h>
+#endif
 
 namespace SMC
 {
@@ -159,7 +161,11 @@ cLayer_Line_Point_Start *cLayer_Line_Point_Start :: Copy( void ) const
 {
 	// create layer line
 	// hack : assume it's copied with the editor
+#ifndef SMC_NO_EDITOR
 	cLayer_Line_Point_Start *layer_line = new cLayer_Line_Point_Start( m_sprite_manager, pWorld_Editor->m_overworld );
+#else
+	cLayer_Line_Point_Start *layer_line = new cLayer_Line_Point_Start( m_sprite_manager, m_overworld );
+#endif
 	// start position
 	layer_line->Set_Pos( m_pos_x, m_pos_y, 1 );
 	// end position
@@ -246,6 +252,7 @@ cWaypoint *cLayer_Line_Point_Start :: Get_End_Waypoint( void ) const
 	return m_overworld->Get_Waypoint( wp_num );
 }
 
+#ifndef SMC_NO_CEGUI
 void cLayer_Line_Point_Start :: Editor_Activate( void )
 {
 	// get window manager
@@ -255,7 +262,7 @@ void cLayer_Line_Point_Start :: Editor_Activate( void )
 	CEGUI::Editbox *editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "layer_line_origin" ));
 	Editor_Add( UTF8_("Waypoint origin"), UTF8_("Waypoint origin"), editbox, 100 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_origin ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cLayer_Line_Point_Start::Editor_Origin_Text_Changed, this ) );
 
@@ -272,6 +279,9 @@ bool cLayer_Line_Point_Start :: Editor_Origin_Text_Changed( const CEGUI::EventAr
 
 	return 1;
 }
+#else
+void cLayer_Line_Point_Start :: Editor_Activate( void ) {}
+#endif
 
 /* *** *** *** *** *** *** *** *** Line Collision *** *** *** *** *** *** *** *** *** */
 
@@ -346,6 +356,7 @@ void cLayer :: Load( const std::string &filename )
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 bool cLayer :: Save( const std::string &filename )
 {
 // fixme : Check if there is a more portable way f.e. with imbue()
@@ -393,6 +404,7 @@ bool cLayer :: Save( const std::string &filename )
 
 	return 1;
 }
+#endif
 
 void cLayer :: Delete_All( void )
 {
@@ -576,11 +588,11 @@ void cLayer :: elementEnd( const CEGUI::String &element )
 		{
 			if( m_xml_attributes.exists( "Y1" ) )
 			{
-				m_xml_attributes.add( "Y1", CEGUI::PropertyHelper::floatToString( m_xml_attributes.getValueAsFloat( "Y1" ) - 600.0f ) );
+				m_xml_attributes.add( "Y1", CEGUI::PropertyHelper<float>::toString( m_xml_attributes.getValueAsFloat( "Y1" ) - 600.0f ) );
 			}
 			if( m_xml_attributes.exists( "Y2" ) )
 			{
-				m_xml_attributes.add( "Y2", CEGUI::PropertyHelper::floatToString( m_xml_attributes.getValueAsFloat( "Y2" ) - 600.0f ) );
+				m_xml_attributes.add( "Y2", CEGUI::PropertyHelper<float>::toString( m_xml_attributes.getValueAsFloat( "Y2" ) - 600.0f ) );
 			}
 		}
 

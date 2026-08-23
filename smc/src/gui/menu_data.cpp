@@ -38,6 +38,14 @@
 #include "../gui/modern_ui.h"
 // (CEGUI includes removed in M12 — menu shell now uses ModernUI exclusively)
 
+// GL_MODULATE is a fixed-function constant not defined in GLES2 headers.
+// On Android the renderer already skips the glTexEnvi combine path (guarded
+// by #ifndef __ANDROID__), so passing the numeric value 0x2100 is harmless —
+// m_combine_type is stored but never consumed on GLES2.
+#ifndef GL_MODULATE
+#  define GL_MODULATE 0x2100
+#endif
+
 namespace SMC
 {
 
@@ -251,12 +259,16 @@ void cMenu_Main :: Exit( void )
 	if( m_exit_to_gamemode == MODE_LEVEL )
 	{
 		Game_Action = GA_ENTER_LEVEL;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "unload_menu", "1" );
+#endif
 	}
 	else if( m_exit_to_gamemode == MODE_OVERWORLD )
 	{
 		Game_Action = GA_ENTER_WORLD;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "unload_menu", "1" );
+#endif
 	}
 }
 
@@ -275,25 +287,41 @@ void cMenu_Main :: Update( void )
 	if( pMenuCore->m_handler->m_active == 0 )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_START ) );
+#else
+		g_android_next_menu = MENU_START;
+#endif
 	}
 	// Options
 	else if( pMenuCore->m_handler->m_active == 1 )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
+#else
+		g_android_next_menu = MENU_OPTIONS;
+#endif
 	}
 	// Load
 	else if( pMenuCore->m_handler->m_active == 2 )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_LOAD ) );
+#else
+		g_android_next_menu = MENU_LOAD;
+#endif
 	}
 	// Save
 	else if( pMenuCore->m_handler->m_active == 3 )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_SAVE ) );
+#else
+		g_android_next_menu = MENU_SAVE;
+#endif
 	}
 	// Quit
 	else if( pMenuCore->m_handler->m_active == 4 )
@@ -304,13 +332,19 @@ void cMenu_Main :: Update( void )
 	else if( pMenuCore->m_handler->m_active == 5 )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_CREDITS ) );
 		Game_Action_Data_Start.add( "music_fadeout", "500" );
+#else
+		g_android_next_menu = MENU_CREDITS;
+#endif
 	}
 
 	if( m_exit_to_gamemode != MODE_NOTHING )
 	{
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#endif
 	}
 }
 
@@ -390,11 +424,15 @@ void cMenu_Start :: Init_GUI( void )
 void cMenu_Start :: Exit( void )
 {
 	Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	if( m_exit_to_gamemode != MODE_NOTHING )
 	{
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
 	}
+#else
+	g_android_next_menu = MENU_MAIN;
+#endif
 }
 
 void cMenu_Start :: Update( void )
@@ -536,15 +574,20 @@ void cMenu_Start :: Load_Campaign( std::string name )
 		{
 			Game_Action = GA_ENTER_LEVEL;
 			Game_Mode_Type = MODE_TYPE_LEVEL_CUSTOM;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_level", new_campaign->m_target.c_str() );
+#endif
 		}
 		// enter world
 		else
 		{
 			Game_Action = GA_ENTER_WORLD;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "enter_world", new_campaign->m_target.c_str() );
+#endif
 		}
 
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Start.add( "music_fadeout", "1000" );
 		Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 		Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
@@ -552,6 +595,7 @@ void cMenu_Start :: Load_Campaign( std::string name )
 		Game_Action_Data_Middle.add( "reset_save", "1" );
 		Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_RANDOM ) );
 		Game_Action_Data_End.add( "screen_fadein_speed", "3" );
+#endif
 	}
 }
 
@@ -573,6 +617,7 @@ void cMenu_Start :: Load_World( std::string name )
 	{
 		// enter world
 		Game_Action = GA_ENTER_WORLD;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Start.add( "music_fadeout", "1000" );
 		Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 		Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
@@ -581,6 +626,7 @@ void cMenu_Start :: Load_World( std::string name )
 		Game_Action_Data_Middle.add( "reset_save", "1" );
 		Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_RANDOM ) );
 		Game_Action_Data_End.add( "screen_fadein_speed", "3" );
+#endif
 	}
 }
 
@@ -602,6 +648,7 @@ bool cMenu_Start :: Load_Level( std::string level_name )
 	// enter level
 	Game_Action = GA_ENTER_LEVEL;
 	Game_Mode_Type = MODE_TYPE_LEVEL_CUSTOM;
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Start.add( "music_fadeout", "1000" );
 	Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
@@ -610,6 +657,7 @@ bool cMenu_Start :: Load_Level( std::string level_name )
 	Game_Action_Data_Middle.add( "reset_save", "1" );
 	Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_RANDOM ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
+#endif
 
 	return 1;
 }
@@ -914,11 +962,15 @@ void cMenu_Options :: Exit( void )
 	pVideo->Set_Post_GUI_Render( NULL );
 	pPreferences->Save();
 	Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	if( m_exit_to_gamemode != MODE_NOTHING )
 	{
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
 	}
+#else
+	g_android_next_menu = MENU_MAIN;
+#endif
 }
 
 void cMenu_Options :: Update( void )
@@ -1088,17 +1140,25 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		{
 			pPreferences->Apply_Video( m_vid_w, m_vid_h, m_vid_bpp, m_vid_fullscreen, m_vid_vsync, m_vid_geometry_detail, m_vid_texture_detail );
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
 			if( m_exit_to_gamemode != MODE_NOTHING )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#else
+			g_android_next_menu = MENU_OPTIONS;
+#endif
 		}
 		if( ModernUI::Button( btn_x + btn_w + 8.0f, row_y, btn_w, row_h, _("Reset"), m_opt_pending_delete ) )
 		{
 			pPreferences->Reset_Video();
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
 			if( m_exit_to_gamemode != MODE_NOTHING )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#else
+			g_android_next_menu = MENU_OPTIONS;
+#endif
 		}
 	}
 	else if( tab == 2 )  // Audio
@@ -1152,9 +1212,13 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		{
 			pPreferences->Reset_Audio();
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
 			if( m_exit_to_gamemode != MODE_NOTHING )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#else
+			g_android_next_menu = MENU_OPTIONS;
+#endif
 		}
 	}
 	else if( tab == 0 )  // Game
@@ -1207,9 +1271,13 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		{
 			pPreferences->Reset_Game();
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
 			if( m_exit_to_gamemode != MODE_NOTHING )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#else
+			g_android_next_menu = MENU_OPTIONS;
+#endif
 		}
 	}
 	else if( tab == 3 )  // Keyboard
@@ -1253,9 +1321,13 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		{
 			pPreferences->Reset_Keyboard();
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
 			if( m_exit_to_gamemode != MODE_NOTHING )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#else
+			g_android_next_menu = MENU_OPTIONS;
+#endif
 		}
 	}
 	else if( tab == 4 )  // Joystick
@@ -1337,9 +1409,13 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		{
 			pPreferences->Reset_Joystick();
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
 			if( m_exit_to_gamemode != MODE_NOTHING )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#else
+			g_android_next_menu = MENU_OPTIONS;
+#endif
 		}
 	}
 	else if( tab == 5 )  // Editor
@@ -1374,9 +1450,13 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		{
 			pPreferences->Reset_Editor();
 			Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 			Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_OPTIONS ) );
 			if( m_exit_to_gamemode != MODE_NOTHING )
 				Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
+#else
+			g_android_next_menu = MENU_OPTIONS;
+#endif
 		}
 	}
 
@@ -1558,11 +1638,15 @@ void cMenu_Savegames :: Init_GUI( void )
 void cMenu_Savegames :: Exit( void )
 {
 	Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	if( m_exit_to_gamemode != MODE_NOTHING )
 	{
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
 	}
+#else
+	g_android_next_menu = MENU_MAIN;
+#endif
 }
 
 void cMenu_Savegames :: Update( void )
@@ -1622,23 +1706,31 @@ void cMenu_Savegames :: Update_Load( void )
 		Game_Action = GA_ENTER_LEVEL;
 		cLevel *level = pLevel_Manager->Load( level_name );
 		// only fade-out music if different
+#ifndef SMC_NO_CEGUI
 		if( pActive_Level->Get_Music_Filename( 1 ).compare( level->Get_Music_Filename( 1 ) ) != 0 )
 		{
 			Game_Action_Data_Start.add( "music_fadeout", "1000" );
 		}
+#else
+		(void)level;
+#endif
 	}
 	else
 	{
 		Game_Action = GA_ENTER_WORLD;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Start.add( "music_fadeout", "1000" );
+#endif
 	}
 
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Start.add( "screen_fadeout", int_to_string( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 	Game_Action_Data_Middle.add( "unload_menu", "1" );
 	Game_Action_Data_Middle.add( "load_savegame", int_to_string( save_num ) );
 	Game_Action_Data_End.add( "screen_fadein", int_to_string( EFFECT_IN_BLACK ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
+#endif
 }
 
 void cMenu_Savegames :: Update_Save( void )
@@ -1653,14 +1745,18 @@ void cMenu_Savegames :: Update_Save( void )
 	
 	pFramerate->Reset();
 
-	if( descripion.compare( "Not enough Points" ) == 0 ) 
+	if( descripion.compare( "Not enough Points" ) == 0 )
 	{
 		Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 		if( m_exit_to_gamemode != MODE_NOTHING )
 		{
 			Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
 		}
+#else
+		g_android_next_menu = MENU_MAIN;
+#endif
 		return;
 	}
 
@@ -1682,11 +1778,15 @@ void cMenu_Savegames :: Update_Save( void )
 	pSavegame->Save_Game( pMenuCore->m_handler->m_active + 1, descripion );
 
 	Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	if( m_exit_to_gamemode != MODE_NOTHING )
 	{
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
 	}
+#else
+	g_android_next_menu = MENU_MAIN;
+#endif
 }
 
 std::string cMenu_Savegames :: Set_Save_Description( unsigned int save_slot )
@@ -1949,12 +2049,16 @@ void cMenu_Credits :: Leave( const GameMode next_mode /* = MODE_NOTHING */ )
 void cMenu_Credits :: Exit( void )
 {
 	Game_Action = GA_ENTER_MENU;
+#ifndef SMC_NO_CEGUI
 	Game_Action_Data_Start.add( "music_fadeout", "500" );
 	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	if( m_exit_to_gamemode != MODE_NOTHING )
 	{
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( m_exit_to_gamemode ) );
 	}
+#else
+	g_android_next_menu = MENU_MAIN;
+#endif
 }
 
 void cMenu_Credits :: Update( void )

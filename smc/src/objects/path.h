@@ -187,6 +187,7 @@ public:
 	virtual void Editor_Activate( void );
 	// editor state update
 	virtual void Editor_State_Update( void );
+#ifndef SMC_NO_CEGUI
 	// editor identifier text changed event
 	bool Editor_Identifier_Text_Changed( const CEGUI::EventArgs &event );
 	// editor show line option selected event
@@ -207,6 +208,7 @@ public:
 	bool Editor_Pos_X2_Text_Changed( const CEGUI::EventArgs &event );
 	// position y2 text changed event
 	bool Editor_Pos_Y2_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 	// set linked path states to move again from start of the current segment
 	void Editor_Segment_Pos_Changed( void );
 

@@ -42,8 +42,10 @@ public:
 
 	// if finished
 	bool finished;
+#ifndef SMC_NO_CEGUI
 	// base window
 	CEGUI::Window *window;
+#endif
 	// layout filename
 	std::string layout_file;
 
@@ -64,12 +66,14 @@ public:
 	// enter
 	std::string Enter( std::string default_text, std::string title_text, bool auto_no_text = 1 );
 
+#ifndef SMC_NO_CEGUI
 	// CEGUI events
 	// window quit button clicked event
 	bool Button_window_quit_clicked( const CEGUI::EventArgs &event );
 
 	// editbox
 	CEGUI::Editbox *box_editbox;
+#endif
 };
 
 // Button Question Box
@@ -85,9 +89,10 @@ public:
 	// enter
 	int Enter( std::string text, bool with_cancel = 0 );
 
+#ifndef SMC_NO_CEGUI
 	// CEGUI events
 	// yes button clicked event
-	bool Button_yes_clicked( const CEGUI::EventArgs &event ); 
+	bool Button_yes_clicked( const CEGUI::EventArgs &event );
 	// no button clicked event
 	bool Button_no_clicked( const CEGUI::EventArgs &event );
 	// cancel button clicked event
@@ -95,6 +100,7 @@ public:
 
 	// box window
 	CEGUI::FrameWindow *box_window;
+#endif
 
 	// return value
 	int return_value;

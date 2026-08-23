@@ -37,6 +37,10 @@ void Draw_Rect(float x, float y, float w, float h,
 void Draw_Circle(float cx, float cy, float radius,
                  Uint8 r, Uint8 g, Uint8 b, Uint8 a);
 
+// Draw a filled triangle
+void Draw_Triangle(float x1, float y1, float x2, float y2, float x3, float y3,
+                   Uint8 r, Uint8 g, Uint8 b, Uint8 a);
+
 // Draw a line
 void Draw_Line(float x1, float y1, float x2, float y2,
                Uint8 r, Uint8 g, Uint8 b, Uint8 a, float width = 1.0f);

@@ -22,11 +22,15 @@
 #include "../level/level_manager.h"
 #include "../core/sprite_manager.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -894,6 +898,7 @@ void cFurball :: Handle_Collision_Massive( cObjectCollision *collision )
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cFurball :: Editor_Activate( void )
 {
 	// get window manager
@@ -915,7 +920,7 @@ void cFurball :: Editor_Activate( void )
 		CEGUI::Editbox *editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_furball_max_downgrade_count" ));
 		Editor_Add( UTF8_("Downgrades"), UTF8_("Downgrades until death"), editbox, 120 );
 
-		editbox->setValidationString( "^[+]?\\d*$" );
+		try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 		editbox->setText( int_to_string( m_max_downgrade_count ) );
 		editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cFurball::Editor_Max_Downgrade_Count_Text_Changed, this ) );
 	
@@ -977,6 +982,9 @@ bool cFurball :: Editor_Max_Downgrade_Count_Text_Changed( const CEGUI::EventArgs
 
 	return 1;
 }
+#else
+void cFurball :: Editor_Activate( void ) {}
+#endif
 
 void cFurball :: Create_Name( void )
 {

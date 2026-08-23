@@ -17,7 +17,9 @@
 #define SMC_I18N_H
 
 #include "../core/global_game.h"
-#include <libintl.h>
+#ifndef __ANDROID__
+  #include <libintl.h>
+#endif
 
 namespace SMC
 {
@@ -25,9 +27,17 @@ namespace SMC
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 
 // translates the string with gettext
-#define _(String) gettext(String)
-// translates the utf8 string with gettext
-#define UTF8_(String) reinterpret_cast<CEGUI::utf8*>(gettext(String))
+#ifdef __ANDROID__
+  // gettext is not available on Android — return string as-is
+  #define _(String) (String)
+  #define gettext(String) (String)
+#else
+  #define _(String) gettext(String)
+#endif
+// translates the utf8 string with gettext (CEGUI desktop only)
+#ifndef __ANDROID__
+  #define UTF8_(String) reinterpret_cast<CEGUI::utf8*>(gettext(String))
+#endif
 // not translated and only for gettext detection
 #define N_(String) String
 

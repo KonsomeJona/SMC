@@ -23,11 +23,15 @@
 #include "../input/mouse.h"
 #include "../core/i18n.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -605,6 +609,7 @@ void cRokko :: Handle_out_of_Level( ObjectDirection dir )
 	//Set_Active( 0 );
 }
 
+#ifndef SMC_NO_CEGUI
 void cRokko :: Editor_Activate( void )
 {
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
@@ -625,7 +630,7 @@ void cRokko :: Editor_Activate( void )
 	CEGUI::Editbox *editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_rokko_speed" ));
 	Editor_Add( UTF8_("Speed"), UTF8_("Speed when activated"), editbox, 120 );
 
-	editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" );
+	try { editbox->setValidationString( "[+]?[0-9]*\\.?[0-9]*" ); } catch(...) {}
 	editbox->setText( float_to_string( m_speed, 6, 0 ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRokko::Editor_Speed_Text_Changed, this ) );
 
@@ -652,6 +657,9 @@ bool cRokko :: Editor_Speed_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cRokko :: Editor_Activate( void ) {}
+#endif
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

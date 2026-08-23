@@ -25,11 +25,16 @@
 #include "../objects/goldpiece.h"
 #include "../core/sprite_manager.h"
 #include "../core/i18n.h"
+#include "../core/debug_log.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -259,6 +264,7 @@ void cBonusBox :: Set_Goldcolor( DefaultColor new_color )
 
 void cBonusBox :: Activate( void )
 {
+	LOG_DEBUG(BONUSBOX, "Activate: box_type=%d pos=%.0f,%.0f item_image=%s", box_type, m_pos_x, m_pos_y, m_item_image ? "ok" : "NULL");
 	bool random = 0;
 
 	// random
@@ -320,12 +326,14 @@ void cBonusBox :: Activate( void )
 		cMushroom *mushroom = new cMushroom( m_sprite_manager );
 		mushroom->Set_Pos( m_start_pos_x - ( ( m_item_image->m_w - m_rect.m_w ) / 2 ), m_start_pos_y - ( ( m_item_image->m_h - m_rect.m_h ) / 2 ), 1 );
 		box_item = static_cast<cMovingSprite *>(mushroom);
+		LOG_DEBUG(BONUSBOX, "Activate: spawned item type=%d", box_type);
 	}
 	else if( box_type == TYPE_FIREPLANT )
 	{
 		pAudio->Play_Sound( "sprout_1.ogg" );
 		box_item = static_cast<cMovingSprite *>(new cFirePlant( m_sprite_manager ));
 		box_item->Set_Pos( m_start_pos_x - ( ( m_item_image->m_w - m_rect.m_w ) / 2 ), m_start_pos_y, 1 );
+		LOG_DEBUG(BONUSBOX, "Activate: spawned item type=%d", box_type);
 	}
 	else if( box_type == TYPE_MUSHROOM_DEFAULT || box_type == TYPE_MUSHROOM_LIVE_1 || box_type == TYPE_MUSHROOM_POISON || box_type == TYPE_MUSHROOM_BLUE || box_type == TYPE_MUSHROOM_GHOST )
 	{
@@ -335,6 +343,7 @@ void cBonusBox :: Activate( void )
 		mushroom->Set_Pos( m_start_pos_x - ( ( m_item_image->m_w - m_rect.m_w ) / 2 ), m_start_pos_y - ( ( m_item_image->m_h - m_rect.m_h ) / 2 ), 1 );
 		mushroom->Set_Type( box_type );
 		box_item = static_cast<cMovingSprite *>(mushroom);
+		LOG_DEBUG(BONUSBOX, "Activate: spawned item type=%d", box_type);
 	}
 	else if( box_type == TYPE_STAR )
 	{
@@ -345,6 +354,7 @@ void cBonusBox :: Activate( void )
 		star->Set_Spawned( 1 );
 		// add to global objects
 		m_sprite_manager->Add( star );
+		LOG_DEBUG(BONUSBOX, "Activate: spawned item type=%d", box_type);
 	}
 	else if( box_type == TYPE_GOLDPIECE )
 	{
@@ -355,6 +365,7 @@ void cBonusBox :: Activate( void )
 		goldpiece->Set_Gold_Color( m_gold_color );
 		// add to global objects
 		m_sprite_manager->Add( goldpiece );
+		LOG_DEBUG(BONUSBOX, "Activate: spawned item type=%d", box_type);
 	}
 	else
 	{
@@ -389,6 +400,7 @@ void cBonusBox :: Update( void )
 	}
 
 	// update active items
+	LOG_DEBUG(BONUSBOX, "Update: active_items=%zu", m_active_items.size());
 	for( MovingSpriteList::iterator itr = m_active_items.begin(); itr != m_active_items.end(); )
 	{
 		cPowerUp *powerup = static_cast<cPowerUp *>(*itr);
@@ -465,6 +477,7 @@ bool cBonusBox :: Is_Update_Valid( void )
 	return cBaseBox::Is_Update_Valid();
 }
 
+#ifndef SMC_NO_CEGUI
 void cBonusBox :: Editor_Activate( void )
 {
 	// BaseBox Settings first
@@ -580,9 +593,9 @@ void cBonusBox :: Editor_State_Update( void )
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
 
 	// Force best item
-	CEGUI::Combobox *combobox = static_cast<CEGUI::Combobox *>(wmgr.getWindow( "editor_bonusbox_force_best_item" ));
+	CEGUI::Combobox *combobox = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_bonusbox_force_best_item" ));
 
-	if( box_type == TYPE_UNDEFINED || box_type == TYPE_POWERUP || box_type == TYPE_MUSHROOM_DEFAULT || box_type == TYPE_MUSHROOM_LIVE_1 || box_type == TYPE_MUSHROOM_POISON || 
+	if( box_type == TYPE_UNDEFINED || box_type == TYPE_POWERUP || box_type == TYPE_MUSHROOM_DEFAULT || box_type == TYPE_MUSHROOM_LIVE_1 || box_type == TYPE_MUSHROOM_POISON ||
 		box_type == TYPE_MUSHROOM_GHOST || box_type == TYPE_STAR || box_type == TYPE_GOLDPIECE )
 	{
 		combobox->setEnabled( 0 );
@@ -593,7 +606,7 @@ void cBonusBox :: Editor_State_Update( void )
 	}
 
 	// gold color
-	combobox = static_cast<CEGUI::Combobox *>(wmgr.getWindow( "editor_bonusbox_gold_color" ));
+	combobox = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "editor_bonusbox_gold_color" ));
 
 	if( box_type != TYPE_GOLDPIECE )
 	{
@@ -692,6 +705,10 @@ bool cBonusBox :: Editor_Gold_Color_Select( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cBonusBox :: Editor_Activate( void ) {}
+void cBonusBox :: Editor_State_Update( void ) {}
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

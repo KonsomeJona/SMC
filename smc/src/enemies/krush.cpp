@@ -23,10 +23,14 @@
 #include "../core/i18n.h"
 #include "../core/sprite_manager.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -454,6 +458,7 @@ void cKrush :: Handle_Collision_Massive( cObjectCollision *collision )
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cKrush :: Editor_Activate( void )
 {
 	// get window manager
@@ -483,6 +488,9 @@ bool cKrush :: Editor_Direction_Select( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cKrush :: Editor_Activate( void ) {}
+#endif
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

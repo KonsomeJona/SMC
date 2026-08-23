@@ -4,6 +4,10 @@ import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.os.Build;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 
 import org.libsdl.app.SDLActivity;
 
@@ -35,6 +39,45 @@ public class SMCActivity extends SDLActivity {
         //    This MUST happen before super.onCreate() loads the native lib,
         //    because the C++ code reads DATA_DIR files at startup.
         // ------------------------------------------------------------------
+        // Let the window layout extend under the system bars, so SDL's
+        // SurfaceView is sized at the full display resolution before the EGL
+        // surface is created. Without this the SurfaceView gets the drawable
+        // area only (2160x943 instead of 2160x1080 here), the EGL
+        // pre-rotation dimensions no longer match, and BLASTBufferQueue
+        // rejects the buffer — the process then dies on a destroyed mutex.
+        //
+        // setSystemUiVisibility alone is ignored from API 30 on, hence the
+        // WindowInsetsController path; the deprecated call stays for API 21-29.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+            // getWindow().getInsetsController() returns null this early —
+            // the decor view does not exist yet. Asking the window for its
+            // decor view creates it, and the controller comes with it.
+            WindowInsetsController insets =
+                    getWindow().getDecorView().getWindowInsetsController();
+            if (insets != null) {
+                insets.hide(WindowInsets.Type.systemBars());
+                insets.setSystemBarsBehavior(
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            //noinspection deprecation
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
+
+        // Load the native libraries early: setenv() below goes through
+        // SDLActivity.nativeSetenv(), whose implementation lives in
+        // libSDL2.so. super.onCreate() would load them, but only later.
+        for (String lib : getLibraries()) {
+            System.loadLibrary(lib);
+        }
+
         extractAssets();
 
         // ------------------------------------------------------------------

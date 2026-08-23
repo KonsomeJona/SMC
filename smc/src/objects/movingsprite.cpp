@@ -597,7 +597,9 @@ void cMovingSprite :: Draw( cSurface_Request *request /* = NULL */ )
 		// frozen
 		if( m_freeze_counter )
 		{
+#ifndef __ANDROID__
 			request->m_combine_type = GL_ADD;
+#endif // __ANDROID__
 
 			float counter_add = m_freeze_counter;
 

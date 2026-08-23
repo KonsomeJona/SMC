@@ -24,6 +24,7 @@ namespace SMC
 
 /* *** *** *** *** *** *** *** cEditor_Level *** *** *** *** *** *** *** *** *** *** */
 
+#ifndef SMC_NO_EDITOR
 class cEditor_Level : public cEditor
 {
 public:
@@ -76,11 +77,14 @@ public:
 	// Level Settings
 	cLevel_Settings *m_settings_screen;
 };
+#endif // SMC_NO_EDITOR
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 
 // The Level Editor
+#ifndef SMC_NO_EDITOR
 extern cEditor_Level *pLevel_Editor;
+#endif
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

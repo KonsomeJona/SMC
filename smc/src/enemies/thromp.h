@@ -31,6 +31,7 @@ public:
 	cThromp( cSprite_Manager *sprite_manager );
 	// create from stream
 	cThromp( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cThromp( void );
 
@@ -109,6 +110,7 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
 	// editor image dir text changed event
@@ -117,6 +119,7 @@ public:
 	bool Editor_Max_Distance_Text_Changed( const CEGUI::EventArgs &event );
 	// editor speed text changed event
 	bool Editor_Speed_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// image directory
 	std::string m_img_dir;

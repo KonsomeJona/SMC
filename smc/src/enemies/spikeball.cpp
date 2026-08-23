@@ -21,10 +21,14 @@
 #include "../video/animation.h"
 #include "../core/sprite_manager.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -630,6 +634,7 @@ void cSpikeball :: Handle_Collision_Box( ObjectDirection cdirection, GL_rect *r2
 	}
 }
 
+#ifndef SMC_NO_CEGUI
 void cSpikeball :: Editor_Activate( void )
 {
 	// get window manager
@@ -658,6 +663,9 @@ bool cSpikeball :: Editor_Direction_Select( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cSpikeball :: Editor_Activate( void ) {}
+#endif
 
 void cSpikeball :: Create_Name( void )
 {

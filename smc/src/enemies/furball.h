@@ -33,6 +33,7 @@ public:
 	cFurball( cSprite_Manager *sprite_manager );
 	// create from stream
 	cFurball( CEGUI::XMLAttributes &attributes, cSprite_Manager *sprite_manager );
+
 	// destructor
 	virtual ~cFurball( void );
 
@@ -103,12 +104,14 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor direction option selected event
 	bool Editor_Direction_Select( const CEGUI::EventArgs &event );
 	// editor max downgrades text changed event
 	bool Editor_Max_Downgrade_Count_Text_Changed( const CEGUI::EventArgs &event );
 	// editor level ends if killed
 	bool Editor_Level_Ends_If_Killed( const CEGUI::EventArgs &event );
+#endif
 
 	// Color
 	DefaultColor m_color_type;

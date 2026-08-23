@@ -18,8 +18,9 @@
 
 #include "../core/global_basic.h"
 // CEGUI
-#include "elements/CEGUISpinner.h"
-#include "CEGUIWindowFactory.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/widgets/Spinner.h>
+#include <CEGUI/WindowFactory.h>
 
 namespace CEGUI
 {
@@ -40,6 +41,8 @@ public:
         String object that is equivalent to the the numerical value of the spinner.
     */
     virtual String getTextFromValue( void ) const;
+    virtual void initialiseComponents( void );
+    void setTextInputMode( TextInputMode mode );
 
 	// Events
 	//bool Mouse_Wheel( const CEGUI::EventArgs &event );
@@ -53,4 +56,5 @@ CEGUI_DECLARE_WINDOW_FACTORY(SMC_Spinner)
 
 } // namespace CEGUI
 
-#endif
+#endif // SMC_NO_CEGUI
+#endif // SMC_SPINNER_H

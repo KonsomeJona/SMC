@@ -24,9 +24,11 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
 #include "../core/filesystem/resource_manager.h"
+#ifndef SMC_NO_CEGUI
 // CEGUI
-#include "CEGUIXMLParser.h"
-#include "CEGUIExceptions.h"
+#include <CEGUI/XMLParser.h>
+#include <CEGUI/Exceptions.h>
+#endif
 
 namespace SMC
 {
@@ -576,11 +578,15 @@ cSave *cSavegame :: Load( unsigned int save_slot )
 		return NULL;
 	}
 
+#ifndef SMC_NO_CEGUI
 	cSavegame_XML_Handler *loader = new cSavegame_XML_Handler( filename );
 	cSave *savegame = loader->Acquire_Savegame();
 	delete loader;
 
 	return savegame;
+#else
+	return NULL;
+#endif
 }
 
 int cSavegame :: Save( unsigned int save_slot, cSave *savegame )
@@ -604,6 +610,7 @@ int cSavegame :: Save( unsigned int save_slot, cSave *savegame )
 		return 0;
 	}
 
+#ifndef SMC_NO_CEGUI
 	CEGUI::XMLSerializer stream( file );
 
 	// begin
@@ -735,10 +742,14 @@ int cSavegame :: Save( unsigned int save_slot, cSave *savegame )
 	stream.closeTag();
 
 	file.close();
-	
+
 	debug_print( "Saved savegame %s\n", filename.c_str() );
-	
+
 	return 1;
+#else
+	file.close();
+	return 0;
+#endif
 }
 
 std::string cSavegame :: Get_Description( unsigned int save_slot, bool only_description /* = 0 */ )
@@ -809,6 +820,7 @@ bool cSavegame :: Is_Valid( unsigned int save_slot ) const
 
 /* *** *** *** *** *** *** *** cSavegame_XML_Handler *** *** *** *** *** *** *** *** *** *** */
 
+#ifndef SMC_NO_CEGUI
 cSavegame_XML_Handler :: cSavegame_XML_Handler( const std::string &filename )
 {
 	// new savegame format
@@ -833,6 +845,7 @@ cSavegame_XML_Handler :: cSavegame_XML_Handler( const std::string &filename )
 		xsd_name = "Savegame.xsd";
 	}
 
+#ifndef SMC_NO_CEGUI
 	try
 	{
 	// fixme : Workaround for std::string to CEGUI::String utf8 conversion. Check again if CEGUI 0.8 works with std::string utf8
@@ -854,6 +867,7 @@ cSavegame_XML_Handler :: cSavegame_XML_Handler( const std::string &filename )
 	{
 		m_savegame->m_description = _("No Description");
 	}
+#endif
 }
 
 cSavegame_XML_Handler :: ~cSavegame_XML_Handler( void )
@@ -870,6 +884,7 @@ cSave *cSavegame_XML_Handler :: Acquire_Savegame( void )
 	m_savegame = NULL;
 	return save;
 }
+#endif // SMC_NO_CEGUI (constructor/destructor/Acquire_Savegame)
 
 void cSavegame_XML_Handler :: elementStart( const CEGUI::String &element, const CEGUI::XMLAttributes &attributes )
 {
@@ -1101,6 +1116,7 @@ void cSavegame_XML_Handler :: Handle_Overworld_Waypoint( const CEGUI::XMLAttribu
 	m_xml_attributes.remove( "level_name" );
 	m_xml_attributes.remove( "world_name" );
 }
+
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

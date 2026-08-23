@@ -20,7 +20,12 @@
 #include "../video/video.h"
 #include "../core/obj_manager.h"
 // CEGUI
-#include "CEGUIXMLSerializer.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLSerializer.h>
+  #include <CEGUI/XMLAttributes.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {

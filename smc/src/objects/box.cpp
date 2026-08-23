@@ -28,12 +28,17 @@
 #include "../enemies/turtle.h"
 #include "../enemies/bosses/turtle_boss.h"
 #include "../gui/hud.h"
+#include "../core/debug_log.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -277,7 +282,9 @@ void cBaseBox :: Set_Invisible( Box_Invisible_Type type )
 	else if( type == BOX_GHOST )
 	{
 		Set_Color( 192, 192, 255, 128 );
+#ifndef __ANDROID__
 		Set_Color_Combine( 0.2f, 0.2f, 0.55f, GL_ADD );
+#endif // __ANDROID__
 	}
 
 	// create name again
@@ -286,6 +293,7 @@ void cBaseBox :: Set_Invisible( Box_Invisible_Type type )
 
 void cBaseBox :: Activate_Collision( ObjectDirection col_direction )
 {
+	LOG_DEBUG(BOX, "Activate_Collision: col_dir=%d", col_direction);
 	// if already active ignore event
 	if( m_move_col_dir != DIR_UNDEFINED )
 	{
@@ -405,6 +413,7 @@ void cBaseBox :: Update_Collision( void )
 
 void cBaseBox :: Check_Collision( ObjectDirection col_direction )
 {
+	LOG_DEBUG(BOX, "Check_Collision: dir=%d", col_direction);
 	// additional direction based check position
 	float check_x = 0.0f;
 	float check_y = 0.0f;
@@ -743,6 +752,7 @@ Col_Valid_Type cBaseBox :: Validate_Collision( cSprite *obj )
 
 void cBaseBox :: Handle_Collision_Player( cObjectCollision *collision )
 {
+	LOG_DEBUG(BOX, "Handle_Collision_Player: dir=%d useable=%d", collision->m_direction, m_useable_count);
 	// if player jumps from below or flies against it
 	if( collision->m_direction == DIR_BOTTOM && pLevel_Player->m_state != STA_FLY )
 	{
@@ -809,6 +819,7 @@ void cBaseBox :: Handle_Collision_Enemy( cObjectCollision *collision )
 }
 
 
+#ifndef SMC_NO_CEGUI
 void cBaseBox :: Editor_Activate( void )
 {
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
@@ -892,6 +903,9 @@ bool cBaseBox :: Editor_Invisible_Select( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cBaseBox :: Editor_Activate( void ) {}
+#endif // SMC_NO_CEGUI
 
 void cBaseBox :: Create_Name( void )
 {

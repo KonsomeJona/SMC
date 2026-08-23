@@ -20,7 +20,7 @@
 #include "../core/obj_manager.h"
 // SDL
 // also includes needed SDL headers
-#include "SDL_mixer.h"
+#include <SDL2/SDL_mixer.h>
 
 namespace SMC
 {

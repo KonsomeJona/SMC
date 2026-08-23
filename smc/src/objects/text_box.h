@@ -56,8 +56,10 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor text text changed event
 	bool Editor_Text_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// the text
 	std::string m_text;

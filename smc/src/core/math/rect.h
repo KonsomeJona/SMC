@@ -19,7 +19,7 @@
 #include "../../core/global_game.h"
 #include "../../core/math/point.h"
 #include "../../core/math/utilities.h"
-#include "SDL.h"
+#include "core/sdl2_compat.h"
 
 namespace SMC
 {

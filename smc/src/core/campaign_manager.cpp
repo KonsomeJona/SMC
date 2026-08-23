@@ -20,8 +20,10 @@
 #include "../core/filesystem/resource_manager.h"
 #include "../core/i18n.h"
 // CEGUI
-#include "CEGUIXMLParser.h"
-#include "CEGUIExceptions.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLParser.h>
+#include <CEGUI/Exceptions.h>
+#endif
 
 namespace SMC
 {
@@ -39,6 +41,7 @@ cCampaign :: ~cCampaign( void )
 
 }
 
+#ifndef SMC_NO_CEGUI
 bool cCampaign :: Save( const std::string &filename )
 {
 // fixme : Check if there is a more portable way f.e. with imbue()
@@ -48,7 +51,7 @@ bool cCampaign :: Save( const std::string &filename )
 	ofstream file( filename.c_str(), ios::out | ios::trunc );
 #endif
 
-	
+
 	if( !file.is_open() )
 	{
 		printf( "Error : Couldn't open campaign file for saving. Is the file read-only ?" );
@@ -80,11 +83,12 @@ bool cCampaign :: Save( const std::string &filename )
 	stream.closeTag();
 
 	file.close();
-	
+
 	debug_print( "Saved campaign %s\n", filename.c_str() );
-	
+
 	return 1;
 }
+#endif
 
 /* *** *** *** *** *** *** *** cCampaign_Manager *** *** *** *** *** *** *** *** *** *** */
 
@@ -161,12 +165,15 @@ cCampaign *cCampaign_Manager :: Load_Campaign( const std::string &filename )
 		return NULL;
 	}
 
+#ifndef SMC_NO_CEGUI
 	cCampaign_XML_Handler *loader = new cCampaign_XML_Handler( filename );
 	cCampaign *campaign = loader->m_campaign;
 	loader->m_campaign = NULL;
 	delete loader;
-
 	return campaign;
+#else
+	return NULL; // Campaign loading not supported on Android
+#endif
 }
 
 cCampaign *cCampaign_Manager :: Get_from_Name( const std::string &name )
@@ -186,6 +193,7 @@ cCampaign *cCampaign_Manager :: Get_from_Name( const std::string &name )
 
 /* *** *** *** *** *** *** *** cCampaign_XML_Handler *** *** *** *** *** *** *** *** *** *** */
 
+#ifndef SMC_NO_CEGUI
 cCampaign_XML_Handler :: cCampaign_XML_Handler( const CEGUI::String &filename )
 {
 	m_campaign = new cCampaign();
@@ -253,6 +261,7 @@ void cCampaign_XML_Handler :: elementEnd( const CEGUI::String &element )
 	// clear
 	m_xml_attributes = CEGUI::XMLAttributes();
 }
+#endif
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

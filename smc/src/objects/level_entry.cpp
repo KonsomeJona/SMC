@@ -26,11 +26,15 @@
 #include "../core/i18n.h"
 #include "../core/sprite_manager.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -423,6 +427,7 @@ bool cLevel_Entry :: Is_Draw_Valid( void )
 	return 1;
 }
 
+#ifndef SMC_NO_CEGUI
 void cLevel_Entry :: Editor_Activate( void )
 {
 	// get window manager
@@ -474,6 +479,9 @@ bool cLevel_Entry :: Editor_Name_Text_Changed( const CEGUI::EventArgs &event )
 
 	return 1;
 }
+#else
+void cLevel_Entry :: Editor_Activate( void ) {}
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

@@ -27,11 +27,15 @@
 #include "../core/i18n.h"
 #include "../core/filesystem/filesystem.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICombobox.h"
-#include "elements/CEGUIListboxTextItem.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/Combobox.h>
+#include <CEGUI/widgets/ListboxTextItem.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif // SMC_NO_CEGUI
 
 namespace SMC
 {
@@ -442,6 +446,7 @@ bool cLevel_Exit :: Is_Draw_Valid( void )
 	return 1;
 }
 
+#ifndef SMC_NO_CEGUI
 void cLevel_Exit :: Editor_Activate( void )
 {
 	// get window manager
@@ -523,11 +528,11 @@ void cLevel_Exit :: Editor_State_Update( void )
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
 
 	// path identifier
-	CEGUI::Editbox *editbox_path_identifier = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "level_exit_path_identifier" ));
+	CEGUI::Editbox *editbox_path_identifier = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "level_exit_path_identifier" ));
 	// destination level
-	CEGUI::Editbox *editbox_destination_level = static_cast<CEGUI::Editbox *>(wmgr.getWindow( "level_exit_destination_level" ));
+	CEGUI::Editbox *editbox_destination_level = static_cast<CEGUI::Editbox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "level_exit_destination_level" ));
 	// direction
-	//CEGUI::Combobox *combobox_direction = static_cast<CEGUI::Combobox *>(wmgr.getWindow( "level_exit_direction" ));
+	//CEGUI::Combobox *combobox_direction = static_cast<CEGUI::Combobox *>(CEGUI_GetChild( pGuiSystem->getDefaultGUIContext().getRootWindow(), "level_exit_direction" ));
 
 
 	if( m_exit_motion == CAMERA_MOVE_ALONG_PATH || m_exit_motion == CAMERA_MOVE_ALONG_PATH_BACKWARDS )
@@ -623,6 +628,10 @@ bool cLevel_Exit :: Editor_Path_Identifier_Text_Changed( const CEGUI::EventArgs 
 
 	return 1;
 }
+#else
+void cLevel_Exit :: Editor_Activate( void ) {}
+void cLevel_Exit :: Editor_State_Update( void ) {}
+#endif // SMC_NO_CEGUI
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

@@ -21,8 +21,13 @@
 #include "../core/obj_manager.h"
 #include "../overworld/world_waypoint.h"
 // CEGUI
-#include "CEGUIXMLHandler.h"
-#include "CEGUIXMLAttributes.h"
+#ifndef SMC_NO_CEGUI
+  #include <CEGUI/XMLHandler.h>
+  #include <CEGUI/XMLAttributes.h>
+  #include <CEGUI/XMLSerializer.h>
+#else
+  #include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -97,8 +102,10 @@ public:
 
 	// editor activation
 	virtual void Editor_Activate( void );
+#ifndef SMC_NO_CEGUI
 	// editor origin text changed event
 	bool Editor_Origin_Text_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	/* animation type 
 	 * 0 = normal walking, 1 = swimming
@@ -128,11 +135,20 @@ typedef vector<cLayer_Line_Point_Start *> LayerLineList;
 
 // Layer class
 // handles the line collision detection
-class cLayer : public CEGUI::XMLHandler, public cObject_Manager<cLayer_Line_Point_Start>
+// cegui_android_compat.h supplies a real CEGUI::XMLHandler on Android,
+// so both builds derive from the same base.
+#define CEGUI_LAYER_BASE CEGUI::XMLHandler
+
+class cLayer : public CEGUI_LAYER_BASE, public cObject_Manager<cLayer_Line_Point_Start>
 {
 public:
 	cLayer( cOverworld *origin );
 	virtual ~cLayer( void );
+
+#ifndef SMC_NO_CEGUI
+	// Required by CEGUI 0.8 XMLHandler
+	virtual const CEGUI::String& getDefaultResourceGroup() const { static CEGUI::String s; return s; }
+#endif
 
 	// Add a layer line
 	virtual void Add( cLayer_Line_Point_Start *line_point );

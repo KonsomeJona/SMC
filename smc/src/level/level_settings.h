@@ -50,6 +50,7 @@ public:
 	// Set the parent sprite manager
 	void Set_Sprite_Manager( cSprite_Manager *sprite_manager );
 
+#ifndef SMC_NO_CEGUI
 	// Adds a Background image
 	bool Add_Background_Image( const CEGUI::EventArgs &event );
 	// Delete the currently selected Background image
@@ -62,17 +63,22 @@ public:
 
 	// Updates the Colors
 	bool Update_BG_Colors( const CEGUI::EventArgs &event );
+#endif
 	// Loads the Background image List
 	void Load_BG_Image_List( void );
 
+#ifndef SMC_NO_CEGUI
 	// Updates the Background image
 	bool Update_BG_Image( const CEGUI::EventArgs &event );
+#endif
 	// Clears the background Layer fields
 	void Clear_Layer_Field( void );
 
+#ifndef SMC_NO_CEGUI
 	// cegui events
 	bool Spinner_Difficulty_Changed( const CEGUI::EventArgs &event );
 	bool Slider_Difficulty_Changed( const CEGUI::EventArgs &event );
+#endif
 
 	// true if menu is active
 	bool m_active;
@@ -81,12 +87,14 @@ public:
 	cLevel *m_level;
 	// settings camera
 	cCamera *m_camera;
+#ifndef SMC_NO_CEGUI
 	// GUI
 	CEGUI::Window *m_gui_window;
 	CEGUI::TabControl *m_tabcontrol;
 	CEGUI::Spinner *m_spinner_difficulty;
 	CEGUI::Slider *m_slider_difficulty;
 	CEGUI::Window *m_text_difficulty_name;
+#endif
 
 	// Background colors
 	Color m_bg_color_1;

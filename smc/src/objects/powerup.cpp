@@ -441,7 +441,9 @@ void cMushroom :: Update( void )
 				}
 			}
 
+#ifndef __ANDROID__
 			Set_Color_Combine( new_glim * 0.1f, new_glim * 0.1f, new_glim, GL_ADD );
+#endif // __ANDROID__
 		}
 	}
 	// Poison

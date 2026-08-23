@@ -318,6 +318,8 @@ void cBall :: Draw( cSurface_Request *request /* = NULL */ )
 		return;
 	}
 
+#ifndef __ANDROID__
+	// GL_ADD blend mode (not available in GLES2)
 	if( m_ball_type == FIREBALL_DEFAULT )
 	{
 		Set_Color_Combine( m_glim_counter, m_glim_counter / 1.6f, m_glim_counter / 3, GL_ADD );
@@ -326,6 +328,7 @@ void cBall :: Draw( cSurface_Request *request /* = NULL */ )
 	{
 		Set_Color_Combine( m_glim_counter / 6.0f, m_glim_counter / 6.0f, m_glim_counter / 6.0f, GL_ADD );
 	}
+#endif
 
 	cAnimated_Sprite::Draw( request );
 }

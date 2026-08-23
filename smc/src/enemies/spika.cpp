@@ -23,7 +23,11 @@
 #include "../core/i18n.h"
 #include "../enemies/bosses/turtle_boss.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {

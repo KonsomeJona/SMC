@@ -22,10 +22,14 @@
 #include "../core/math/utilities.h"
 #include "../core/i18n.h"
 // CEGUI
-#include "CEGUIXMLAttributes.h"
-#include "CEGUIWindowManager.h"
-#include "elements/CEGUIEditbox.h"
-#include "elements/CEGUICheckbox.h"
+#ifndef SMC_NO_CEGUI
+#include <CEGUI/XMLAttributes.h>
+#include <CEGUI/WindowManager.h>
+#include <CEGUI/widgets/Editbox.h>
+#include <CEGUI/widgets/ToggleButton.h>
+#else
+#include "../core/cegui_android_compat.h"
+#endif
 
 namespace SMC
 {
@@ -105,7 +109,7 @@ void cRandom_Sound :: Load_From_XML( CEGUI::XMLAttributes &attributes )
 	Set_Filename( attributes.getValueAsString( "file" ).c_str() );
 	// position
 	Set_Pos( static_cast<float>(attributes.getValueAsInteger( "pos_x" )), static_cast<float>(attributes.getValueAsInteger( "pos_y" )), 1 );
-	// 
+	//
 	Set_Continuous( attributes.getValueAsBool( "continuous", m_continuous ) );
 	// delay
 	Set_Delay_Min( attributes.getValueAsInteger( "delay_min", m_delay_min ) );
@@ -477,6 +481,7 @@ void cRandom_Sound :: Event_Out_Of_Range( void ) const
 	pAudio->Fadeout_Sounds( 500, m_filename );
 }
 
+#ifndef SMC_NO_CEGUI
 void cRandom_Sound :: Editor_Activate( void )
 {
 	CEGUI::WindowManager &wmgr = CEGUI::WindowManager::getSingleton();
@@ -489,17 +494,17 @@ void cRandom_Sound :: Editor_Activate( void )
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Filename_Text_Changed, this ) );
 
 	// continuous
-	CEGUI::Checkbox *checkbox = static_cast<CEGUI::Checkbox *>(wmgr.createWindow( "TaharezLook/Checkbox", "editor_sound_continuous" ));
+	CEGUI::ToggleButton *checkbox = static_cast<CEGUI::ToggleButton *>(wmgr.createWindow( "TaharezLook/Checkbox", "editor_sound_continuous" ));
 	Editor_Add( UTF8_("Continuous"), UTF8_("Check if the sound should be played continuously instead of randomly"), checkbox, 50 );
 
 	checkbox->setSelected( m_continuous );
-	checkbox->subscribeEvent( CEGUI::Checkbox::EventCheckStateChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Continuous_Changed, this ) );
+	checkbox->subscribeEvent( CEGUI::ToggleButton::EventSelectStateChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Continuous_Changed, this ) );
 
 	// delay min
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_sound_delay_min" ));
 	Editor_Add( UTF8_("Delay Minimum"), UTF8_("Minimal delay until played again"), editbox, 90 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_delay_min ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Delay_Min_Text_Changed, this ) );
 
@@ -507,7 +512,7 @@ void cRandom_Sound :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_sound_delay_max" ));
 	Editor_Add( UTF8_("Maximum"), UTF8_("Maximal delay until played again"), editbox, 90, 28, 0 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( m_delay_max ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Delay_Max_Text_Changed, this ) );
 
@@ -515,7 +520,7 @@ void cRandom_Sound :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_sound_volume_min" ));
 	Editor_Add( UTF8_("Volume Minimum"), UTF8_("Minimal random volume for each play"), editbox, 90 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_volume_min) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Volume_Min_Text_Changed, this ) );
 
@@ -523,7 +528,7 @@ void cRandom_Sound :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_sound_volume_max" ));
 	Editor_Add( UTF8_("Maximum"), UTF8_("Maximal random volume for each play"), editbox, 90, 28, 0 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_volume_max) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Volume_Max_Text_Changed, this ) );
 
@@ -531,7 +536,7 @@ void cRandom_Sound :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_sound_volume_reduction_begin" ));
 	Editor_Add( UTF8_("Volume Reduction Begin"), UTF8_("Volume reduction begins gradually at this distance"), editbox, 90 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_volume_reduction_begin) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Volume_Reduction_Begin_Text_Changed, this ) );
 
@@ -539,7 +544,7 @@ void cRandom_Sound :: Editor_Activate( void )
 	editbox = static_cast<CEGUI::Editbox *>(wmgr.createWindow( "TaharezLook/Editbox", "editor_sound_volume_reduction_end" ));
 	Editor_Add( UTF8_("End"), UTF8_("Volume reduction ends at this distance. Sound is not played beyond this."), editbox, 90, 28, 0 );
 
-	editbox->setValidationString( "^[+]?\\d*$" );
+	try { editbox->setValidationString( "^[+]?\\d*$" ); } catch(...) {}
 	editbox->setText( int_to_string( static_cast<int>(m_volume_reduction_end) ) );
 	editbox->subscribeEvent( CEGUI::Editbox::EventTextChanged, CEGUI::Event::Subscriber( &cRandom_Sound::Editor_Volume_Reduction_End_Text_Changed, this ) );
 
@@ -558,7 +563,7 @@ bool cRandom_Sound :: Editor_Filename_Text_Changed( const CEGUI::EventArgs &even
 bool cRandom_Sound :: Editor_Continuous_Changed( const CEGUI::EventArgs &event )
 {
 	const CEGUI::WindowEventArgs &windowEventArgs = static_cast<const CEGUI::WindowEventArgs&>( event );
-	bool enabled = static_cast<CEGUI::Checkbox *>( windowEventArgs.window )->isSelected();
+	bool enabled = static_cast<CEGUI::ToggleButton *>( windowEventArgs.window )->isSelected();
 
 	Set_Continuous( enabled );
 
@@ -624,6 +629,9 @@ bool cRandom_Sound :: Editor_Volume_Reduction_End_Text_Changed( const CEGUI::Eve
 
 	return 1;
 }
+#else
+void cRandom_Sound :: Editor_Activate( void ) {}
+#endif
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
 

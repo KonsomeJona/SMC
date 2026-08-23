@@ -370,10 +370,10 @@ bool cEditor_Level :: Function_New( void )
 
 	Game_Action = GA_ENTER_LEVEL;
 	Game_Action_Data_Start.add( "music_fadeout", "1000" );
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 	Game_Action_Data_Middle.add( "new_level", level_name.c_str() );
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_RANDOM ) );
+	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_RANDOM ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 
 	pHud_Debug->Set_Text( _("Created ") + level_name );
@@ -400,11 +400,11 @@ void cEditor_Level :: Function_Load( void )
 		{
 			Game_Action = GA_ENTER_LEVEL;
 			Game_Mode_Type = MODE_TYPE_LEVEL_CUSTOM;
-			Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_BLACK_TILED_RECTS ) );
+			Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK_TILED_RECTS ) );
 			Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 			Game_Action_Data_Middle.add( "load_level", level_name.c_str() );
 			Game_Action_Data_Middle.add( "reset_save", "1" );
-			Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_BLACK ) );
+			Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
 			Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 
 			pHud_Debug->Set_Text( _("Loaded ") + Trim_Filename( level_name, 0, 0 ) );
@@ -470,14 +470,14 @@ void cEditor_Level :: Function_Delete( void )
 
 	Game_Action = GA_ENTER_MENU;
 	Game_Action_Data_Start.add( "music_fadeout", "1000" );
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
 	Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_MAIN ) );
 	if( Game_Mode_Type != MODE_TYPE_LEVEL_CUSTOM )
 	{
 		Game_Action_Data_Middle.add( "menu_exit_back_to", int_to_string( MODE_OVERWORLD ) );
 	}
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_BLACK ) );
+	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 }
 
@@ -498,9 +498,9 @@ void cEditor_Level :: Function_Reload( void )
 void cEditor_Level :: Function_Settings( void )
 {
 	Game_Action = GA_ENTER_LEVEL_SETTINGS;
-	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper::intToString( EFFECT_OUT_BLACK ) );
+	Game_Action_Data_Start.add( "screen_fadeout", CEGUI::PropertyHelper<int>::toString( EFFECT_OUT_BLACK ) );
 	Game_Action_Data_Start.add( "screen_fadeout_speed", "3" );
-	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper::intToString( EFFECT_IN_BLACK ) );
+	Game_Action_Data_End.add( "screen_fadein", CEGUI::PropertyHelper<int>::toString( EFFECT_IN_BLACK ) );
 	Game_Action_Data_End.add( "screen_fadein_speed", "3" );
 }
 
