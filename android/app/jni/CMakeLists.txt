@@ -47,6 +47,11 @@ endforeach()
 # have to live in libSDL2.so for that to link up. Building SDL2 statically
 # also makes the satellite libraries disagree (INTERFACE_SDL2_SHARED), so the
 # whole set stays shared.
+# 16 KB page-size alignment, required for every .so on Android 15+ (the device
+# otherwise raises a compatibility dialog). Set before add_subdirectory so the
+# SDL2 family inherits it.
+add_link_options("-Wl,-z,max-page-size=16384")
+
 set(SDL_SHARED ON  CACHE BOOL "" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
 add_subdirectory(SDL2)
@@ -103,6 +108,8 @@ target_compile_definitions(smc PRIVATE
 set_target_properties(smc PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
+
+target_link_options(smc PRIVATE "-Wl,-z,max-page-size=16384")
 
 target_link_libraries(smc PRIVATE
     # SDL2 family (shared, built from source — see SDL_SHARED above)

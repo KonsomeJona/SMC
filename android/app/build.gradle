@@ -5,11 +5,11 @@ plugins {
 android {
     namespace 'org.smc'
     compileSdk 34
-    // NDK 26 LTS, not 27+: the NDK 29 headers mark ALooper_pollAll as
-    // unavailable, which breaks SDL 2.28.5 (SDL_androidsensor.c uses it).
-    // Bumping SDL past 2.30 would be the other way out — pinning the NDK is
-    // the smaller change.
-    ndkVersion "26.1.10909125"
+    // NDK 27 LTS. Not 28+: those headers mark ALooper_pollAll as unavailable
+    // and SDL 2.28.5 still calls it (SDL_androidsensor.c). Not 26 either: its
+    // prebuilt libc++_shared.so is 4 KB-aligned, which fails Android's 16 KB
+    // page-size check no matter what link flags our own libraries use.
+    ndkVersion "27.2.12479018"
 
     defaultConfig {
         applicationId "com.takohi.secretchronicles"
@@ -89,6 +89,18 @@ android {
         language { enableSplit = true }
         density  { enableSplit = true }
         abi      { enableSplit = true }
+    }
+
+    packaging {
+        jniLibs {
+            // AGP compresses native libraries in debug builds to speed up
+            // installs, but Android's 16 KB check needs them stored
+            // uncompressed and page-aligned — otherwise every .so is reported
+            // as "unknown error" in the compatibility dialog. Keeping debug
+            // and release identical here is what makes the debug build
+            // representative of what ships.
+            useLegacyPackaging = false
+        }
     }
 
     sourceSets {
