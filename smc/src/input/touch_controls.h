@@ -90,6 +90,12 @@ private:
 		Uint8 r, Uint8 g, Uint8 b, Uint8 a );  // dir: 0=L 1=R 2=U 3=D
 	void Draw_QMark_Glyph( float cx, float cy, float size,
 		Uint8 r, Uint8 g, Uint8 b, Uint8 a );
+	// Fireball: what SHOOT actually does. The "?" it replaces read as
+	// "help" or "item box", never as "attack".
+	void Draw_Flame_Glyph( float cx, float cy, float size, Uint8 a );
+	// Door: on the overworld the jump button enters the level under Maryo,
+	// so it shows a door there instead of an up arrow.
+	void Draw_Door_Glyph( float cx, float cy, float size, Uint8 a );
 	void Draw_Pause_Glyph( float cx, float cy, float size,
 		Uint8 r, Uint8 g, Uint8 b, Uint8 a );
 

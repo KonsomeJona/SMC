@@ -31,7 +31,7 @@ cTouchControls :: cTouchControls( void )
 {
 	m_enabled = false;
 	m_visible = false;
-	m_opacity = 0.7f;
+	m_opacity = 0.85f;
 	m_screen_w = 1024.0f;
 	m_screen_h = 768.0f;
 	m_last_game_mode = -1;
@@ -619,8 +619,16 @@ void cTouchControls :: Draw( void )
 		Draw_Brick_Tile( z.x, z.y, z.w, z.h, base_a, z.pressed );
 		float cx = z.x + z.w * 0.5f;
 		float cy = z.y + z.h * 0.5f;
-		Draw_Arrow_Glyph( cx, cy, z.w * 0.32f, 2,
-			255, 255, 255, z.pressed ? 255 : 235 );
+		if( Game_Mode == MODE_OVERWORLD )
+		{
+			// Same key, different meaning: here it walks into the level.
+			Draw_Door_Glyph( cx, cy, z.w * 0.42f, z.pressed ? 255 : 235 );
+		}
+		else
+		{
+			Draw_Arrow_Glyph( cx, cy, z.w * 0.32f, 2,
+				255, 255, 255, z.pressed ? 255 : 235 );
+		}
 	}
 
 	// ---- SHOOT (itembox `?` tile) ----
@@ -630,8 +638,7 @@ void cTouchControls :: Draw( void )
 		Draw_Itembox_Tile( z.x, z.y, z.w, z.h, base_a, z.pressed );
 		float cx = z.x + z.w * 0.5f;
 		float cy = z.y + z.h * 0.5f;
-		Draw_QMark_Glyph( cx, cy, z.w * 0.55f,
-			30, 20, 10, z.pressed ? 255 : 245 );
+		Draw_Flame_Glyph( cx, cy, z.w * 0.60f, z.pressed ? 255 : 245 );
 	}
 
 	// ---- PAUSE / BACK (wood sign + pause bars) ----
@@ -752,6 +759,15 @@ void cTouchControls :: Draw_Triangle( float x1, float y1, float x2, float y2, fl
 void cTouchControls :: Draw_Beveled_Plate( float x, float y, float w, float h,
 	Uint8 r, Uint8 g, Uint8 b, Uint8 a, bool pressed )
 {
+	// Light rim drawn slightly larger than the plate, so the button keeps a
+	// visible edge over black caves as well as over bright skies.
+	{
+		float rim = ( w < h ? w : h ) * 0.06f;
+		Uint8 rim_a = static_cast<Uint8>( a * 0.55f );
+		Draw_Rounded_Rect( x - rim, y - rim, w + rim * 2.0f, h + rim * 2.0f,
+			255, 255, 255, rim_a );
+	}
+
 	if( pressed )
 	{
 		r = static_cast<Uint8>( r * 0.75f );
@@ -865,6 +881,42 @@ void cTouchControls :: Draw_Arrow_Glyph( float cx, float cy, float size, int dir
 // Builds the question mark from: top horizontal bar, right descender,
 // diagonal hook, and bottom dot. Less pixel-accurate but stays readable
 // and is 4× cheaper at draw time.
+void cTouchControls :: Draw_Flame_Glyph( float cx, float cy, float size, Uint8 a )
+{
+	// Stacked rounded blocks, widest at the base, tapering upward: reads as a
+	// flame at thumb size where a detailed sprite would turn to mush.
+	float w = size * 0.62f;
+	float h = size;
+	float top = cy - h * 0.5f;
+
+	// Outer flame, warm red
+	Draw_Rounded_Rect( cx - w * 0.50f, top + h * 0.45f, w,         h * 0.55f, 220,  60,  20, a );
+	Draw_Rounded_Rect( cx - w * 0.34f, top + h * 0.20f, w * 0.68f, h * 0.40f, 235,  90,  25, a );
+	Draw_Rounded_Rect( cx - w * 0.16f, top,             w * 0.32f, h * 0.32f, 245, 130,  30, a );
+
+	// Inner core, bright yellow
+	Draw_Rounded_Rect( cx - w * 0.26f, top + h * 0.55f, w * 0.52f, h * 0.38f, 255, 215,  70, a );
+	Draw_Rounded_Rect( cx - w * 0.13f, top + h * 0.34f, w * 0.26f, h * 0.30f, 255, 240, 140, a );
+}
+
+void cTouchControls :: Draw_Door_Glyph( float cx, float cy, float size, Uint8 a )
+{
+	// Doorway with a lighter opening and a knob. On the overworld this button
+	// enters the level, which an up arrow never conveyed.
+	float w = size * 0.70f;
+	float h = size;
+	float left = cx - w * 0.5f;
+	float top  = cy - h * 0.5f;
+	float t    = size * 0.14f;
+
+	// Frame
+	Draw_Rounded_Rect( left, top, w, h, 255, 255, 255, a );
+	// Opening
+	Draw_Rounded_Rect( left + t, top + t, w - t * 2.0f, h - t, 40, 30, 20, a );
+	// Knob
+	Draw_Rounded_Rect( left + w - t * 1.9f, cy, t * 0.7f, t * 0.7f, 255, 255, 255, a );
+}
+
 void cTouchControls :: Draw_QMark_Glyph( float cx, float cy, float size,
 	Uint8 r, Uint8 g, Uint8 b, Uint8 a )
 {
