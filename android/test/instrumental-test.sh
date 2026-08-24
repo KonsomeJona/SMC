@@ -112,7 +112,8 @@ PID=$(A shell pidof "$PKG" | tr -d '\r')
 assert_no_log "aucune exception Java"        "FATAL EXCEPTION|AndroidRuntime: .*Error"
 assert_no_log "aucun abort natif"            "FORTIFY|SIGSEGV|SIGABRT"
 assert_no_log "aucun rejet de buffer EGL"    "BLASTBufferQueue.*rejecting"
-assert_no_log "pas de mode compat 16 Ko"     "242716250"
+APP_UID=$(A shell "dumpsys package $PKG | grep -m1 userId" | grep -oE '[0-9]+' | head -1)
+assert_no_log "pas de mode compat 16 Ko"     "242716250; UID ${APP_UID:-99999}"
 
 phase "2. Demarrage du moteur"
 assert_log "assets extraits"                 "DATA_DIR *= */data"
@@ -132,7 +133,12 @@ if [ "$JOY" -lt 50 ]; then ok "pas de flot d evenements joystick ($JOY)"
 else ko "pas de flot d evenements joystick" "$JOY evenements d axe: l accelerometre est expose comme joystick et relache les touches"; fi
 
 phase "4. Navigation jusqu au niveau"
+# Restart so the run always begins on the main menu: without this the taps
+# below are replayed against whatever screen the previous run left behind.
+A shell am force-stop "$PKG" >/dev/null 2>&1
 A logcat -c >/dev/null 2>&1
+A shell am start -n "$ACT" >/dev/null 2>&1
+sleep 26
 A shell input tap $((SW*497/1000)) $((SH*273/1000)) >/dev/null 2>&1   # Start
 sleep 5
 A shell input tap $((SW*146/1000)) $((SH*285/1000)) >/dev/null 2>&1   # World 1

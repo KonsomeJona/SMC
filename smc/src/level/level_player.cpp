@@ -1293,7 +1293,6 @@ void cLevel_Player :: Start_Jump_Keytime( void )
 
 void cLevel_Player :: Update_Jump_Keytime( void )
 {
-	LOG_DEBUG(PLAYER, "Update_Jump_Keytime: force_jump=%d up_key_time=%.2f ground=%d state=%d", m_force_jump, m_up_key_time, m_ground_object != NULL, m_state);
 	// handle jumping start
 	if( m_force_jump || ( m_up_key_time && ( m_ground_object || m_god_mode || m_state == STA_CLIMB ) ) )
 	{

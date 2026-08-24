@@ -308,7 +308,20 @@ int main( int argc, char **argv )
 		// can be checked against a number instead of a feeling.
 		{
 			static Uint32 last_report = 0;
+			static Uint32 last_pos = 0;
 			Uint32 now = SDL_GetTicks();
+
+			// Position is sampled four times a second while a level runs: a
+			// jump lasts well under a second, so a 2 s cadence never catches
+			// the upward velocity and a test would call the jump broken.
+			if( Game_Mode == MODE_LEVEL && pLevel_Player && now - last_pos >= 250 )
+			{
+				last_pos = now;
+				SDL_Log( "PLAYERPOS x=%.1f y=%.1f vx=%.2f vy=%.2f ground=%d",
+					pLevel_Player->m_pos_x, pLevel_Player->m_pos_y,
+					pLevel_Player->m_velx, pLevel_Player->m_vely,
+					pLevel_Player->m_ground_object ? 1 : 0 );
+			}
 
 			if( now - last_report >= 2000 )
 			{
@@ -329,17 +342,6 @@ int main( int argc, char **argv )
 					pFramerate->m_perf_timer[PERF_RENDER_GAME]->ms / 100.0f,
 					pFramerate->m_perf_timer[PERF_RENDER_GUI]->ms / 100.0f,
 					pFramerate->m_perf_timer[PERF_RENDER_BUFFER]->ms / 100.0f );
-
-				// Player position, so an automated test can assert that a
-				// direction press actually moved the player instead of
-				// eyeballing a screenshot.
-				if( Game_Mode == MODE_LEVEL && pLevel_Player )
-				{
-					SDL_Log( "PLAYERPOS x=%.1f y=%.1f vx=%.2f vy=%.2f ground=%d",
-						pLevel_Player->m_pos_x, pLevel_Player->m_pos_y,
-						pLevel_Player->m_velx, pLevel_Player->m_vely,
-						pLevel_Player->m_ground_object ? 1 : 0 );
-				}
 			}
 		}
 #endif
@@ -919,23 +921,19 @@ void Update_Game( void )
 	// ## update
 	if( Game_Mode == MODE_LEVEL )
 	{
-		LOG_DEBUG(GAME, "Update_Game: MODE_LEVEL");
 		pLevel_Manager->Update();
 	}
 	else if( Game_Mode == MODE_OVERWORLD )
 	{
-		LOG_DEBUG(GAME, "Update_Game: MODE_OVERWORLD");
 		pActive_Overworld->Update();
 	}
 	else if( Game_Mode == MODE_MENU )
 	{
-		LOG_DEBUG(GAME, "Update_Game: MODE_MENU");
 		pMenuCore->Update();
 	}
 #ifndef SMC_NO_EDITOR
 	else if( Game_Mode == MODE_LEVEL_SETTINGS )
 	{
-		LOG_DEBUG(GAME, "Update_Game: MODE_LEVEL_SETTINGS");
 		pLevel_Editor->m_settings_screen->Update();
 	}
 #endif
