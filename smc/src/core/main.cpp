@@ -40,6 +40,7 @@
 #include "../core/i18n.h"
 #include "../gui/generic.h"
 #include "../gui/modern_ui.h"
+#include "../input/autoplay.h"
 #include "core/sdl2_compat.h"
 #include "../core/debug_log.h"
 #ifdef __ANDROID__
@@ -245,6 +246,7 @@ int main( int argc, char **argv )
 	{
 		// initialize everything
 		Init_Game();
+		Autoplay_Init();
 	}
 	catch( const std::exception &e )
 	{
@@ -290,6 +292,8 @@ int main( int argc, char **argv )
 	{
 		// update
 		Update_Game();
+		// scripted player, when <user dir>/autoplay exists
+		Autoplay_Update();
 		// draw
 		Draw_Game();
 

@@ -60,6 +60,12 @@ public:
 	void Draw( void );
 	void Reset( void );
 
+	// Press a pad zone from code, going through the same Press_Zone /
+	// Release_Zone path a finger takes, so automated runs exercise the real
+	// input chain instead of calling gameplay functions directly.
+	void Autoplay_Hold( int zone_id, bool down );
+	void Autoplay_Tap( int zone_id, Uint32 ms );
+
 	bool m_enabled;
 	bool m_visible;
 

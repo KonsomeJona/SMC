@@ -278,6 +278,27 @@ void cTouchControls :: Update_Zone_Visibility( void )
 	}
 }
 
+void cTouchControls :: Autoplay_Hold( int zone_id, bool down )
+{
+	if( zone_id < 0 || zone_id >= ZONE_COUNT ) return;
+	if( !m_zones[zone_id].active ) return;
+
+	if( down )
+	{
+		if( !m_zones[zone_id].pressed ) Press_Zone( zone_id, -100 - zone_id );
+	}
+	else if( m_zones[zone_id].pressed )
+	{
+		Release_Zone( zone_id );
+	}
+}
+
+void cTouchControls :: Autoplay_Tap( int zone_id, Uint32 /* ms */ )
+{
+	Autoplay_Hold( zone_id, true );
+	Autoplay_Hold( zone_id, false );
+}
+
 void cTouchControls :: Reset( void )
 {
 	for( int i = 0; i < ZONE_COUNT; i++ )
