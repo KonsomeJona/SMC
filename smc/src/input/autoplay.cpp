@@ -21,6 +21,7 @@ namespace SMC
 {
 
 static bool s_enabled = false;
+static bool s_god = true;         // cleared by a "nogod" file next to the flag
 static Uint32 s_jump_until = 0;   // keep the jump zone held until this tick
 static Uint32 s_back_until = 0;   // backing up to take a run-up
 static float  s_last_x = 0.0f;
@@ -30,6 +31,7 @@ void Autoplay_Init( void )
 {
 	std::string flag = Get_User_Directory() + "autoplay";
 	s_enabled = File_Exists( flag );
+	s_god = !File_Exists( Get_User_Directory() + "nogod" );
 	SDL_Log( "SMCTEST AUTOPLAY %s (%s)", s_enabled ? "on" : "off", flag.c_str() );
 }
 
@@ -157,7 +159,7 @@ void Autoplay_Update( void )
 	// the engine's own debug switch and changes nothing about the geometry —
 	// every wall, gap and pipe still has to be cleared by pressing the pad.
 	// It is only ever set while the autoplay flag file exists.
-	if( !pLevel_Player->m_god_mode )
+	if( s_god && !pLevel_Player->m_god_mode )
 	{
 		pLevel_Player->m_god_mode = true;
 		SDL_Log( "SMCTEST AUTOPLAY god_mode on (traversal run)" );
