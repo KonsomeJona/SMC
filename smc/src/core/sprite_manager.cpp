@@ -55,7 +55,6 @@ void cSprite_Manager :: Add( cSprite *sprite )
 
 	Set_Pos_Z( sprite );
 
-	LOG_DEBUG(SPRITE_MGR, "Add: type=%d name=%s size_before=%zu", sprite->m_type, sprite->m_name.c_str(), objects.size());
 
 	// Check if an destroyed object can be replaced
 	for( cSprite_List::iterator itr = objects.begin(); itr != objects.end(); ++itr )
@@ -66,7 +65,6 @@ void cSprite_Manager :: Add( cSprite *sprite )
 		// if destroy is set
 		if( obj->m_auto_destroy )
 		{
-			LOG_DEBUG(SPRITE_MGR, "Add: reusing destroyed slot for type=%d", sprite->m_type);
 			// set new object
 			*itr = sprite;
 			// delete old
@@ -79,7 +77,6 @@ void cSprite_Manager :: Add( cSprite *sprite )
 	}
 
 	cObject_Manager<cSprite>::Add( sprite );
-	LOG_DEBUG(SPRITE_MGR, "Add: appended, new size=%zu", objects.size());
 	m_nearby_sprites.clear();
 	m_cache_valid = false;
 }
@@ -461,9 +458,6 @@ void cSprite_Manager :: Update_Nearby_Cache( void )
 	}
 
 	m_cache_valid = true;
-	LOG_DEBUG(SPRITE_MGR, "nearby cache: %zu sprites (cam=%.0f,%.0f viewport=%.0f,%.0f,%.0f,%.0f)",
-	    m_nearby_sprites.size(), cam_x, cam_y,
-	    viewport.m_x, viewport.m_y, viewport.m_w, viewport.m_h);
 }
 
 /* *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** */
