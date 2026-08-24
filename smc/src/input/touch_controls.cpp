@@ -319,21 +319,43 @@ int cTouchControls :: Zone_Hit_Test( float screen_x, float screen_y )
 		// the screen width).
 		const float snap_x = m_screen_w * 0.40f;
 		const float snap_y = m_screen_h * 0.40f;
-		if( zx < snap_x )
+
+		// Only snap toward an edge when no other active zone lies between
+		// this one and that edge. Without this test SHOOT, which sits in the
+		// right-hand band, stretched all the way to the right edge and
+		// swallowed JUMP — whose plate is closer to that edge — so pressing
+		// jump fired a fireball instead and the player never left the ground.
+		bool blocked_left = false, blocked_right = false;
+		bool blocked_up = false, blocked_down = false;
+
+		for( int j = 0; j < ZONE_COUNT; j++ )
+		{
+			if( j == i || !m_zones[j].active ) continue;
+
+			const bool overlaps_rows = ( m_zones[j].y < zy + zh ) && ( m_zones[j].y + m_zones[j].h > zy );
+			const bool overlaps_cols = ( m_zones[j].x < zx + zw ) && ( m_zones[j].x + m_zones[j].w > zx );
+
+			if( overlaps_rows && m_zones[j].x + m_zones[j].w <= zx ) blocked_left  = true;
+			if( overlaps_rows && m_zones[j].x >= zx + zw )           blocked_right = true;
+			if( overlaps_cols && m_zones[j].y + m_zones[j].h <= zy ) blocked_up    = true;
+			if( overlaps_cols && m_zones[j].y >= zy + zh )           blocked_down  = true;
+		}
+
+		if( zx < snap_x && !blocked_left )
 		{
 			hx = 0;
 			hw = zx + zw + zw * 0.20f;
 		}
-		if( ( m_screen_w - ( zx + zw ) ) < snap_x )
+		if( ( m_screen_w - ( zx + zw ) ) < snap_x && !blocked_right )
 		{
 			hw = m_screen_w - hx;
 		}
-		if( zy < snap_y )
+		if( zy < snap_y && !blocked_up )
 		{
 			hy = 0;
 			hh = zy + zh + zh * 0.20f;
 		}
-		if( ( m_screen_h - ( zy + zh ) ) < snap_y )
+		if( ( m_screen_h - ( zy + zh ) ) < snap_y && !blocked_down )
 		{
 			hh = m_screen_h - hy;
 		}

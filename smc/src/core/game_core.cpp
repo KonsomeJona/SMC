@@ -58,6 +58,7 @@ CEGUI::XMLAttributes Game_Action_Data_End;
 MenuID g_android_next_menu = MENU_MAIN;
 std::string g_android_pending_level;
 std::string g_android_pending_level_entry;
+bool g_android_downgrade_force = false;
 #endif
 void *Game_Action_ptr = NULL;
 
@@ -117,7 +118,12 @@ void Handle_Game_Events( void )
 			Handle_Generic_Game_Events( current_game_action_data_middle );
 			Handle_Generic_Game_Events( current_game_action_data_end );
 #else
-			pLevel_Player->DownGrade_Player();
+			// delayed = 0: this *is* the deferred handling. Calling it with the
+			// default delayed = 1 re-posts GA_DOWNGRADE_PLAYER, so the action
+			// fires again on the next frame and the player takes damage
+			// forever without ever resolving it.
+			pLevel_Player->DownGrade_Player( 0, g_android_downgrade_force );
+			g_android_downgrade_force = false;
 #endif
 		}
 		// activate level exit

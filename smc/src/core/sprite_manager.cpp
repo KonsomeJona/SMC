@@ -379,7 +379,6 @@ void cSprite_Manager :: Handle_Collision_Items( void )
 	// Use index-based loop: iterator-based loops are invalidated if Add() triggers
 	// a vector reallocation (e.g. when a collision handler spawns a new sprite).
 	const unsigned int size = static_cast<unsigned int>( objects.size() );
-	LOG_DEBUG(SPRITE_MGR, "Handle_Collision_Items: processing %zu objects", (size_t)size);
 	for( unsigned int i = 0; i < size; ++i )
 	{
 		cSprite *obj = objects[i];

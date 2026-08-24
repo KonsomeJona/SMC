@@ -328,6 +328,11 @@ void cLevel_Manager :: Draw( void )
 
 void cLevel_Manager :: Finish_Level( bool win_music /* = 0 */ )
 {
+	// Single unambiguous point where a level is completed. An automated run
+	// watches for this line rather than trying to read the victory screen.
+	SDL_Log( "SMCTEST LEVEL_FINISHED level=%s",
+		pActive_Level ? Trim_Filename( pActive_Level->m_level_filename, 0, 0 ).c_str() : "?" );
+
 	pHud_Time->Reset();
 
 	// custom level

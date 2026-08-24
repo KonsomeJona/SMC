@@ -400,7 +400,6 @@ void cBonusBox :: Update( void )
 	}
 
 	// update active items
-	LOG_DEBUG(BONUSBOX, "Update: active_items=%zu", m_active_items.size());
 	for( MovingSpriteList::iterator itr = m_active_items.begin(); itr != m_active_items.end(); )
 	{
 		cPowerUp *powerup = static_cast<cPowerUp *>(*itr);

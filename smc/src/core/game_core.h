@@ -57,6 +57,9 @@ extern MenuID g_android_next_menu;
 // with nothing loaded, which is why levels came up black.
 extern std::string g_android_pending_level;
 extern std::string g_android_pending_level_entry;
+// Android: whether the pending GA_DOWNGRADE_PLAYER was forced (replaces the
+// CEGUI "downgrade_force" attribute).
+extern bool g_android_downgrade_force;
 #endif
 
 // internal game resolution and is used for global scaling

@@ -198,6 +198,8 @@ void cLevel_Player :: DownGrade( bool force /* = 0 */ )
 
 void cLevel_Player :: DownGrade_Player( bool delayed /* = 1 */, bool force /* = 0 */ )
 {
+	SDL_Log( "SMCTEST PLAYER_DOWNGRADE type=%d delayed=%d force=%d",
+		(int)m_maryo_type, (int)delayed, (int)force );
 	if( m_god_mode || m_invincible )
 	{
 		return;
@@ -217,6 +219,8 @@ void cLevel_Player :: DownGrade_Player( bool delayed /* = 1 */, bool force /* = 
 		{
 			Game_Action_Data_Middle.add( "downgrade_force", "1" );
 		}
+#else
+		g_android_downgrade_force = force;
 #endif // SMC_NO_CEGUI
 
 		return;
