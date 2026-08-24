@@ -302,6 +302,36 @@ int main( int argc, char **argv )
 
 		// update speedfactor
 		pFramerate->Update();
+
+#ifdef __ANDROID__
+		// Framerate probe: one line every 2 seconds, so a report of "it lags"
+		// can be checked against a number instead of a feeling.
+		{
+			static Uint32 last_report = 0;
+			Uint32 now = SDL_GetTicks();
+
+			if( now - last_report >= 2000 )
+			{
+				last_report = now;
+				// ms values are per 100 frames, so /100 gives ms per frame.
+				SDL_Log( "FPS avg=%u mode=%d sprites=%d | per frame ms:"
+					" upd_menu=%.2f draw_menu=%.2f draw_ovw=%.2f draw_l1=%.2f draw_hud=%.2f"
+					" mouse=%.2f render_game=%.2f render_gui=%.2f swap=%.2f",
+					pFramerate->m_fps_average, (int)Game_Mode,
+					( pActive_Camera && pActive_Camera->m_sprite_manager )
+						? (int)pActive_Camera->m_sprite_manager->objects.size() : -1,
+					pFramerate->m_perf_timer[PERF_UPDATE_MENU]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_DRAW_MENU]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_DRAW_OVERWORLD]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_DRAW_LEVEL_LAYER1]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_DRAW_LEVEL_HUD]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_DRAW_MOUSE]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_RENDER_GAME]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_RENDER_GUI]->ms / 100.0f,
+					pFramerate->m_perf_timer[PERF_RENDER_BUFFER]->ms / 100.0f );
+			}
+		}
+#endif
 	}
 
 	Exit_Game();

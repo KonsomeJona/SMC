@@ -860,8 +860,15 @@ void cRenderQueue :: Add( cRender_Request *obj )
 
 void cRenderQueue :: Render( bool clear /* = 1 */ )
 {
+#ifdef __ANDROID__
+	const size_t count_before = m_render_data.size();
+	const Uint32 ticks_start = SDL_GetTicks();
+#endif
 	// z position sort
 	std::sort( m_render_data.begin(), m_render_data.end(), zpos_sort() );
+#ifdef __ANDROID__
+	const Uint32 ticks_after_sort = SDL_GetTicks();
+#endif
 	// reset last texture
 	last_bind_texture = 0;
 
@@ -877,6 +884,23 @@ void cRenderQueue :: Render( bool clear /* = 1 */ )
 	{
 		Clear( 0 );
 	}
+
+#ifdef __ANDROID__
+	// Where the 100 ms per frame goes: how many requests, and how long the
+	// sort costs versus the draws themselves.
+	{
+		static Uint32 last_report = 0;
+		Uint32 now = SDL_GetTicks();
+
+		if( now - last_report >= 2000 )
+		{
+			last_report = now;
+			SDL_Log( "RenderQueue: %d requests, sort %u ms, draws %u ms",
+				(int)count_before, (unsigned)( ticks_after_sort - ticks_start ),
+				(unsigned)( SDL_GetTicks() - ticks_after_sort ) );
+		}
+	}
+#endif
 }
 
 void cRenderQueue :: Fake_Render( unsigned int amount /* = 1 */, bool clear /* = 1 */ )

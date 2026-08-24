@@ -265,7 +265,8 @@ void Draw_Texture(float x, float y, float w, float h,
     glBindTexture(GL_TEXTURE_2D, tex);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vdata), vdata);
+    // Orphan-and-upload: never reuse storage the GPU may still be reading.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vdata), vdata, GL_STREAM_DRAW);
 
     const GLsizei stride = 4 * sizeof(float);
     glEnableVertexAttribArray(s_attr_tex_pos);
@@ -307,7 +308,8 @@ void Draw_Rect(float x, float y, float w, float h,
     glUniformMatrix4fv(s_loc_col_proj, 1, GL_FALSE, s_proj);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vdata), vdata);
+    // Orphan-and-upload: never reuse storage the GPU may still be reading.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vdata), vdata, GL_STREAM_DRAW);
 
     const GLsizei stride = 6 * sizeof(float);
     glEnableVertexAttribArray(s_attr_col_pos);
@@ -385,7 +387,8 @@ void Draw_Circle(float cx, float cy, float radius,
     glUniformMatrix4fv(s_loc_col_proj, 1, GL_FALSE, s_proj);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, vi * 6 * (int)sizeof(float), vdata);
+    // Orphan-and-upload, same reason as the other draws.
+    glBufferData(GL_ARRAY_BUFFER, vi * 6 * (int)sizeof(float), vdata, GL_STREAM_DRAW);
 
     const GLsizei stride = 6 * sizeof(float);
     glEnableVertexAttribArray(s_attr_col_pos);
@@ -426,7 +429,8 @@ void Draw_Triangle(float x1, float y1, float x2, float y2, float x3, float y3,
     glUniformMatrix4fv(s_loc_col_proj, 1, GL_FALSE, s_proj);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vdata), vdata);
+    // Orphan-and-upload: never reuse storage the GPU may still be reading.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vdata), vdata, GL_STREAM_DRAW);
 
     const GLsizei stride = 6 * sizeof(float);
     glEnableVertexAttribArray(s_attr_col_pos);
@@ -466,7 +470,8 @@ void Draw_Line(float x1, float y1, float x2, float y2,
     glUniformMatrix4fv(s_loc_col_proj, 1, GL_FALSE, s_proj);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vdata), vdata);
+    // Orphan-and-upload: never reuse storage the GPU may still be reading.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vdata), vdata, GL_STREAM_DRAW);
 
     const GLsizei stride = 6 * sizeof(float);
     glEnableVertexAttribArray(s_attr_col_pos);
@@ -511,7 +516,8 @@ void Draw_Gradient_Vertical(float x, float y, float w, float h,
     glUniformMatrix4fv(s_loc_col_proj, 1, GL_FALSE, s_proj);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vdata), vdata);
+    // Orphan-and-upload: never reuse storage the GPU may still be reading.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vdata), vdata, GL_STREAM_DRAW);
 
     const GLsizei stride = 6 * sizeof(float);
     glEnableVertexAttribArray(s_attr_col_pos);
@@ -556,7 +562,8 @@ void Draw_Gradient_Horizontal(float x, float y, float w, float h,
     glUniformMatrix4fv(s_loc_col_proj, 1, GL_FALSE, s_proj);
 
     glBindBuffer(GL_ARRAY_BUFFER, s_vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vdata), vdata);
+    // Orphan-and-upload: never reuse storage the GPU may still be reading.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vdata), vdata, GL_STREAM_DRAW);
 
     const GLsizei stride = 6 * sizeof(float);
     glEnableVertexAttribArray(s_attr_col_pos);
