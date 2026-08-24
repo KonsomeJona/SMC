@@ -219,7 +219,10 @@ void cTouchControls :: Init_Zones( void )
 	{
 		m_zones[i].pressed = false;
 		m_zones[i].finger_id = -1;
-		m_zones[i].active = true;
+		// Start inactive. Init_Zones() runs before Game_Mode settles on
+		// MODE_MENU, and defaulting to true made the whole pad flash for one
+		// frame at startup before Update_Zone_Visibility() switched it off.
+		m_zones[i].active = false;
 	}
 
 	Update_Zone_Visibility();

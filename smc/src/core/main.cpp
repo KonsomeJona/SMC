@@ -936,11 +936,11 @@ void Draw_Game( void )
 	// Mouse
 	pMouseCursor->Draw();
 
-	// Touch controls overlay (drawn on top of everything, direct GL)
-	if( pTouchControls && pTouchControls->m_visible )
-	{
-		pTouchControls->Draw();
-	}
+	// The touch overlay is NOT drawn here. SMC renders through a deferred
+	// queue: everything Draw_Game() enqueues is only flushed later by
+	// pRenderer->Render(). Drawing the overlay directly at this point puts it
+	// underneath the whole frame. It is drawn in cVideo::Render() instead,
+	// after the flush and before the buffer swap.
 
 	// update performance timer
 	pFramerate->m_perf_timer[PERF_DRAW_MOUSE]->Update();
