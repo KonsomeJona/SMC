@@ -35,13 +35,15 @@ bool Autoplay_Enabled( void )
 	return s_enabled;
 }
 
-/* Is something solid directly ahead, high enough to need a jump? */
-static bool Obstacle_Ahead( float look )
+/* How far above the player's feet the nearest solid thing ahead rises.
+ * 0 means nothing blocking within reach. */
+static float Obstacle_Height( float look )
 {
-	if( !pActive_Camera || !pActive_Camera->m_sprite_manager ) return false;
+	if( !pActive_Camera || !pActive_Camera->m_sprite_manager ) return 0.0f;
 
 	const float px = pLevel_Player->m_pos_x;
 	const float py = pLevel_Player->m_pos_y;
+	float highest = 0.0f;
 
 	for( cSprite_List::iterator itr = pActive_Camera->m_sprite_manager->objects.begin();
 	     itr != pActive_Camera->m_sprite_manager->objects.end(); ++itr )
@@ -50,14 +52,17 @@ static bool Obstacle_Ahead( float look )
 		if( !obj || obj->m_massive_type != MASS_MASSIVE ) continue;
 
 		const float dx = obj->m_pos_x - px;
-		if( dx < 5.0f || dx > look ) continue;
+		// Include what the player is already touching: once he is flush
+		// against a wall dx is ~0, and skipping it meant he pushed into the
+		// wall forever without ever jumping.
+		if( dx < -30.0f || dx > look ) continue;
 
-		// A surface at or above the player's feet blocks him; one well below
-		// is just the floor he is standing on.
-		if( obj->m_pos_y < py + 20.0f ) return true;
+		// posy grows downward: a smaller posy is higher up.
+		const float rise = py - obj->m_pos_y;
+		if( rise > highest ) highest = rise;
 	}
 
-	return false;
+	return highest;
 }
 
 /* Is the ground about to disappear in front of the player? */
@@ -130,26 +135,43 @@ void Autoplay_Update( void )
 
 	const bool grounded = ( pLevel_Player->m_ground_object != NULL );
 
-	if( grounded && now > s_jump_until )
+	// Release the jump zone as soon as the hold is over, whether or not the
+	// player is on the ground. Leaving it pressed kept the key down forever,
+	// and the engine will not start a second jump until it has been released
+	// — the player climbed onto the step and then stood there.
+	if( now > s_jump_until )
 	{
-		// Look ahead proportionally to speed: at full run the player covers a
-		// lot of ground before a jump has any effect.
-		const float speed = ( pLevel_Player->m_velx > 1.0f ) ? pLevel_Player->m_velx : 1.0f;
-		// Start the jump well before the obstacle: at a full run the player
-		// covers a lot of ground while the jump is still gaining height, and
-		// jumping once already touching a wall only scrapes along it.
-		const float look  = 90.0f + speed * 14.0f;
+		pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, false );
+	}
 
-		if( Obstacle_Ahead( look ) || Gap_Ahead( look + 30.0f ) || Enemy_Ahead( look + 40.0f ) )
+	if( grounded && now > s_jump_until + 90 )
+	{
+		const float speed = ( pLevel_Player->m_velx > 1.0f ) ? pLevel_Player->m_velx : 1.0f;
+
+		// A wall has to be taken early and held long: height grows with how
+		// long the jump key stays down. An enemy is the opposite — jump late
+		// and briefly, so the player comes down on its head instead of
+		// sailing over and landing in front of the next one.
+		const float wall_look = 45.0f + speed * 7.0f;
+		const float rise = Obstacle_Height( wall_look );
+
+		if( rise > 20.0f )
 		{
-			// Hold the jump zone: height depends on how long the key stays down.
+			Uint32 hold = 380 + (Uint32)( rise * 4.5f );
+			if( hold > 900 ) hold = 900;
+			pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, true );
+			s_jump_until = now + hold;
+		}
+		else if( Gap_Ahead( wall_look + 30.0f ) )
+		{
 			pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, true );
 			s_jump_until = now + 700;
 		}
-	}
-	else if( now > s_jump_until )
-	{
-		pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, false );
+		else if( Enemy_Ahead( 45.0f + speed * 5.0f ) )
+		{
+			pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, true );
+			s_jump_until = now + 300;
+		}
 	}
 }
 
