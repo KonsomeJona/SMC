@@ -329,6 +329,17 @@ int main( int argc, char **argv )
 					pFramerate->m_perf_timer[PERF_RENDER_GAME]->ms / 100.0f,
 					pFramerate->m_perf_timer[PERF_RENDER_GUI]->ms / 100.0f,
 					pFramerate->m_perf_timer[PERF_RENDER_BUFFER]->ms / 100.0f );
+
+				// Player position, so an automated test can assert that a
+				// direction press actually moved the player instead of
+				// eyeballing a screenshot.
+				if( Game_Mode == MODE_LEVEL && pLevel_Player )
+				{
+					SDL_Log( "PLAYERPOS x=%.1f y=%.1f vx=%.2f vy=%.2f ground=%d",
+						pLevel_Player->m_pos_x, pLevel_Player->m_pos_y,
+						pLevel_Player->m_velx, pLevel_Player->m_vely,
+						pLevel_Player->m_ground_object ? 1 : 0 );
+				}
 			}
 		}
 #endif

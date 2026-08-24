@@ -132,6 +132,15 @@ void cVideo :: Init_CEGUI_Data( void ) const
 
 void cVideo :: Init_SDL( void )
 {
+#ifdef __ANDROID__
+	// SDL exposes the accelerometer as a joystick on Android. That device
+	// streams hundreds of axis events per second, and cJoystick::Handle_Motion
+	// calls pKeyboard->Key_Up() every time an axis sits under the threshold —
+	// which released the direction key the touch pad had just injected, on the
+	// very next frame. The player could not move at all.
+	SDL_SetHint( SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0" );
+#endif
+
 	if( SDL_Init( SDL_INIT_VIDEO ) == -1 )
 	{
 		printf( "Error : SDL initialization failed\nReason : %s\n", SDL_GetError() );

@@ -402,6 +402,8 @@ void cTouchControls :: Release_All_For_Finger( SDL_FingerID finger )
 
 bool cTouchControls :: Handle_Finger_Down( SDL_Event *ev )
 {
+	LOG_DEBUG(INPUT, "Finger DOWN raw x=%.4f y=%.4f (screen %.0fx%.0f)",
+		ev->tfinger.x, ev->tfinger.y, m_screen_w, m_screen_h);
 	if( !m_enabled ) return false;
 	float sx = ev->tfinger.x * m_screen_w;
 	float sy = ev->tfinger.y * m_screen_h;
