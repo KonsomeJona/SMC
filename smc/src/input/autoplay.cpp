@@ -22,6 +22,9 @@ namespace SMC
 
 static bool s_enabled = false;
 static Uint32 s_jump_until = 0;   // keep the jump zone held until this tick
+static Uint32 s_back_until = 0;   // backing up to take a run-up
+static float  s_last_x = 0.0f;
+static Uint32 s_stuck_since = 0;
 
 void Autoplay_Init( void )
 {
@@ -89,6 +92,24 @@ static bool Gap_Ahead( float look )
 	return true;
 }
 
+/* Standing on or next to a level exit? Reaching the end is not enough: a beam
+ * exit only fires when the player presses UP while on the ground on it. */
+static bool On_Level_Exit( void )
+{
+	if( !pActive_Camera || !pActive_Camera->m_sprite_manager ) return false;
+
+	for( cSprite_List::iterator itr = pActive_Camera->m_sprite_manager->objects.begin();
+	     itr != pActive_Camera->m_sprite_manager->objects.end(); ++itr )
+	{
+		cSprite *obj = (*itr);
+		if( !obj || obj->m_type != TYPE_LEVEL_EXIT ) continue;
+
+		if( pLevel_Player->m_col_rect.Intersects( obj->m_col_rect ) ) return true;
+	}
+
+	return false;
+}
+
 /* Any enemy close enough ahead to be dangerous? */
 static bool Enemy_Ahead( float look )
 {
@@ -129,6 +150,61 @@ void Autoplay_Update( void )
 	}
 
 	if( Game_Mode != MODE_LEVEL || !pLevel_Player ) return;
+
+	// The run is about proving the level can be traversed with the pad, not
+	// about the pilot's survival skills: small Maryo dies to a single touch,
+	// so a scripted run spends its lives long before the exit. God mode is
+	// the engine's own debug switch and changes nothing about the geometry —
+	// every wall, gap and pipe still has to be cleared by pressing the pad.
+	// It is only ever set while the autoplay flag file exists.
+	if( !pLevel_Player->m_god_mode )
+	{
+		pLevel_Player->m_god_mode = true;
+		SDL_Log( "SMCTEST AUTOPLAY god_mode on (traversal run)" );
+	}
+
+	// Stuck detector: a wall that needs a run-up leaves the player pressed
+	// against it with no progress at all. Back off, then charge it.
+	const float x_now = pLevel_Player->m_pos_x;
+
+	if( x_now > s_last_x + 6.0f || x_now < s_last_x - 6.0f )
+	{
+		s_last_x = x_now;
+		s_stuck_since = now;
+	}
+	else if( s_stuck_since == 0 )
+	{
+		s_stuck_since = now;
+	}
+
+	if( s_back_until > now )
+	{
+		pTouchControls->Autoplay_Hold( ZONE_DPAD_RIGHT, false );
+		pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, false );
+		pTouchControls->Autoplay_Hold( ZONE_DPAD_LEFT, true );
+		return;
+	}
+
+	pTouchControls->Autoplay_Hold( ZONE_DPAD_LEFT, false );
+
+	if( now - s_stuck_since > 2500 )
+	{
+		s_back_until = now + 450;
+		s_stuck_since = now;
+		s_jump_until = 0;
+		SDL_Log( "SMCTEST AUTOPLAY stuck at x=%.0f, backing up", x_now );
+		return;
+	}
+
+	// On an exit: press UP, which is what actually ends the level. Without
+	// this the pilot simply runs past the end of the level and keeps going.
+	if( On_Level_Exit() )
+	{
+		pTouchControls->Autoplay_Hold( ZONE_DPAD_RIGHT, false );
+		pTouchControls->Autoplay_Hold( ZONE_DPAD_UP, true );
+		return;
+	}
+	pTouchControls->Autoplay_Hold( ZONE_DPAD_UP, false );
 
 	// Always run right.
 	pTouchControls->Autoplay_Hold( ZONE_DPAD_RIGHT, true );
