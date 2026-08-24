@@ -300,6 +300,26 @@ int main( int argc, char **argv )
 		pVideo->Render();
 #endif
 
+#ifdef __ANDROID__
+		// Cap at 60 FPS. The jump physics are frame-driven — Update_Jump adds
+		// velocity once per frame and drains m_jump_power by speed_factor —
+		// so at the 235 FPS this runs at unthrottled, a jump burns its power
+		// long before it has gained height: the player could not clear a
+		// single 43 px crate. It also stops burning battery to draw a 2D game
+		// four times per refresh.
+		{
+			static Uint32 next_frame = 0;
+			Uint32 now = SDL_GetTicks();
+
+			if( next_frame > now )
+			{
+				SDL_Delay( next_frame - now );
+			}
+
+			next_frame = SDL_GetTicks() + 16;
+		}
+#endif
+
 		// update speedfactor
 		pFramerate->Update();
 
