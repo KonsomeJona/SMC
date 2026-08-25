@@ -1,7 +1,9 @@
 // Top-level build file — configuration options common to all sub-projects/modules.
 plugins {
-    // AGP 8.5.1+ is what aligns uncompressed native libraries on 16 KB inside the
-    // APK itself. 8.2.2 aligned them on 4 KB, which Android 15+ rejects even when
-    // the ELF segments are correct.
-    id 'com.android.application' version '8.5.2' apply false
+    // 8.5.1+ is what aligns uncompressed native libraries on 16 KB inside the
+    // APK itself (8.2.2 aligned them on 4 KB, which Android 15+ rejects even
+    // when the ELF segments are correct), and 8.9+ is what knows about API 36,
+    // which Play requires from any new app. Same pair as hourlychime in this
+    // monorepo, so the Gradle distribution is already cached.
+    id 'com.android.application' version '8.9.1' apply false
 }

@@ -4,7 +4,9 @@ plugins {
 
 android {
     namespace 'org.smc'
-    compileSdk 34
+    // API 36 : depuis le 31 aout 2026, Google Play refuse toute nouvelle
+    // application qui cible moins (API 35 etait deja exige depuis un an).
+    compileSdk 36
     // NDK 27 LTS. Not 28+: those headers mark ALooper_pollAll as unavailable
     // and SDL 2.28.5 still calls it (SDL_androidsensor.c). Not 26 either: its
     // prebuilt libc++_shared.so is 4 KB-aligned, which fails Android's 16 KB
@@ -14,7 +16,7 @@ android {
     defaultConfig {
         applicationId "com.takohi.secretchronicles"
         minSdk 21
-        targetSdk 34
+        targetSdk 36
         versionCode 28
         versionName "2.0.27"
 
