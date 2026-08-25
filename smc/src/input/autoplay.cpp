@@ -13,6 +13,7 @@
 #include "../core/camera.h"
 #include "../core/sprite_manager.h"
 #include "../objects/sprite.h"
+#include "../objects/level_exit.h"
 #include "../core/filesystem/filesystem.h"
 #include "../core/debug_log.h"
 #include <SDL.h>
@@ -96,9 +97,14 @@ static bool Gap_Ahead( float look )
 
 /* Standing on or next to a level exit? Reaching the end is not enough: a beam
  * exit only fires when the player presses UP while on the ground on it. */
-static bool On_Level_Exit( void )
+/* Which zone opens the level exit the player is standing on, if any.
+ *
+ * A beam exit answers INP_UP; a warp exit answers the key matching its own
+ * direction — level 2 ends on a "down" warp inside a pipe, and pressing up
+ * there does nothing at all. Returns -1 when the player is on no exit. */
+static int Level_Exit_Zone( void )
 {
-	if( !pActive_Camera || !pActive_Camera->m_sprite_manager ) return false;
+	if( !pActive_Camera || !pActive_Camera->m_sprite_manager ) return -1;
 
 	for( cSprite_List::iterator itr = pActive_Camera->m_sprite_manager->objects.begin();
 	     itr != pActive_Camera->m_sprite_manager->objects.end(); ++itr )
@@ -106,10 +112,48 @@ static bool On_Level_Exit( void )
 		cSprite *obj = (*itr);
 		if( !obj || obj->m_type != TYPE_LEVEL_EXIT ) continue;
 
-		if( pLevel_Player->m_col_rect.Intersects( obj->m_col_rect ) ) return true;
+		if( !pLevel_Player->m_col_rect.Intersects( obj->m_col_rect ) ) continue;
+
+		cLevel_Exit *exit_obj = static_cast<cLevel_Exit *>( obj );
+
+		if( exit_obj->m_exit_type == LEVEL_EXIT_WARP )
+		{
+			switch( exit_obj->m_direction )
+			{
+				case DIR_DOWN:  return ZONE_DPAD_DOWN;
+				case DIR_RIGHT: return ZONE_DPAD_RIGHT;
+				case DIR_LEFT:  return ZONE_DPAD_LEFT;
+				default:        return ZONE_DPAD_UP;
+			}
+		}
+
+		return ZONE_DPAD_UP;
 	}
 
-	return false;
+	return -1;
+}
+
+/* How far ahead the next exit is, or -1 when there is none in front.
+ *
+ * Jumping over an exit is how level 1 used to be overrun: the player has to
+ * be on the ground and standing on it for the interact to fire. */
+static float Exit_Ahead( float look )
+{
+	if( !pActive_Camera || !pActive_Camera->m_sprite_manager ) return -1.0f;
+
+	const float px = pLevel_Player->m_pos_x;
+
+	for( cSprite_List::iterator itr = pActive_Camera->m_sprite_manager->objects.begin();
+	     itr != pActive_Camera->m_sprite_manager->objects.end(); ++itr )
+	{
+		cSprite *obj = (*itr);
+		if( !obj || obj->m_type != TYPE_LEVEL_EXIT ) continue;
+
+		const float d = obj->m_pos_x - px;
+		if( d > 0.0f && d < look ) return d;
+	}
+
+	return -1.0f;
 }
 
 /* Any enemy close enough ahead to be dangerous? */
@@ -200,13 +244,19 @@ void Autoplay_Update( void )
 
 	// On an exit: press UP, which is what actually ends the level. Without
 	// this the pilot simply runs past the end of the level and keeps going.
-	if( On_Level_Exit() )
+	const int exit_zone = Level_Exit_Zone();
+
+	if( exit_zone >= 0 )
 	{
 		pTouchControls->Autoplay_Hold( ZONE_DPAD_RIGHT, false );
-		pTouchControls->Autoplay_Hold( ZONE_DPAD_UP, true );
+		pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, false );
+		pTouchControls->Autoplay_Hold( exit_zone, true );
+		s_stuck_since = now;      // standing still here is the point, not a jam
 		return;
 	}
+
 	pTouchControls->Autoplay_Hold( ZONE_DPAD_UP, false );
+	pTouchControls->Autoplay_Hold( ZONE_DPAD_DOWN, false );
 
 	// Always run right.
 	pTouchControls->Autoplay_Hold( ZONE_DPAD_RIGHT, true );
@@ -222,7 +272,16 @@ void Autoplay_Update( void )
 		pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, false );
 	}
 
-	if( grounded && now > s_jump_until + 90 )
+	// Never leave the ground right before an exit: the interact only fires
+	// while standing on it, so a jump sails straight over the end of the
+	// level. Level 1 was overrun exactly this way, at 8290.
+	const float exit_dist = Exit_Ahead( 120.0f );
+
+	if( grounded && exit_dist >= 0.0f && now > s_jump_until + 90 )
+	{
+		pTouchControls->Autoplay_Hold( ZONE_BTN_JUMP, false );
+	}
+	else if( grounded && now > s_jump_until + 90 )
 	{
 		const float speed = ( pLevel_Player->m_velx > 1.0f ) ? pLevel_Player->m_velx : 1.0f;
 
