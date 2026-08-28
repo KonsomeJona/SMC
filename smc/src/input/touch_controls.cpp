@@ -16,6 +16,7 @@
 #include "../core/game_core.h"
 #include "../user/preferences.h"
 #include "../core/debug_log.h"
+#include "haptics.h"
 #include "../core/sdl2_compat.h"
 #ifdef __ANDROID__
 #include "../video/gles2_renderer.h"
@@ -34,6 +35,7 @@ cTouchControls :: cTouchControls( void )
 	// 0.85 rendait les plaques quasi opaques : le decor disparaissait derriere
 	// le pad, ce qui gene surtout sur grand ecran ou le pad couvre du jeu.
 	m_opacity = 0.45f;
+	m_scale = 1.0f;
 	m_screen_w = 1024.0f;
 	m_screen_h = 768.0f;
 	m_last_game_mode = -1;
@@ -76,12 +78,32 @@ void cTouchControls :: Init( void )
 	// which would cause double-handling through both mouse and finger paths.
 	SDL_SetHint( SDL_HINT_MOUSE_TOUCH_EVENTS, "0" );
 
+	m_opacity = pPreferences->m_touch_opacity;
+	m_scale = pPreferences->m_touch_scale;
 	m_screen_w = static_cast<float>( pPreferences->m_video_screen_w );
 	m_screen_h = static_cast<float>( pPreferences->m_video_screen_h );
 
 	Init_Zones();
 	SDL_Log( "Touch controls initialized: enabled=%d visible=%d screen=%.0fx%.0f",
 		m_enabled, m_visible, m_screen_w, m_screen_h );
+}
+
+void cTouchControls :: Set_Opacity( float v )
+{
+	if( v < 0.1f ) v = 0.1f;
+	if( v > 1.0f ) v = 1.0f;
+	m_opacity = v;
+}
+
+void cTouchControls :: Set_Scale( float v )
+{
+	if( v < 0.7f ) v = 0.7f;
+	if( v > 1.6f ) v = 1.6f;
+
+	if( v == m_scale ) return;
+
+	m_scale = v;
+	Init_Zones();   // the hit areas move with the drawing
 }
 
 void cTouchControls :: Init_Zones( void )
@@ -103,7 +125,7 @@ void cTouchControls :: Init_Zones( void )
 	// ===== D-PAD (bottom-left) =====
 	// Each arm ≈ 14% of screen height → cross spans ~43% vertically. That
 	// keeps thumb comfort while leaving room for the game viewport above.
-	float bs       = sh * 0.14f;   // arm size (one direction button)
+	float bs       = sh * 0.14f * m_scale;   // arm size (one direction button)
 	float pad      = sh * 0.004f;  // tiny gap between arms (joints overlap visually)
 	// Generous edge margins so pads visibly breathe off the bezel.
 	float marginL  = sw * 0.035f;
@@ -416,6 +438,17 @@ void cTouchControls :: Press_Zone( int zone_id, SDL_FingerID finger )
 
 	SDLKey key = m_zones[zone_id].mapped_key;
 	LOG_DEBUG(INPUT, "Touch PRESS zone=%d key=%s(%d)", zone_id, SDL_GetKeyName(key), key);
+
+	// A finger on glass gets nothing back from a drawn button; the tick is
+	// what tells the player the press registered. Action buttons get a firmer
+	// click than the d-pad, which is pressed far more often.
+	// The autopilot presses zones with a negative id; only a real finger
+	// deserves a buzz.
+	if( finger >= 0 )
+	{
+		Haptics_Play( ( zone_id == ZONE_BTN_JUMP || zone_id == ZONE_BTN_SHOOT )
+		              ? HAPTIC_CLICK : HAPTIC_TICK );
+	}
 
 	// Inject real SDL key event — goes through normal Handle_Input_Global
 	Inject_SDL_Key( key, true );

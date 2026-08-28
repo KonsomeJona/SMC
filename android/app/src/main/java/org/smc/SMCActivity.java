@@ -1,11 +1,14 @@
 package org.smc;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
@@ -31,6 +34,9 @@ public class SMCActivity extends SDLActivity {
     private static final String TAG = "SMC";
     private static final String PREFS_NAME = "smc_prefs";
     private static final String PREFS_KEY_VERSION = "assets_version";
+
+    /** Set in onCreate; null when the device has no vibrator at all. */
+    private static Vibrator sVibrator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +85,7 @@ public class SMCActivity extends SDLActivity {
         }
 
         extractAssets();
+        initVibrator();
 
         // ------------------------------------------------------------------
         // 2. Advertise paths to the C++ side via environment variables.
@@ -98,6 +105,63 @@ public class SMCActivity extends SDLActivity {
         Log.i(TAG, "SMC_USER_DIR  = " + userDir);
 
         super.onCreate(savedInstanceState);
+    }
+
+    // -----------------------------------------------------------------------
+    // Haptics
+    //
+    // Called from C++ through JNI with a single integer, so the native side
+    // never has to know about VibrationEffect, API levels or attributes —
+    // one cached method id is all it needs.
+    //
+    //   0 = tick        light, a d-pad press
+    //   1 = click       jump and shoot
+    //   2 = heavy click taking damage
+    //
+    // Safe to call from the SDL thread: vibrate() returns at once, the system
+    // schedules the effect itself.
+    // -----------------------------------------------------------------------
+
+    public static void nativeVibrate(int kind) {
+        Vibrator v = sVibrator;
+        if (v == null) {
+            return;
+        }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                int effect;
+                switch (kind) {
+                    case 2:  effect = VibrationEffect.EFFECT_HEAVY_CLICK; break;
+                    case 1:  effect = VibrationEffect.EFFECT_CLICK;       break;
+                    default: effect = VibrationEffect.EFFECT_TICK;        break;
+                }
+                v.vibrate(VibrationEffect.createPredefined(effect));
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // No predefined effects yet. Keep it short: a long buzz on a
+                // button press feels like an alarm, not a game.
+                long ms = (kind == 2) ? 25 : (kind == 1) ? 15 : 10;
+                v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+                long ms = (kind == 2) ? 25 : (kind == 1) ? 15 : 10;
+                v.vibrate(ms);
+            }
+        } catch (Exception e) {
+            // A vendor quirk or a missing permission must never take the game
+            // down over a button press.
+            Log.w(TAG, "vibrate failed: " + e);
+            sVibrator = null;
+        }
+    }
+
+    private void initVibrator() {
+        try {
+            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            sVibrator = (v != null && v.hasVibrator()) ? v : null;
+            Log.i(TAG, "vibrator: " + (sVibrator != null ? "available" : "none"));
+        } catch (Exception e) {
+            sVibrator = null;
+        }
     }
 
     // -----------------------------------------------------------------------

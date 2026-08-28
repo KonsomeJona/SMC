@@ -64,6 +64,12 @@ public:
 	std::string m_language;
 	// player always runs
 	bool m_always_run;
+
+	// Touch controls (Android). The pad is drawn by the engine, so its look
+	// and its haptics are game settings, not system ones.
+	bool  m_touch_vibration;
+	float m_touch_opacity;
+	float m_touch_scale;
 	// menu level name to load
 	std::string m_menu_level;
 	// force the given user data directory
@@ -146,6 +152,9 @@ public:
 	/* *** *** *** defaults *** *** *** *** */
 	// Game
 	static const bool m_always_run_default;
+	static const bool m_touch_vibration_default;
+	static const float m_touch_opacity_default;
+	static const float m_touch_scale_default;
 	static const std::string m_menu_level_default;
 	static const float m_camera_hor_speed_default;
 	static const float m_camera_ver_speed_default;

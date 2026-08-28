@@ -34,6 +34,9 @@ namespace SMC
 
 // Game
 const bool cPreferences::m_always_run_default = 0;
+const bool cPreferences::m_touch_vibration_default = 1;
+const float cPreferences::m_touch_opacity_default = 0.45f;
+const float cPreferences::m_touch_scale_default = 1.0f;
 const std::string cPreferences::m_menu_level_default = "menu_green_1";
 const float cPreferences::m_camera_hor_speed_default = 0.3f;
 const float cPreferences::m_camera_ver_speed_default = 0.2f;
@@ -320,6 +323,9 @@ void cPreferences :: Reset_Game( void )
 {
 	m_language = "";
 	m_always_run = m_always_run_default;
+	m_touch_vibration = m_touch_vibration_default;
+	m_touch_opacity = m_touch_opacity_default;
+	m_touch_scale = m_touch_scale_default;
 	m_menu_level = m_menu_level_default;
 	m_camera_hor_speed = m_camera_hor_speed_default;
 	m_camera_ver_speed = m_camera_ver_speed_default;
@@ -496,6 +502,18 @@ void cPreferences :: handle_item( const char *name, const char *value )
 	else if( strcmp( name, "game_always_run" ) == 0 || strcmp( name, "always_run" ) == 0 )
 	{
 		m_always_run = atoi( value ) != 0;
+	}
+	else if( strcmp( name, "touch_vibration" ) == 0 )
+	{
+		m_touch_vibration = atoi( value ) != 0;
+	}
+	else if( strcmp( name, "touch_opacity" ) == 0 )
+	{
+		m_touch_opacity = static_cast<float>( atof( value ) );
+	}
+	else if( strcmp( name, "touch_scale" ) == 0 )
+	{
+		m_touch_scale = static_cast<float>( atof( value ) );
 	}
 	else if( strcmp( name, "game_menu_level" ) == 0 )
 	{

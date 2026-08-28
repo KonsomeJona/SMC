@@ -73,6 +73,14 @@ private:
 	TouchZone m_zones[ZONE_COUNT];
 
 	void Init_Zones( void );
+
+public:
+	/* Applied live from the options screen, so the player sees what the
+	 * value does while choosing it. */
+	void Set_Opacity( float v );
+	void Set_Scale( float v );
+
+private:
 	void Update_Zone_Visibility( void );
 	int Zone_Hit_Test( float screen_x, float screen_y );
 	void Press_Zone( int zone_id, SDL_FingerID finger );
@@ -108,6 +116,7 @@ private:
 	float m_screen_w;  // current glOrtho width
 	float m_screen_h;  // current glOrtho height
 	float m_opacity;   // base opacity 0-1
+	float m_scale;     // button size multiplier, 1.0 = the default layout
 	int m_last_game_mode;  // detect Game_Mode changes → release stale zones
 };
 

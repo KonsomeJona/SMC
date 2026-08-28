@@ -41,6 +41,7 @@
 #include "../gui/generic.h"
 #include "../gui/modern_ui.h"
 #include "../input/autoplay.h"
+#include "../input/haptics.h"
 #include "core/sdl2_compat.h"
 #include "../core/debug_log.h"
 #ifdef __ANDROID__
@@ -247,6 +248,7 @@ int main( int argc, char **argv )
 		// initialize everything
 		Init_Game();
 		Autoplay_Init();
+		Haptics_Init();
 	}
 	catch( const std::exception &e )
 	{

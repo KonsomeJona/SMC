@@ -29,6 +29,8 @@
 #include "../video/renderer.h"
 #include "../level/level.h"
 #include "../input/keyboard.h"
+#include "../input/touch_controls.h"
+#include "../input/haptics.h"
 #include "../level/level_editor.h"
 #include "../core/math/utilities.h"
 #include "../core/i18n.h"
@@ -1075,9 +1077,19 @@ void cMenu_Options :: Post_GUI_Draw( void )
 	pVideo->Draw_Rect( content_x - 2, content_y - 2, content_w + 4, content_h + 4, 0.8509f, &border );
 
 	// Tab bar — 6 tabs, ModernUI handles click-to-switch
+#ifdef SMC_NO_CEGUI
+	// On a phone there is no keyboard, no joystick and no editor, and the
+	// video tab offered a resolution, a colour depth and a fullscreen switch
+	// that the system decides for us. What is missing instead is the pad, so
+	// it takes their place.
+	static const std::vector<std::string> opt_tab_labels = {
+		_("Game"), _("Audio"), _("Touch")
+	};
+#else
 	static const std::vector<std::string> opt_tab_labels = {
 		_("Game"), _("Video"), _("Audio"), _("Keyboard"), _("Joystick"), _("Editor")
 	};
+#endif
 	int new_tab = ModernUI::Tab_Bar( content_x, content_y, content_w, TAB_BAR_H,
 	                                 opt_tab_labels, m_active_tab, m_opt_pending_delete );
 	if( new_tab != m_active_tab )
@@ -1091,6 +1103,17 @@ void cMenu_Options :: Post_GUI_Draw( void )
 	if( ModernUI::Button( btn_back_x, btn_back_y, btn_back_w, btn_back_h, _("Back"), m_opt_pending_delete ) )
 		Exit();
 
+	// The tab strip is not the same on both platforms, so the blocks below key
+	// off names rather than positions. -1 is a tab that does not exist here.
+#ifdef SMC_NO_CEGUI
+	const int TAB_GAME = 0, TAB_AUDIO = 1, TAB_TOUCH = 2;
+	const int TAB_VIDEO = -1, TAB_KEYBOARD = -1, TAB_JOYSTICK = -1, TAB_EDITOR = -1;
+#else
+	const int TAB_GAME = 0, TAB_VIDEO = 1, TAB_AUDIO = 2;
+	const int TAB_KEYBOARD = 3, TAB_JOYSTICK = 4, TAB_EDITOR = 5;
+	const int TAB_TOUCH = -1;
+#endif
+
 	int tab = m_active_tab;
 
 	// Shift content area below the tab bar
@@ -1103,7 +1126,7 @@ void cMenu_Options :: Post_GUI_Draw( void )
 	float row_h    = 26.0f;
 	float row_step = row_h + 6.0f;
 
-	if( tab == 1 )  // Video
+	if( tab == TAB_VIDEO )
 	{
 		const std::vector<std::string> bpp_opts = { "16", "32" };
 
@@ -1171,7 +1194,7 @@ void cMenu_Options :: Post_GUI_Draw( void )
 #endif
 		}
 	}
-	else if( tab == 2 )  // Audio
+	else if( tab == TAB_AUDIO )
 	{
 		const std::vector<std::string> hz_opts = { "22050", "44100", "48000" };
 		const int hz_vals[] = { 22050, 44100, 48000 };
@@ -1231,7 +1254,52 @@ void cMenu_Options :: Post_GUI_Draw( void )
 #endif
 		}
 	}
-	else if( tab == 0 )  // Game
+	else if( tab == TAB_TOUCH )
+	{
+		bool new_vib = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Vibration"),
+			pPreferences->m_touch_vibration, m_opt_pending_delete );
+		if( new_vib != pPreferences->m_touch_vibration )
+		{
+			pPreferences->m_touch_vibration = new_vib;
+			// Buzz once on the way on, so the setting answers for itself.
+			if( new_vib ) Haptics_Play( HAPTIC_CLICK );
+		}
+		row_y += row_step;
+
+		float new_op = ModernUI::Slider_Row( row_x, row_y, row_w, _("Pad Opacity"),
+			pPreferences->m_touch_opacity, 0.15f, 1.0f, m_opt_pending_delete );
+		if( new_op != pPreferences->m_touch_opacity )
+		{
+			pPreferences->m_touch_opacity = new_op;
+			// Applied live: the pad is on screen behind this menu, so the
+			// player sees the value they are choosing.
+			if( pTouchControls ) pTouchControls->Set_Opacity( new_op );
+		}
+		row_y += row_step;
+
+		float new_scale = ModernUI::Slider_Row( row_x, row_y, row_w, _("Pad Size"),
+			pPreferences->m_touch_scale, 0.7f, 1.6f, m_opt_pending_delete );
+		if( new_scale != pPreferences->m_touch_scale )
+		{
+			pPreferences->m_touch_scale = new_scale;
+			if( pTouchControls ) pTouchControls->Set_Scale( new_scale );
+		}
+		row_y += row_step;
+
+		if( ModernUI::Button( row_x + row_w * 0.5f - 40.0f, row_y + 6.0f, 80.0f, 24.0f,
+		                      _("Reset"), m_opt_pending_delete ) )
+		{
+			pPreferences->m_touch_vibration = cPreferences::m_touch_vibration_default;
+			pPreferences->m_touch_opacity   = cPreferences::m_touch_opacity_default;
+			pPreferences->m_touch_scale     = cPreferences::m_touch_scale_default;
+			if( pTouchControls )
+			{
+				pTouchControls->Set_Opacity( pPreferences->m_touch_opacity );
+				pTouchControls->Set_Scale( pPreferences->m_touch_scale );
+			}
+		}
+	}
+	else if( tab == TAB_GAME )
 	{
 		bool new_always_run = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Always Run"), pPreferences->m_always_run, m_opt_pending_delete );
 		if( new_always_run != pPreferences->m_always_run )
@@ -1256,6 +1324,11 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		}
 		row_y += row_step;
 
+#ifndef SMC_NO_CEGUI
+		// Neither of these belongs on a phone: the Android port replaces
+		// gettext with a shim that hands back the source string, so changing
+		// the language does nothing visible, and the menu level is a
+		// developer setting.
 		int new_lang = ModernUI::Select_Row( row_x, row_y, row_w, _("Language"), m_game_languages, m_game_language_idx, m_opt_pending_delete );
 		if( new_lang != m_game_language_idx )
 		{
@@ -1273,7 +1346,9 @@ void cMenu_Options :: Post_GUI_Draw( void )
 			m_game_menu_level_idx = new_lvl;
 			pPreferences->m_menu_level = m_game_menu_levels[m_game_menu_level_idx];
 		}
-		row_y += row_step + 4.0f;
+		row_y += row_step;
+#endif
+		row_y += 4.0f;
 
 		float btn_w_g = 100.0f;
 		float btn_x_g = content_x + (content_w - btn_w_g) * 0.5f;
@@ -1290,7 +1365,7 @@ void cMenu_Options :: Post_GUI_Draw( void )
 #endif
 		}
 	}
-	else if( tab == 3 )  // Keyboard
+	else if( tab == TAB_KEYBOARD )
 	{
 		// Scroll speed slider at the top
 		float new_spd = ModernUI::Slider_Row( row_x, row_y, row_w, _("Scroll Speed"), m_kbd_scroll_speed, 0.0f, 2.0f, m_opt_pending_delete );
@@ -1340,7 +1415,7 @@ void cMenu_Options :: Post_GUI_Draw( void )
 #endif
 		}
 	}
-	else if( tab == 4 )  // Joystick
+	else if( tab == TAB_JOYSTICK )
 	{
 		// Joystick device selection
 		int new_joy = ModernUI::Select_Row( row_x, row_y, row_w, _("Joystick"), m_joy_names_list, m_joy_selected_idx, m_opt_pending_delete );
@@ -1428,7 +1503,7 @@ void cMenu_Options :: Post_GUI_Draw( void )
 #endif
 		}
 	}
-	else if( tab == 5 )  // Editor
+	else if( tab == TAB_EDITOR )
 	{
 		bool new_show_imgs = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Show Item Images"), pPreferences->m_editor_show_item_images, m_opt_pending_delete );
 		if( new_show_imgs != pPreferences->m_editor_show_item_images )
