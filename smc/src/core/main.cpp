@@ -271,6 +271,21 @@ int main( int argc, char **argv )
 		Game_Action_Data_Middle.add( "enter_world", arguments[2] );
 #endif
 	}
+#ifdef __ANDROID__
+	// A "testlevel" file next to the autoplay flag boots straight into
+	// data/levels/test_all.smclvl. That level gathers what a normal world
+	// cannot exercise in one pass — a fire flower so the shoot button has
+	// something to do, one of every enemy walking both ways, a text box, a
+	// wall, a gap, and both kinds of level exit. It is reachable only through
+	// this file, so a player never sees it.
+	else if( File_Exists( Get_User_Directory() + "testlevel" ) )
+	{
+		Game_Action = GA_ENTER_LEVEL;
+		Game_Mode_Type = MODE_TYPE_LEVEL_CUSTOM;
+		g_android_pending_level = "test_all";
+		SDL_Log( "SMCTEST booting into test_all" );
+	}
+#endif
 	// enter main menu
 	else
 	{
