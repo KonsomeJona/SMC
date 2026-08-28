@@ -444,11 +444,13 @@ float Slider_Row( float x, float y, float w,
     pVideo->Draw_Rect( thumb_x, thumb_y, thumb_r * 2.0f, thumb_r * 2.0f,
                        Z_TEXT, &COL_BTN_BG );
 
-    // Drag logic: begin drag if mouse pressed on track or thumb
+    // Grab area. The track is 6 px tall and the thumb 12: aiming at that with
+    // a finger means about 12 dp, well under what a touch target needs. The
+    // whole height of the row counts instead, over the track's half of it.
     float hit_x = track_x - thumb_r;
     float hit_w = track_w + thumb_r * 2.0f;
-    float hit_y = track_y - thumb_r;
-    float hit_h = track_h + thumb_r * 2.0f;
+    float hit_y = y;
+    float hit_h = ROW_H;
 
     if( s_mouse_held && Hit( hit_x, hit_y, hit_w, hit_h ) && !s_slider_dragging )
     {
@@ -464,6 +466,14 @@ float Slider_Row( float x, float y, float w,
         float local_t = ( s_mouse_x - s_slider_drag_x ) / s_slider_drag_w;
         local_t = std::max( 0.0f, std::min( 1.0f, local_t ) );
         new_value = s_slider_drag_min + local_t * ( s_slider_drag_max - s_slider_drag_min );
+    }
+    else if( s_mouse_clicked && Hit( hit_x, hit_y, hit_w, hit_h ) )
+    {
+        // A plain tap anywhere on the track jumps there. Dragging a 12 px thumb
+        // is a mouse gesture; on a touch screen the tap is the whole gesture.
+        float local_t = ( s_mouse_x - track_x ) / track_w;
+        local_t = std::max( 0.0f, std::min( 1.0f, local_t ) );
+        new_value = min_val + local_t * ( max_val - min_val );
     }
 
     return new_value;
