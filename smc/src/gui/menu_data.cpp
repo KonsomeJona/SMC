@@ -286,11 +286,15 @@ void cMenu_Main :: Update( void )
 	// Start
 	if( pMenuCore->m_handler->m_active == 0 )
 	{
-		Game_Action = GA_ENTER_MENU;
 #ifndef SMC_NO_CEGUI
+		Game_Action = GA_ENTER_MENU;
 		Game_Action_Data_Middle.add( "load_menu", int_to_string( MENU_START ) );
 #else
-		g_android_next_menu = MENU_START;
+		// No campaign / world / level picker here: Start goes straight into
+		// the main world. Init already makes it the active one ("World 1",
+		// which is what the default campaign targets), so there is nothing to
+		// name and nothing to choose.
+		Game_Action = GA_ENTER_WORLD;
 #endif
 	}
 	// Options
