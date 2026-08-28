@@ -24,15 +24,21 @@ namespace SMC
 
 static const float HEADER_H      = 44.0f;
 static const float BODY_PAD      = 14.0f;
+#ifdef __ANDROID__
+// A thumb needs a real target: 34x110 is a mouse button.
+static const float BTN_H         = 52.0f;
+static const float BTN_W         = 200.0f;
+#else
 static const float BTN_H         = 34.0f;
 static const float BTN_W         = 110.0f;
+#endif
 static const float BORDER_T      = 3.0f;
 static const float ANIM_IN_TIME  = 0.15f;
 static const float ANIM_OUT_TIME = 0.10f;
 static const float BODY_H        = 120.0f;
 
 cHelpCard :: cHelpCard( const std::string &title, const std::string &body, HelpCardIcon icon )
-: m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_closing(false)
+: m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_closing(false), m_open_tick(0)
 {
 }
 
@@ -44,6 +50,11 @@ void cHelpCard :: Run( void )
     float anim_t = 0.0f;
     bool closing = false;
     float close_t = 0.0f;
+
+    // The card opens while the player is walking, so a thumb is already down
+    // on the d-pad. Without a grace period that press closes the card in the
+    // same frame it appeared and the hint is never read.
+    m_open_tick = SDL_GetTicks();
 
     while( true )
     {
@@ -98,6 +109,38 @@ void cHelpCard :: Run( void )
     }
 }
 
+
+/* Ignore everything for a moment after the card appears. */
+bool cHelpCard :: Input_Allowed( void ) const
+{
+    return SDL_GetTicks() - m_open_tick > 400;
+}
+
+/* Where a press closes the card.
+ *
+ * On a phone only the button does: the player is holding the d-pad when the
+ * card opens, and a press anywhere else is far more likely to be that thumb
+ * than an intent to dismiss. With a mouse, clicking away is the expected
+ * gesture and stays. */
+bool cHelpCard :: Hit_Dismiss( float mx, float my, float cx, float cy,
+                               float card_w, float card_h ) const
+{
+    const float btn_x = cx + ( card_w - BTN_W ) * 0.5f;
+    const float btn_y = cy + HEADER_H + BODY_H + BODY_PAD * 2.0f;
+
+    if( mx >= btn_x && mx <= btn_x + BTN_W && my >= btn_y && my <= btn_y + BTN_H )
+        return true;
+
+#ifndef __ANDROID__
+    if( mx < cx || mx > cx + card_w || my < cy || my > cy + card_h )
+        return true;
+#else
+    (void)card_h;
+#endif
+
+    return false;
+}
+
 bool cHelpCard :: Handle_Event( const SDL_Event &e )
 {
     const float CARD_W = game_res_w * 0.75f;
@@ -120,26 +163,23 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
     }
     else if( e.type == SDL_MOUSEBUTTONDOWN )
     {
+        // SDL raises a synthetic mouse event for every touch as well; letting
+        // both through means one finger counts twice.
+        if( e.button.which == SDL_TOUCH_MOUSEID ) return false;
+        if( !Input_Allowed() ) return false;
+
         float mx = static_cast<float>( e.button.x ) / global_upscalex;
         float my = static_cast<float>( e.button.y ) / global_upscaley;
-        if( mx < cx || mx > cx + CARD_W || my < cy || my > cy + CARD_H )
-            return true;
-        float btn_x = cx + ( CARD_W - BTN_W ) * 0.5f;
-        float btn_y = cy + HEADER_H + BODY_H + BODY_PAD * 2.0f;
-        if( mx >= btn_x && mx <= btn_x + BTN_W && my >= btn_y && my <= btn_y + BTN_H )
+        if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H ) )
             return true;
     }
     else if( e.type == SDL_FINGERDOWN )
     {
+        if( !Input_Allowed() ) return false;
+
         float mx = e.tfinger.x * game_res_w;
         float my = e.tfinger.y * game_res_h;
-        // dismiss if outside card
-        if( mx < cx || mx > cx + CARD_W || my < cy || my > cy + CARD_H )
-            return true;
-        // dismiss if on "Got it" button
-        float btn_x = cx + ( CARD_W - BTN_W ) * 0.5f;
-        float btn_y = cy + HEADER_H + BODY_H + BODY_PAD * 2.0f;
-        if( mx >= btn_x && mx <= btn_x + BTN_W && my >= btn_y && my <= btn_y + BTN_H )
+        if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H ) )
             return true;
     }
     return false;

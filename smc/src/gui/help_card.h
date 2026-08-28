@@ -37,6 +37,15 @@ public:
 private:
     // anim_t: 0.0=hidden, 1.0=fully shown. Queues GL surfaces into pending_delete;
     // caller must delete them AFTER pVideo->Render() flushes the render queue.
+    /* True once the card has been up long enough to accept a press. */
+    bool Input_Allowed( void ) const;
+
+    /* Whether a press at (mx,my) should close the card. */
+    bool Hit_Dismiss( float mx, float my, float cx, float cy,
+                      float card_w, float card_h ) const;
+
+    Uint32 m_open_tick;
+
     void Render( float anim_t, std::vector<cGL_Surface*> &pending_delete );
     bool Handle_Event( const SDL_Event &e );
     void Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height, std::vector<cGL_Surface*> &pending_delete );

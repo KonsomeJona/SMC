@@ -7,6 +7,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.os.Build;
+import android.media.AudioAttributes;
+import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.view.WindowInsets;
@@ -37,6 +39,13 @@ public class SMCActivity extends SDLActivity {
 
     /** Set in onCreate; null when the device has no vibrator at all. */
     private static Vibrator sVibrator;
+
+    /** Tells the system this is game feedback, not a notification. */
+    private static final AudioAttributes GAME_AUDIO_ATTRS =
+            new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -136,12 +145,24 @@ public class SMCActivity extends SDLActivity {
                     case 1:  effect = VibrationEffect.EFFECT_CLICK;       break;
                     default: effect = VibrationEffect.EFFECT_TICK;        break;
                 }
-                v.vibrate(VibrationEffect.createPredefined(effect));
+                VibrationEffect ve = VibrationEffect.createPredefined(effect);
+
+                // Without an usage the system files this under "unknown" and
+                // the user's haptic settings can drop it silently — which is
+                // exactly what a game feels like when nothing buzzes.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    v.vibrate(ve, new VibrationAttributes.Builder()
+                            .setUsage(VibrationAttributes.USAGE_MEDIA)
+                            .build());
+                } else {
+                    v.vibrate(ve, GAME_AUDIO_ATTRS);
+                }
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 // No predefined effects yet. Keep it short: a long buzz on a
                 // button press feels like an alarm, not a game.
                 long ms = (kind == 2) ? 25 : (kind == 1) ? 15 : 10;
-                v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+                v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE),
+                        GAME_AUDIO_ATTRS);
             } else {
                 long ms = (kind == 2) ? 25 : (kind == 1) ? 15 : 10;
                 v.vibrate(ms);

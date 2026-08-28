@@ -569,6 +569,24 @@ cMenu_Item *cMenuCore :: Auto_Menu( std::string imagename, std::string imagefile
 	temp_item->Set_Pos( ( game_res_w * 0.5f ) - ( temp_item->m_image_default->m_col_rect.m_w * 0.5f ), ypos );
 	temp_item->m_is_quit = is_quit;
 
+#ifdef __ANDROID__
+	// The entries are word-shaped images, so their collision rect is exactly
+	// the ink: a thumb aiming at "Load" mostly hits the gap above or below it.
+	// Entries sit 60 px apart, so a 56 px band centred on the word is the most
+	// that can be claimed without two of them overlapping.
+	{
+		cGL_Surface *img = temp_item->m_image_default->m_image;
+		const float band_h = 56.0f;
+		const float band_w = ( img && img->m_w > 260.0f ) ? img->m_w + 60.0f : 320.0f;
+
+		temp_item->m_col_rect.m_w = band_w;
+		temp_item->m_col_rect.m_x = ( game_res_w - band_w ) * 0.5f;
+		temp_item->m_col_rect.m_y = temp_item->m_pos_y
+		    + ( temp_item->m_image_default->m_col_rect.m_h - band_h ) * 0.5f;
+		temp_item->m_col_rect.m_h = band_h;
+	}
+#endif
+
 	return temp_item;
 }
 
