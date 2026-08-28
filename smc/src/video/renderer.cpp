@@ -815,10 +815,37 @@ void cSurface_Request :: Draw( void )
 		const float draw_y = final_pos_y - half_h * m_scale_y;
 		const float draw_w = m_w * m_scale_x;
 		const float draw_h = m_h * m_scale_y;
+		// The engine flips a sprite by rotating it a half turn around the Y
+		// axis (Update_Rotation_Hor sets m_rot_y to 180 for DIR_RIGHT). The
+		// desktop path feeds that to glRotatef; there is no such call here,
+		// so the flip is done on the texture coordinates instead — otherwise
+		// no enemy and no player ever turns around on Android.
+		float u0 = 0.0f, u1 = 1.0f;
+		float v0 = 0.0f, v1 = 1.0f;
+
+		// Angles accumulate: gl_surface adds the image's own base rotation to
+		// the sprite's, so a flipped image on a turning enemy reaches 360.
+		float ry = fmodf( m_rot_y, 360.0f );
+		float rx = fmodf( m_rot_x, 360.0f );
+		if( ry < 0.0f ) ry += 360.0f;
+		if( rx < 0.0f ) rx += 360.0f;
+
+		if( ry > 90.0f && ry < 270.0f )
+		{
+			u0 = 1.0f;
+			u1 = 0.0f;
+		}
+
+		if( rx > 90.0f && rx < 270.0f )
+		{
+			v0 = 1.0f;
+			v1 = 0.0f;
+		}
+
 		GLES2::Draw_Texture(
 		    draw_x, draw_y, draw_w, draw_h,
 		    m_texture_id,
-		    /* u0 */ 0.0f, /* v0 */ 0.0f, /* u1 */ 1.0f, /* v1 */ 1.0f,
+		    u0, v0, u1, v1,
 		    m_color.red, m_color.green, m_color.blue, m_color.alpha,
 		    m_rot_z
 		);

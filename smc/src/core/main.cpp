@@ -684,6 +684,21 @@ bool Handle_Input_Global( SDL_Event *ev )
 				int draw_w, draw_h;
 				SDL_GL_GetDrawableSize( g_sdl_window, &draw_w, &draw_h );
 				glViewport( 0, 0, draw_w, draw_h );
+
+#ifdef __ANDROID__
+				// Init_OpenGL widens game_res_w to the screen ratio so the
+				// projection never distorts. Unfolding changes that ratio
+				// (2364x1080 -> 2076x2152), and keeping the old value is what
+				// stretched everything vertically by 2.3x on the inner screen.
+				Adjust_Game_Resolution( draw_w, draw_h );
+
+				// Unfolding a foldable resizes the surface under a running
+				// game. Without this the pad kept the zones of the previous
+				// screen and the finger landed next to the buttons.
+				pPreferences->m_video_screen_w = draw_w;
+				pPreferences->m_video_screen_h = draw_h;
+				if( pTouchControls ) pTouchControls->Init();
+#endif
 				// CEGUI resize notification — no-op when CEGUI is not initialised (M12)
 #ifdef __ANDROID__
 				GLES2::Set_Projection( static_cast<float>(game_res_w),

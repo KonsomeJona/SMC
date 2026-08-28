@@ -18,7 +18,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.SMC"
         android:allowBackup="false"
-        android:hardwareAccelerated="true">
+        android:hardwareAccelerated="true"
+        android:appCategory="game">
 
         <!-- Use native GLES driver instead of ANGLE to avoid EGL pre-rotation
              issues on Android 15+ / Pixel Fold (ANGLE requests buffer pre-rotation
@@ -33,7 +34,7 @@
             android:screenOrientation="landscape"
             android:hardwareAccelerated="false"
             android:windowLayoutInDisplayCutoutMode="shortEdges"
-            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|density|uiMode"
             android:exported="true">
 
             <intent-filter>

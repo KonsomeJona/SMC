@@ -567,6 +567,33 @@ void cVideo :: Init_Video( bool reload_textures_from_file /* = 0 */, bool use_pr
 	}
 }
 
+
+
+/* Fit the logical resolution to the surface without ever distorting it.
+ *
+ * Landscape keeps the 600 px height and widens the view, which is what the
+ * port has always done. Portrait — an unfolded foldable, where Android 16+
+ * ignores the landscape request on displays of 600dp or more — would give a
+ * game_res_w of 274 with the same formula: a keyhole two characters wide.
+ * There the width is pinned instead and the extra room goes to the height. */
+void Adjust_Game_Resolution( int draw_w, int draw_h )
+{
+	if( draw_w <= 0 || draw_h <= 0 ) return;
+
+	if( draw_w >= draw_h )
+	{
+		game_res_h = 600;
+		game_res_w = static_cast<int>( 600.0f *
+		    static_cast<float>( draw_w ) / static_cast<float>( draw_h ) + 0.5f );
+	}
+	else
+	{
+		game_res_w = 800;
+		game_res_h = static_cast<int>( 800.0f *
+		    static_cast<float>( draw_h ) / static_cast<float>( draw_w ) + 0.5f );
+	}
+}
+
 void cVideo :: Init_OpenGL( void )
 {
 	LOG_INIT("Init_OpenGL called");
@@ -625,8 +652,7 @@ void cVideo :: Init_OpenGL( void )
 	//   after:  upscalex = 2340/1300 = 1.8,   upscaley = 1080/600 = 1.8  ← uniform
 	// The wider game_res_w shows more of the world horizontally so nothing is
 	// clipped at the screen edges.
-	game_res_w = static_cast<int>(
-	    static_cast<float>(game_res_h) * static_cast<float>(draw_w) / static_cast<float>(draw_h) + 0.5f );
+	Adjust_Game_Resolution( draw_w, draw_h );
 	SDL_Log( "Init_OpenGL: Android game_res adjusted to %dx%d (screen %.2f:1)",
 	         game_res_w, game_res_h, static_cast<float>(draw_w) / static_cast<float>(draw_h) );
 	GLES2::Init();

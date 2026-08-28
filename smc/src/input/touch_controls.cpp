@@ -31,7 +31,9 @@ cTouchControls :: cTouchControls( void )
 {
 	m_enabled = false;
 	m_visible = false;
-	m_opacity = 0.85f;
+	// 0.85 rendait les plaques quasi opaques : le decor disparaissait derriere
+	// le pad, ce qui gene surtout sur grand ecran ou le pad couvre du jeu.
+	m_opacity = 0.45f;
 	m_screen_w = 1024.0f;
 	m_screen_h = 768.0f;
 	m_last_game_mode = -1;
@@ -653,7 +655,7 @@ void cTouchControls :: Draw( void )
 		float cx = m_zones[i].x + m_zones[i].w * 0.5f;
 		float cy = m_zones[i].y + m_zones[i].h * 0.5f;
 		float gs = m_zones[i].w * 0.30f;
-		Uint8 ga = pressed ? 255 : 230;
+		Uint8 ga = pressed ? 255 : 190;
 		int dir = (i == ZONE_DPAD_LEFT) ? 0 :
 		          (i == ZONE_DPAD_RIGHT) ? 1 :
 		          (i == ZONE_DPAD_UP) ? 2 : 3;

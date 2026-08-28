@@ -326,6 +326,9 @@ private:
 /* Draw an Screen Fadeout Effect
  * if effect is RANDOM_EFFECT a random effect is selected
 */
+
+
+void Adjust_Game_Resolution( int draw_w, int draw_h );
 void Draw_Effect_Out( Effect_Fadeout effect = EFFECT_OUT_RANDOM, float speed = 1 );
 
 /* Draw an Screen Fadein Effect
