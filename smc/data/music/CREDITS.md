@@ -42,6 +42,20 @@ pas des arrangements Nintendo pour autant qu'on puisse le voir, mais leur
 licence n'est pas documentée — à remplacer ou à sourcer avant toute
 distribution qui se veut irréprochable.
 
+Pour ces onze fichiers, deux sources CC0 ont été retenues après vérification
+du texte de licence dans les archives elles-mêmes : les packs *Superpowers*
+(64 morceaux OGG) et *Kenney Music Jingles* (85 jingles), tous deux CC0 sans
+attribution obligatoire, plus les chiptunes de Juhani Junkala sur
+OpenGameArt, en OGG natif. Les pistes CC-BY-SA sont à écarter : leur clause
+de partage à l'identique s'impose aux fichiers audio eux-mêmes.
+
+Avertissement de méthode : une partie de cette recherche a d'abord été
+rendue avec des URLs et des durées inventées, avant d'être refaite et
+corrigée. Toute licence citée ici doit être revérifiée à la source au
+moment du téléchargement — une ligne suffit :
+`curl -s <url> | grep -o 'creativecommons.org/[a-z/.0-9-]*'` — et la page
+archivée, car c'est la seule preuve de provenance si un auteur change d'avis.
+
 Les **graphismes**, eux, restent en grande partie l'art hérité de SMC : le
 personnage est un sosie et TSC n'a refait qu'une partie des sprites. C'est
 le risque principal de ce portage, la musique n'en était qu'une part.
