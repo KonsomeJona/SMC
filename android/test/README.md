@@ -23,7 +23,7 @@ Le niveau n'est atteignable que par un fichier, donc un joueur ne le voit
 jamais :
 
 ```bash
-adb shell run-as com.takohi.secretchronicles touch files/testlevel
+adb shell run-as me.takohi.bandagoo touch files/testlevel
 ```
 
 Au lancement suivant le jeu démarre directement dedans (`SMCTEST booting into
@@ -37,7 +37,7 @@ pas : un niveau modifié ne parvient jamais sur l'appareil. Avant de tester une
 modification de données :
 
 ```bash
-adb shell pm clear com.takohi.secretchronicles   # efface aussi le flag
+adb shell pm clear me.takohi.bandagoo   # efface aussi le flag
 ```
 
 puis relancer une fois l'app et recréer `files/testlevel`.

@@ -811,10 +811,10 @@ void cSurface_Request :: Draw( void )
 	// m_scale_x/y is already folded into half_w/half_h via the scale applied to the position;
 	// the actual drawn size should also be scaled.
 	{
-		const float draw_x = final_pos_x - half_w * m_scale_x;
-		const float draw_y = final_pos_y - half_h * m_scale_y;
-		const float draw_w = m_w * m_scale_x;
-		const float draw_h = m_h * m_scale_y;
+		float draw_x = final_pos_x - half_w * m_scale_x;
+		float draw_y = final_pos_y - half_h * m_scale_y;
+		float draw_w = m_w * m_scale_x;
+		float draw_h = m_h * m_scale_y;
 		// The engine flips a sprite by rotating it a half turn around the Y
 		// axis (Update_Rotation_Hor sets m_rot_y to 180 for DIR_RIGHT). The
 		// desktop path feeds that to glRotatef; there is no such call here,
@@ -840,6 +840,30 @@ void cSurface_Request :: Draw( void )
 		{
 			v0 = 1.0f;
 			v1 = 0.0f;
+		}
+
+		// A half turn is animated: the engine sweeps m_rot_y from 0 to 180
+		// while an enemy changes direction. Swapping the texture coordinates
+		// alone turns that sweep into an instant snap — the sprite was facing
+		// left, then it faces right, with nothing in between. Narrowing the
+		// quad by the cosine of the angle is what a real Y rotation does to a
+		// flat card: the sprite squeezes to a sliver at 90 degrees and opens
+		// up the other way. Same for the X axis.
+		const float cos_y = fabsf( cosf( ry * static_cast<float>( M_PI ) / 180.0f ) );
+		const float cos_x = fabsf( cosf( rx * static_cast<float>( M_PI ) / 180.0f ) );
+
+		if( cos_y < 0.999f )
+		{
+			const float shrunk = draw_w * cos_y;
+			draw_x += ( draw_w - shrunk ) * 0.5f;   // keep it centred
+			draw_w = shrunk;
+		}
+
+		if( cos_x < 0.999f )
+		{
+			const float shrunk = draw_h * cos_x;
+			draw_y += ( draw_h - shrunk ) * 0.5f;
+			draw_h = shrunk;
 		}
 
 		GLES2::Draw_Texture(

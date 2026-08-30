@@ -1,4 +1,2 @@
-from Vegastrike.
-Original name : battle3electro.ogg
-author : Ken Seguro
-license : GPL
+composed for Bandagoo, 2026
+license CC0 1.0 (public domain dedication)

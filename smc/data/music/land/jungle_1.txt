@@ -1,3 +1,2 @@
-land/jungle_1.ogg
-composed for this port, 2026
+composed for Bandagoo, 2026
 license CC0 1.0 (public domain dedication)

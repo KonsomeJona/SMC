@@ -14,7 +14,7 @@ android {
     ndkVersion "27.2.12479018"
 
     defaultConfig {
-        applicationId "com.takohi.secretchronicles"
+        applicationId "me.takohi.bandagoo"
         minSdk 21
         targetSdk 36
         versionCode 28

@@ -13,8 +13,8 @@ PER="${3:-180}"
 
 back_into_level() {
     # From wherever we are: force a clean path through the menus.
-    $A -s "$DEV" shell am force-stop com.takohi.secretchronicles
-    $A -s "$DEV" shell am start -n com.takohi.secretchronicles/org.smc.SMCActivity >/dev/null 2>&1
+    $A -s "$DEV" shell am force-stop me.takohi.bandagoo
+    $A -s "$DEV" shell am start -n me.takohi.bandagoo/org.smc.SMCActivity >/dev/null 2>&1
     sleep 26
     $A -s "$DEV" shell input tap 1073 270; sleep 5
     $A -s "$DEV" shell input tap 319 309;  sleep 2

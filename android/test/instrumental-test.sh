@@ -13,7 +13,7 @@
 set -uo pipefail
 
 ADB="${ADB:-/mnt/d/android-studio-data/Sdk/Sdk/platform-tools/adb.exe}"
-PKG="com.takohi.secretchronicles"
+PKG="me.takohi.bandagoo"
 ACT="$PKG/org.smc.SMCActivity"
 APK_WIN="${APK_WIN:-D:\\tools\\tmp\\smc-debug.apk}"
 DEVICE=""

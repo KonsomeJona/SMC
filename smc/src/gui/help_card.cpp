@@ -35,7 +35,18 @@ static const float BTN_W         = 110.0f;
 static const float BORDER_T      = 3.0f;
 static const float ANIM_IN_TIME  = 0.15f;
 static const float ANIM_OUT_TIME = 0.10f;
+#ifdef __ANDROID__
+// Le corps etait rendu dans la petite police : lisible sur un ecran de bureau
+// a 60 cm, pas sur un telephone tenu a bout de bras. La carte grandit avec le
+// texte, sinon les lignes deborderaient de la zone de clip.
+#define BODY_FONT ( pFont->m_font_normal )
+static const float BODY_H        = 200.0f;
+static const float BODY_LINE_H   = 26.0f;
+#else
+#define BODY_FONT ( pFont->m_font_small )
 static const float BODY_H        = 120.0f;
+static const float BODY_LINE_H   = 18.0f;
+#endif
 
 cHelpCard :: cHelpCard( const std::string &title, const std::string &body, HelpCardIcon icon )
 : m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_closing(false), m_open_tick(0)
@@ -242,7 +253,7 @@ void cHelpCard :: Render( float anim_t, std::vector<cGL_Surface*> &pending_delet
     if( t > 0.4f )
     {
         float body_y = off_y + header_h + pad;
-        Render_Text_Wrapped( m_body, off_x + pad, body_y, sw - pad * 2.0f, 18.0f * scale, body_h, pending_delete );
+        Render_Text_Wrapped( m_body, off_x + pad, body_y, sw - pad * 2.0f, BODY_LINE_H * scale, body_h, pending_delete );
     }
 
     float btn_x = off_x + ( sw - BTN_W * scale ) * 0.5f;
@@ -289,7 +300,7 @@ void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y
             while( !fit.empty() )
             {
                 int tw = 0, th = 0;
-                TTF_SizeUTF8( pFont->m_font_small, fit.c_str(), &tw, &th );
+                TTF_SizeUTF8( BODY_FONT, fit.c_str(), &tw, &th );
                 if( static_cast<float>(tw) <= max_w ) break;
                 size_t sp = fit.rfind( ' ' );
                 if( sp == std::string::npos ) { break; }  // keep full word, let it overflow
