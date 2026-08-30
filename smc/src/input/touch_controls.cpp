@@ -80,8 +80,8 @@ void cTouchControls :: Init( void )
 
 	m_opacity = pPreferences->m_touch_opacity;
 	m_scale = pPreferences->m_touch_scale;
-	m_screen_w = static_cast<float>( pPreferences->m_video_screen_w );
-	m_screen_h = static_cast<float>( pPreferences->m_video_screen_h );
+	m_screen_w = static_cast<float>( global_view_w > 0 ? global_view_w : pPreferences->m_video_screen_w );
+	m_screen_h = static_cast<float>( global_view_h > 0 ? global_view_h : pPreferences->m_video_screen_h );
 
 	Init_Zones();
 	SDL_Log( "Touch controls initialized: enabled=%d visible=%d screen=%.0fx%.0f",
@@ -483,8 +483,10 @@ bool cTouchControls :: Handle_Finger_Down( SDL_Event *ev )
 	LOG_DEBUG(INPUT, "Finger DOWN raw x=%.4f y=%.4f (screen %.0fx%.0f)",
 		ev->tfinger.x, ev->tfinger.y, m_screen_w, m_screen_h);
 	if( !m_enabled ) return false;
-	float sx = ev->tfinger.x * m_screen_w;
-	float sy = ev->tfinger.y * m_screen_h;
+	// tfinger is normalised over the whole window; the pad is laid out inside
+	// the drawn band, which is the same thing until the window is letterboxed.
+	float sx = ev->tfinger.x * static_cast<float>( pPreferences->m_video_screen_w ) - global_view_x;
+	float sy = ev->tfinger.y * static_cast<float>( pPreferences->m_video_screen_h ) - global_view_y;
 	SDL_FingerID fid = ev->tfinger.fingerId;
 
 	int zone = Zone_Hit_Test( sx, sy );
@@ -516,8 +518,8 @@ bool cTouchControls :: Handle_Finger_Up( SDL_Event *ev )
 bool cTouchControls :: Handle_Finger_Motion( SDL_Event *ev )
 {
 	if( !m_enabled ) return false;
-	float sx = ev->tfinger.x * m_screen_w;
-	float sy = ev->tfinger.y * m_screen_h;
+	float sx = ev->tfinger.x * static_cast<float>( pPreferences->m_video_screen_w ) - global_view_x;
+	float sy = ev->tfinger.y * static_cast<float>( pPreferences->m_video_screen_h ) - global_view_y;
 	SDL_FingerID fid = ev->tfinger.fingerId;
 
 	int new_zone = Zone_Hit_Test( sx, sy );
@@ -543,8 +545,10 @@ bool cTouchControls :: Handle_Mouse_Down( SDL_Event *ev )
 
 	int win_w = 1, win_h = 1;
 	if( g_sdl_window ) SDL_GetWindowSize( g_sdl_window, &win_w, &win_h );
-	float sx = static_cast<float>( ev->button.x ) * m_screen_w / static_cast<float>( win_w );
-	float sy = static_cast<float>( ev->button.y ) * m_screen_h / static_cast<float>( win_h );
+	const float to_draw_x = static_cast<float>( pPreferences->m_video_screen_w ) / static_cast<float>( win_w );
+	const float to_draw_y = static_cast<float>( pPreferences->m_video_screen_h ) / static_cast<float>( win_h );
+	float sx = static_cast<float>( ev->button.x ) * to_draw_x - global_view_x;
+	float sy = static_cast<float>( ev->button.y ) * to_draw_y - global_view_y;
 
 	int zone = Zone_Hit_Test( sx, sy );
 	if( zone >= 0 )
@@ -585,8 +589,10 @@ bool cTouchControls :: Handle_Mouse_Motion( SDL_Event *ev )
 
 	int win_w = 1, win_h = 1;
 	if( g_sdl_window ) SDL_GetWindowSize( g_sdl_window, &win_w, &win_h );
-	float sx = static_cast<float>( ev->motion.x ) * m_screen_w / static_cast<float>( win_w );
-	float sy = static_cast<float>( ev->motion.y ) * m_screen_h / static_cast<float>( win_h );
+	const float to_draw_x = static_cast<float>( pPreferences->m_video_screen_w ) / static_cast<float>( win_w );
+	const float to_draw_y = static_cast<float>( pPreferences->m_video_screen_h ) / static_cast<float>( win_h );
+	float sx = static_cast<float>( ev->motion.x ) * to_draw_x - global_view_x;
+	float sy = static_cast<float>( ev->motion.y ) * to_draw_y - global_view_y;
 
 	int new_zone = Zone_Hit_Test( sx, sy );
 

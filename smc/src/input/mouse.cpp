@@ -441,9 +441,10 @@ void cMouseCursor :: Update_Position( void )
 	if( !m_mover_mode )
 	{
 		SDL_GetMouseState( &m_x, &m_y );
-		// scale to the virtual game size
-		m_x = static_cast<int>( static_cast<float>(m_x) * global_downscalex );
-		m_y = static_cast<int>( static_cast<float>(m_y) * global_downscaley );
+		// scale to the virtual game size, from the drawn band rather than the
+		// window: the two differ only when the window is letterboxed
+		m_x = static_cast<int>( ( static_cast<float>(m_x) - global_view_x ) * global_downscalex );
+		m_y = static_cast<int>( ( static_cast<float>(m_y) - global_view_y ) * global_downscaley );
 	}
 
 	if( editor_enabled )

@@ -624,9 +624,12 @@ void cVideo :: Init_OpenGL( void )
 	}
 #endif
 
-	// viewport should cover the whole drawable area
-	LOG_DEBUG(VIDEO, "Init_OpenGL: glViewport(0, 0, %d, %d)", draw_w, draw_h);
-	glViewport( 0, 0, draw_w, draw_h );
+	// The viewport is the whole drawable area on every landscape window; it
+	// shrinks to a centred 4:3 band only when the window is taller than 4:3.
+	Set_Game_Viewport( draw_w, draw_h );
+	LOG_DEBUG(VIDEO, "Init_OpenGL: glViewport(%d, %d, %d, %d)",
+	          global_view_x, global_view_y, global_view_w, global_view_h);
+	glViewport( global_view_x, global_view_y, global_view_w, global_view_h );
 
 	// fixed-function matrix stack is not available on OpenGL ES 2.0
 #ifndef __ANDROID__
@@ -652,9 +655,11 @@ void cVideo :: Init_OpenGL( void )
 	//   after:  upscalex = 2340/1300 = 1.8,   upscaley = 1080/600 = 1.8  ← uniform
 	// The wider game_res_w shows more of the world horizontally so nothing is
 	// clipped at the screen edges.
-	Adjust_Game_Resolution( draw_w, draw_h );
-	SDL_Log( "Init_OpenGL: Android game_res adjusted to %dx%d (screen %.2f:1)",
-	         game_res_w, game_res_h, static_cast<float>(draw_w) / static_cast<float>(draw_h) );
+	Adjust_Game_Resolution( global_view_w, global_view_h );
+	SDL_Log( "Init_OpenGL: Android game_res adjusted to %dx%d (view %dx%d at %d,%d, screen %.2f:1)",
+	         game_res_w, game_res_h, global_view_w, global_view_h,
+	         global_view_x, global_view_y,
+	         static_cast<float>(draw_w) / static_cast<float>(draw_h) );
 	GLES2::Init();
 	GLES2::Set_Projection( static_cast<float>(game_res_w),
 	                       static_cast<float>(game_res_h) );
@@ -780,12 +785,18 @@ void cVideo :: Init_Texture_Detail( void )
 
 void cVideo :: Init_Resolution_Scale( void ) const
 {
+	// Scale against the drawn area, not the window: they differ only when the
+	// window is letterboxed, and using the window there would slide every
+	// pointer coordinate off by the size of the bars.
+	const float view_w = static_cast<float>( global_view_w > 0 ? global_view_w : pPreferences->m_video_screen_w );
+	const float view_h = static_cast<float>( global_view_h > 0 ? global_view_h : pPreferences->m_video_screen_h );
+
 	// up scale
-	global_upscalex = static_cast<float>(pPreferences->m_video_screen_w) / static_cast<float>(game_res_w);
-	global_upscaley = static_cast<float>(pPreferences->m_video_screen_h) / static_cast<float>(game_res_h);
+	global_upscalex = view_w / static_cast<float>(game_res_w);
+	global_upscaley = view_h / static_cast<float>(game_res_h);
 	// down scale
-	global_downscalex = static_cast<float>(game_res_w) / static_cast<float>(pPreferences->m_video_screen_w);
-	global_downscaley = static_cast<float>(game_res_h) / static_cast<float>(pPreferences->m_video_screen_h);
+	global_downscalex = static_cast<float>(game_res_w) / view_w;
+	global_downscaley = static_cast<float>(game_res_h) / view_h;
 	LOG_DEBUG(VIDEO, "Init_Resolution_Scale: upscale=(%.3f, %.3f) downscale=(%.3f, %.3f)", global_upscalex, global_upscaley, global_downscalex, global_downscaley);
 }
 

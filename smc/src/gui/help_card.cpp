@@ -258,8 +258,8 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
         if( e.button.which == SDL_TOUCH_MOUSEID ) return false;
         if( !Input_Allowed() ) return false;
 
-        float mx = static_cast<float>( e.button.x ) / global_upscalex;
-        float my = static_cast<float>( e.button.y ) / global_upscaley;
+        float mx = ( static_cast<float>( e.button.x ) - global_view_x ) / global_upscalex;
+        float my = ( static_cast<float>( e.button.y ) - global_view_y ) / global_upscaley;
         if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H, BODY_H ) )
             return true;
     }
@@ -267,8 +267,8 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
     {
         if( !Input_Allowed() ) return false;
 
-        float mx = e.tfinger.x * game_res_w;
-        float my = e.tfinger.y * game_res_h;
+        float mx = ( e.tfinger.x * pPreferences->m_video_screen_w - global_view_x ) / global_upscalex;
+        float my = ( e.tfinger.y * pPreferences->m_video_screen_h - global_view_y ) / global_upscaley;
         if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H, BODY_H ) )
             return true;
     }

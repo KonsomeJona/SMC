@@ -21,6 +21,18 @@
         android:hardwareAccelerated="true"
         android:appCategory="game">
 
+        <!-- Android 16 (API 36) ignores android:screenOrientation on displays
+             at or above 600dp smallest width. Measured on an API 36 emulator
+             resized to 1600x2560 @320dpi (800dp): the landscape lock was
+             dropped and the game rendered its scene into a band at the top of
+             a portrait window, leaving two thirds of the screen empty.
+             appCategory="game" alone did not exempt it. This property is the
+             documented opt-out; it is transitional and Google will retire it,
+             so the engine's portrait fallback stays in place behind it. -->
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_ORIENTATION"
+            android:value="true" />
+
         <!-- Use native GLES driver instead of ANGLE to avoid EGL pre-rotation
              issues on Android 15+ / Pixel Fold (ANGLE requests buffer pre-rotation
              transforms that SDL2 2.28 does not handle, causing BLASTBufferQueue

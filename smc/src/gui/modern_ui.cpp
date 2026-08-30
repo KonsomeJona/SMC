@@ -132,15 +132,15 @@ void Feed_Event( const SDL_Event &e )
     switch( e.type )
     {
     case SDL_MOUSEMOTION:
-        s_mouse_x = static_cast<float>( e.motion.x ) / global_upscalex;
-        s_mouse_y = static_cast<float>( e.motion.y ) / global_upscaley;
+        s_mouse_x = ( static_cast<float>( e.motion.x ) - global_view_x ) / global_upscalex;
+        s_mouse_y = ( static_cast<float>( e.motion.y ) - global_view_y ) / global_upscaley;
         break;
 
     case SDL_MOUSEBUTTONDOWN:
         if( e.button.button == SDL_BUTTON_LEFT )
         {
-            s_mouse_x    = static_cast<float>( e.button.x ) / global_upscalex;
-            s_mouse_y    = static_cast<float>( e.button.y ) / global_upscaley;
+            s_mouse_x    = ( static_cast<float>( e.button.x ) - global_view_x ) / global_upscalex;
+            s_mouse_y    = ( static_cast<float>( e.button.y ) - global_view_y ) / global_upscaley;
             s_mouse_held = true;
         }
         break;
@@ -148,8 +148,8 @@ void Feed_Event( const SDL_Event &e )
     case SDL_MOUSEBUTTONUP:
         if( e.button.button == SDL_BUTTON_LEFT )
         {
-            s_mouse_x       = static_cast<float>( e.button.x ) / global_upscalex;
-            s_mouse_y       = static_cast<float>( e.button.y ) / global_upscaley;
+            s_mouse_x       = ( static_cast<float>( e.button.x ) - global_view_x ) / global_upscalex;
+            s_mouse_y       = ( static_cast<float>( e.button.y ) - global_view_y ) / global_upscaley;
             s_mouse_held    = false;
             s_mouse_clicked = true;
             // End slider drag on release
@@ -163,22 +163,22 @@ void Feed_Event( const SDL_Event &e )
         break;
 
     case SDL_FINGERDOWN:
-        s_mouse_x    = e.tfinger.x * static_cast<float>( game_res_w );
-        s_mouse_y    = e.tfinger.y * static_cast<float>( game_res_h );
+        s_mouse_x    = ( e.tfinger.x * static_cast<float>( pPreferences->m_video_screen_w ) - global_view_x ) / global_upscalex;
+        s_mouse_y    = ( e.tfinger.y * static_cast<float>( pPreferences->m_video_screen_h ) - global_view_y ) / global_upscaley;
         s_mouse_held = true;
         break;
 
     case SDL_FINGERUP:
-        s_mouse_x       = e.tfinger.x * static_cast<float>( game_res_w );
-        s_mouse_y       = e.tfinger.y * static_cast<float>( game_res_h );
+        s_mouse_x       = ( e.tfinger.x * static_cast<float>( pPreferences->m_video_screen_w ) - global_view_x ) / global_upscalex;
+        s_mouse_y       = ( e.tfinger.y * static_cast<float>( pPreferences->m_video_screen_h ) - global_view_y ) / global_upscaley;
         s_mouse_held    = false;
         s_mouse_clicked = true;
         s_slider_dragging = false;
         break;
 
     case SDL_FINGERMOTION:
-        s_mouse_x = e.tfinger.x * static_cast<float>( game_res_w );
-        s_mouse_y = e.tfinger.y * static_cast<float>( game_res_h );
+        s_mouse_x = ( e.tfinger.x * static_cast<float>( pPreferences->m_video_screen_w ) - global_view_x ) / global_upscalex;
+        s_mouse_y = ( e.tfinger.y * static_cast<float>( pPreferences->m_video_screen_h ) - global_view_y ) / global_upscaley;
         break;
 
     default:

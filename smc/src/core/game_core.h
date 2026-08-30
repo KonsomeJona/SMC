@@ -80,6 +80,22 @@ extern float global_upscaley;
 extern float global_downscalex;
 extern float global_downscaley;
 
+/* The part of the window the game is actually drawn into, in device pixels.
+ *
+ * Equal to the whole window whenever it is at least as wide as it is tall,
+ * which is every phone in landscape — the values below are then the identity
+ * and nothing downstream changes. A large-screen display that ignores the
+ * activity's landscape request hands the game a portrait window; there the
+ * scene is letterboxed into a centred 4:3 band instead of being stretched
+ * into a tall slice with the pad sitting on top of the playfield. */
+extern int global_view_x;
+extern int global_view_y;
+extern int global_view_w;
+extern int global_view_h;
+
+/* Fills the four values above from a window size. */
+void Set_Game_Viewport( int draw_w, int draw_h );
+
 // The global editor enabled variables prevent including additional editor header files
 // if editor is enabled for the current game mode
 extern bool editor_enabled;

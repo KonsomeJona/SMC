@@ -75,6 +75,29 @@ float global_upscaley = 1.0f;
 float global_downscalex = 1.0f;
 float global_downscaley = 1.0f;
 
+int global_view_x = 0;
+int global_view_y = 0;
+int global_view_w = 0;
+int global_view_h = 0;
+
+void Set_Game_Viewport( int draw_w, int draw_h )
+{
+	if( draw_w <= 0 || draw_h <= 0 ) return;
+
+	// 4:3 is the aspect the whole game was laid out in; anything taller puts
+	// the touch pad over the play area rather than beside it.
+	const float MIN_ASPECT = 4.0f / 3.0f;
+
+	global_view_w = draw_w;
+	global_view_h = draw_h;
+
+	if( static_cast<float>( draw_w ) / static_cast<float>( draw_h ) < MIN_ASPECT )
+		global_view_h = static_cast<int>( draw_w / MIN_ASPECT + 0.5f );
+
+	global_view_x = ( draw_w - global_view_w ) / 2;
+	global_view_y = ( draw_h - global_view_h ) / 2;
+}
+
 bool editor_enabled = 0;
 bool editor_level_enabled = 0;
 bool editor_world_enabled = 0;
