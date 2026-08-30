@@ -2066,7 +2066,7 @@ void cMenu_Credits :: Init( void )
 	Add_Credits_Line( " - Graphic Designer", 0, -3 );
 
 	Add_Credits_Line( "Gustavo Gutierrez (Enzakun)", 0, 20, lightred, 1.0f );
-	Add_Credits_Line( " - Maryo Graphic Designer", 0, -3 );
+	Add_Credits_Line( " - Player Character Graphic Designer", 0, -3 );
 
 	Add_Credits_Line( "Thomas Huth (Thothy)", 0, 20, greenyellow, 1.0f );
 	Add_Credits_Line( " - Linux Maintainer", 0, -3 );

@@ -42,7 +42,13 @@ private:
 
     /* Whether a press at (mx,my) should close the card. */
     bool Hit_Dismiss( float mx, float my, float cx, float cy,
-                      float card_w, float card_h ) const;
+                      float card_w, float card_h, float body_h ) const;
+
+    /* Wraps m_body to max_w and returns the lines. */
+    std::vector<std::string> Wrap_Body( float max_w ) const;
+
+    /* Height the body needs for its own text, clamped to a scrollable max. */
+    float Body_Height( float max_w ) const;
 
     Uint32 m_open_tick;
 

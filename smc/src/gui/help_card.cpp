@@ -12,6 +12,8 @@
 #include "../user/preferences.h"
 #include "../input/keyboard.h"
 #include "../input/joystick.h"
+#include "../input/touch_controls.h"
+#include "../input/autoplay.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <algorithm>
@@ -40,13 +42,67 @@ static const float ANIM_OUT_TIME = 0.10f;
 // a 60 cm, pas sur un telephone tenu a bout de bras. La carte grandit avec le
 // texte, sinon les lignes deborderaient de la zone de clip.
 #define BODY_FONT ( pFont->m_font_normal )
-static const float BODY_H        = 200.0f;
+static const float BODY_H_MAX    = 200.0f;
 static const float BODY_LINE_H   = 26.0f;
 #else
 #define BODY_FONT ( pFont->m_font_small )
-static const float BODY_H        = 120.0f;
+static const float BODY_H_MAX    = 120.0f;
 static const float BODY_LINE_H   = 18.0f;
 #endif
+
+/* Wrap on the font the body is actually drawn in.
+ *
+ * The measuring and the drawing used to disagree: lines were fitted against
+ * BODY_FONT while Render_Text was still handed m_font_small, so enlarging the
+ * body font on Android widened the wrap without touching a single glyph. */
+std::vector<std::string> cHelpCard :: Wrap_Body( float max_w ) const
+{
+    std::vector<std::string> out;
+    std::string remaining = m_body;
+
+    while( !remaining.empty() )
+    {
+        size_t nl = remaining.find( '\n' );
+        std::string line = ( nl == std::string::npos ) ? remaining : remaining.substr( 0, nl );
+        remaining = ( nl == std::string::npos ) ? "" : remaining.substr( nl + 1 );
+
+        if( line.empty() )
+        {
+            out.push_back( "" );
+            continue;
+        }
+
+        while( !line.empty() )
+        {
+            std::string fit = line;
+            while( !fit.empty() )
+            {
+                int tw = 0, th = 0;
+                TTF_SizeUTF8( BODY_FONT, fit.c_str(), &tw, &th );
+                if( static_cast<float>(tw) <= max_w ) break;
+                size_t sp = fit.rfind( ' ' );
+                if( sp == std::string::npos ) break;   // keep full word, let it overflow
+                fit = fit.substr( 0, sp );
+            }
+
+            out.push_back( fit );
+
+            size_t skip = fit.size();
+            if( skip < line.size() && line[skip] == ' ' ) skip++;
+            line = line.substr( skip );
+        }
+    }
+
+    return out;
+}
+
+/* A three-line hint used to sit in a frame built for eight. */
+float cHelpCard :: Body_Height( float max_w ) const
+{
+    float needed = Wrap_Body( max_w ).size() * BODY_LINE_H;
+    if( needed < BODY_LINE_H ) needed = BODY_LINE_H;
+    return std::min( needed, BODY_H_MAX );
+}
 
 cHelpCard :: cHelpCard( const std::string &title, const std::string &body, HelpCardIcon icon )
 : m_title(title), m_body(body), m_icon(icon), m_scroll_offset(0.0f), m_closing(false), m_open_tick(0)
@@ -67,8 +123,27 @@ void cHelpCard :: Run( void )
     // same frame it appeared and the hint is never read.
     m_open_tick = SDL_GetTicks();
 
+    // The pad is drawn after the card and was covering a line of the hint. It
+    // is dead weight here anyway: this loop polls SDL itself and never hands
+    // events to the touch controls.
+    bool pad_was_visible = false;
+    if( pTouchControls )
+    {
+        pad_was_visible = pTouchControls->m_visible;
+        pTouchControls->m_visible = false;
+    }
+
     while( true )
     {
+        // The scripted pilot has no way to press "Got it": the card owns the
+        // event loop and never hands anything to the touch controls. Without
+        // this it parks on the first hint box for the rest of the run.
+        if( Autoplay_Enabled() && SDL_GetTicks() - m_open_tick > 1500 )
+        {
+            closing = true;
+            m_closing = true;
+        }
+
         SDL_Event e;
         while( SDL_PollEvent( &e ) )
         {
@@ -118,6 +193,9 @@ void cHelpCard :: Run( void )
             delete pending_delete[i];
         pFramerate->Update();
     }
+
+    if( pTouchControls )
+        pTouchControls->m_visible = pad_was_visible;
 }
 
 
@@ -134,10 +212,10 @@ bool cHelpCard :: Input_Allowed( void ) const
  * than an intent to dismiss. With a mouse, clicking away is the expected
  * gesture and stays. */
 bool cHelpCard :: Hit_Dismiss( float mx, float my, float cx, float cy,
-                               float card_w, float card_h ) const
+                               float card_w, float card_h, float body_h ) const
 {
     const float btn_x = cx + ( card_w - BTN_W ) * 0.5f;
-    const float btn_y = cy + HEADER_H + BODY_H + BODY_PAD * 2.0f;
+    const float btn_y = cy + HEADER_H + body_h + BODY_PAD * 2.0f;
 
     if( mx >= btn_x && mx <= btn_x + BTN_W && my >= btn_y && my <= btn_y + BTN_H )
         return true;
@@ -155,6 +233,7 @@ bool cHelpCard :: Hit_Dismiss( float mx, float my, float cx, float cy,
 bool cHelpCard :: Handle_Event( const SDL_Event &e )
 {
     const float CARD_W = game_res_w * 0.75f;
+    const float BODY_H = Body_Height( CARD_W - BODY_PAD * 2.0f );
     const float CARD_H = HEADER_H + BODY_H + BTN_H + BODY_PAD * 3.0f;
     const float cx = ( game_res_w - CARD_W ) * 0.5f;
     const float cy = ( game_res_h - CARD_H ) * 0.5f;
@@ -181,7 +260,7 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
 
         float mx = static_cast<float>( e.button.x ) / global_upscalex;
         float my = static_cast<float>( e.button.y ) / global_upscaley;
-        if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H ) )
+        if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H, BODY_H ) )
             return true;
     }
     else if( e.type == SDL_FINGERDOWN )
@@ -190,7 +269,7 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
 
         float mx = e.tfinger.x * game_res_w;
         float my = e.tfinger.y * game_res_h;
-        if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H ) )
+        if( Hit_Dismiss( mx, my, cx, cy, CARD_W, CARD_H, BODY_H ) )
             return true;
     }
     return false;
@@ -199,6 +278,7 @@ bool cHelpCard :: Handle_Event( const SDL_Event &e )
 void cHelpCard :: Render( float anim_t, std::vector<cGL_Surface*> &pending_delete )
 {
     const float CARD_W = game_res_w * 0.75f;
+    const float BODY_H = Body_Height( CARD_W - BODY_PAD * 2.0f );
     const float CARD_H = HEADER_H + BODY_H + BTN_H + BODY_PAD * 3.0f;
 
     float t = 1.0f - (1.0f - anim_t) * (1.0f - anim_t) * (1.0f - anim_t);
@@ -253,7 +333,7 @@ void cHelpCard :: Render( float anim_t, std::vector<cGL_Surface*> &pending_delet
     if( t > 0.4f )
     {
         float body_y = off_y + header_h + pad;
-        Render_Text_Wrapped( m_body, off_x + pad, body_y, sw - pad * 2.0f, BODY_LINE_H * scale, body_h, pending_delete );
+        Render_Text_Wrapped( m_body, off_x + pad, body_y, CARD_W - BODY_PAD * 2.0f, BODY_LINE_H * scale, body_h, pending_delete );
     }
 
     float btn_x = off_x + ( sw - BTN_W * scale ) * 0.5f;
@@ -271,7 +351,7 @@ void cHelpCard :: Render( float anim_t, std::vector<cGL_Surface*> &pending_delet
     {
         Color btn_text_col = COL_BTN_TEXT;
         btn_text_col.alpha = alpha;
-        cGL_Surface *btn_surf = pFont->Render_Text( pFont->m_font_small, "Got it", btn_text_col );
+        cGL_Surface *btn_surf = pFont->Render_Text( BODY_FONT, "Got it", btn_text_col );
         if( btn_surf )
         {
             btn_surf->Blit( btn_x + ( BTN_W * scale - btn_surf->m_w ) * 0.5f,
@@ -283,46 +363,26 @@ void cHelpCard :: Render( float anim_t, std::vector<cGL_Surface*> &pending_delet
 
 void cHelpCard :: Render_Text_Wrapped( const std::string &text, float x, float y, float max_w, float line_h, float clip_height, std::vector<cGL_Surface*> &pending_delete )
 {
+    (void)text;   // always m_body; the wrap is shared with the height measure
+
     float cur_y = y - m_scroll_offset;
     float clip_top = y;
     float clip_bot = y + clip_height;
 
-    std::string remaining = text;
-    while( !remaining.empty() )
+    std::vector<std::string> lines = Wrap_Body( max_w );
+    for( unsigned int i = 0; i < lines.size(); ++i )
     {
-        size_t nl = remaining.find( '\n' );
-        std::string line = ( nl == std::string::npos ) ? remaining : remaining.substr( 0, nl );
-        remaining = ( nl == std::string::npos ) ? "" : remaining.substr( nl + 1 );
-
-        while( !line.empty() )
+        if( !lines[i].empty() && cur_y + line_h > clip_top && cur_y < clip_bot )
         {
-            std::string fit = line;
-            while( !fit.empty() )
+            Color col = COL_BODY;
+            cGL_Surface *surf = pFont->Render_Text( BODY_FONT, lines[i], col );
+            if( surf )
             {
-                int tw = 0, th = 0;
-                TTF_SizeUTF8( BODY_FONT, fit.c_str(), &tw, &th );
-                if( static_cast<float>(tw) <= max_w ) break;
-                size_t sp = fit.rfind( ' ' );
-                if( sp == std::string::npos ) { break; }  // keep full word, let it overflow
-                fit = fit.substr( 0, sp );
+                surf->Blit( x, cur_y, 0.903f );
+                pending_delete.push_back( surf );
             }
-
-            if( cur_y + line_h > clip_top && cur_y < clip_bot )
-            {
-                Color col = COL_BODY;
-                cGL_Surface *surf = pFont->Render_Text( pFont->m_font_small, fit, col );
-                if( surf )
-                {
-                    surf->Blit( x, cur_y, 0.903f );
-                    pending_delete.push_back( surf );
-                }
-            }
-
-            cur_y += line_h;
-            size_t skip = fit.size();
-            if( skip < line.size() && line[skip] == ' ' ) skip++;
-            line = line.substr( skip );
         }
+        cur_y += line_h;
     }
 }
 
