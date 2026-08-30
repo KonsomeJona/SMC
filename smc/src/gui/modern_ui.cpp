@@ -75,11 +75,20 @@ static bool Hit( float x, float y, float w, float h )
 // ---------------------------------------------------------------------------
 // Text rendering helper: render, blit, push to pending_delete
 // ---------------------------------------------------------------------------
+
+// The small font was sized for a desktop screen at arm's length. A phone
+// holds the same pixels much further from the eye, relatively speaking.
+#ifdef __ANDROID__
+#define UI_FONT ( pFont->m_font_normal )
+#else
+#define UI_FONT ( pFont->m_font_small )
+#endif
+
 static void Draw_Text( const std::string &text, float x, float y, float z,
                         const Color &col, std::vector<cGL_Surface*> &pd )
 {
     if( text.empty() ) return;
-    cGL_Surface *surf = pFont->Render_Text( pFont->m_font_small, text, col );
+    cGL_Surface *surf = pFont->Render_Text( UI_FONT, text, col );
     if( surf )
     {
         surf->Blit( x, y, z );
@@ -94,7 +103,7 @@ static void Draw_Text_Centered( const std::string &text,
                                  std::vector<cGL_Surface*> &pd )
 {
     if( text.empty() ) return;
-    cGL_Surface *surf = pFont->Render_Text( pFont->m_font_small, text, col );
+    cGL_Surface *surf = pFont->Render_Text( UI_FONT, text, col );
     if( surf )
     {
         float tx = bx + ( bw - static_cast<float>( surf->m_w ) ) * 0.5f;
@@ -418,7 +427,13 @@ float Slider_Row( float x, float y, float w,
     float track_x = x + half_w + 4.0f;
     float track_y = y + ROW_H * 0.5f - 3.0f;
     float track_w = half_w - 8.0f;
+    // Une barre de 6 px au milieu de lignes epaissies pour le pouce a l'air
+    // maigre, et ne montre pas qu'elle se manipule.
+#ifdef __ANDROID__
+    float track_h = 12.0f;
+#else
     float track_h = 6.0f;
+#endif
 
     // Track border + background
     pVideo->Draw_Rect( track_x - BORDER_T, track_y - BORDER_T,
@@ -435,7 +450,11 @@ float Slider_Row( float x, float y, float w,
         pVideo->Draw_Rect( track_x, track_y, fill_w, track_h, Z_TEXT - 0.001f, &COL_SELECTED );
 
     // Thumb
+#ifdef __ANDROID__
+    float thumb_r = 11.0f;
+#else
     float thumb_r = 6.0f;
+#endif
     float thumb_x = track_x + fill_w - thumb_r;
     float thumb_y = track_y + track_h * 0.5f - thumb_r;
     pVideo->Draw_Rect( thumb_x - 1.0f, thumb_y - 1.0f,

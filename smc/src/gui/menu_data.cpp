@@ -239,7 +239,9 @@ void cMenu_Main :: Init_GUI( void )
 	// No CEGUI layout — render version text and website URL as HUD sprites
 
 	std::string version_str = std::string("Version ") + int_to_string(SMC_VERSION_MAJOR) + "." + int_to_string(SMC_VERSION_MINOR) + "." + int_to_string(SMC_VERSION_PATCH);
-	cGL_Surface *version_surf = pFont->Render_Text( pFont->m_font_small, version_str, green );
+	// Vert sur le sol brun et orange sur le ciel vert : les deux se lisaient
+	// mal. Du blanc passe sur les deux fonds.
+	cGL_Surface *version_surf = pFont->Render_Text( pFont->m_font_small, version_str, white );
 	cHudSprite *version_sprite = new cHudSprite( pMenuCore->m_handler->m_level->m_sprite_manager );
 	version_sprite->Set_Image( version_surf, 1, 1 );
 	version_sprite->Set_Pos( static_cast<float>(game_res_w) * 0.80f, static_cast<float>(game_res_h) * 0.945f );
@@ -248,7 +250,7 @@ void cMenu_Main :: Init_GUI( void )
 	// website URL — only shown when not in a level/world
 	if( m_exit_to_gamemode == MODE_NOTHING )
 	{
-		cGL_Surface *website_surf = pFont->Render_Text( pFont->m_font_small, "github.com/KonsomeJona/SMC", orange );
+		cGL_Surface *website_surf = pFont->Render_Text( pFont->m_font_small, "github.com/KonsomeJona/SMC", white );
 		cHudSprite *website_sprite = new cHudSprite( pMenuCore->m_handler->m_level->m_sprite_manager );
 		website_sprite->Set_Image( website_surf, 1, 1 );
 		website_sprite->Set_Pos( static_cast<float>(game_res_w) * 0.70f, static_cast<float>(game_res_h) * 0.135f );
@@ -1064,11 +1066,24 @@ void cMenu_Options :: S_Post_GUI_Draw( void )
 void cMenu_Options :: Post_GUI_Draw( void )
 {
 	// Panel layout (same geometry as before, without CEGUI frame)
+#ifdef SMC_NO_CEGUI
+	const float TAB_BAR_H = 42.0f;
+#else
 	const float TAB_BAR_H = 30.0f;
+#endif
 	float content_x = 0.05f * game_res_w;
 	float content_y = 0.26f * game_res_h;
 	float content_w = 0.90f * game_res_w;
 	float content_h = 0.62f * game_res_h * 0.93f;
+#ifdef SMC_NO_CEGUI
+	// Les onglets telephone n'ont que trois a quatre lignes : le cadre se cale
+	// sur ce qu'il contient au lieu d'afficher un vide sous le bouton.
+	{
+		const int rows = ( m_active_tab == 2 ) ? 4 : ( m_active_tab == 1 ? 5 : 4 );
+		const float needed = TAB_BAR_H + rows * 46.0f + 36.0f + 40.0f;
+		if( needed < content_h ) content_h = needed;
+	}
+#endif
 
 	// Background panel
 	Color bg = COL_CARD_BG;
@@ -1096,8 +1111,13 @@ void cMenu_Options :: Post_GUI_Draw( void )
 		m_active_tab = new_tab;
 
 	// Back button — top-right of panel
+#ifdef SMC_NO_CEGUI
+	float btn_back_w = 100.0f;
+	float btn_back_h = 36.0f;
+#else
 	float btn_back_w = 70.0f;
 	float btn_back_h = 24.0f;
+#endif
 	float btn_back_x = content_x + content_w - btn_back_w - 4.0f;
 	float btn_back_y = content_y + content_h - btn_back_h - 4.0f;
 	if( ModernUI::Button( btn_back_x, btn_back_y, btn_back_w, btn_back_h, _("Back"), m_opt_pending_delete ) )
@@ -1123,8 +1143,13 @@ void cMenu_Options :: Post_GUI_Draw( void )
 	float row_x    = content_x + 12.0f;
 	float row_w    = content_w - 24.0f;
 	float row_y    = content_y + 8.0f;
+#ifdef SMC_NO_CEGUI
+	float row_h    = 38.0f;
+	float row_step = row_h + 8.0f;
+#else
 	float row_h    = 26.0f;
 	float row_step = row_h + 6.0f;
+#endif
 
 	if( tab == TAB_VIDEO )
 	{
@@ -1196,6 +1221,7 @@ void cMenu_Options :: Post_GUI_Draw( void )
 	}
 	else if( tab == TAB_AUDIO )
 	{
+#ifndef SMC_NO_CEGUI
 		const std::vector<std::string> hz_opts = { "22050", "44100", "48000" };
 		const int hz_vals[] = { 22050, 44100, 48000 };
 
@@ -1210,6 +1236,7 @@ void cMenu_Options :: Post_GUI_Draw( void )
 			Preload_Sounds();
 		}
 		row_y += row_step;
+#endif
 
 		bool new_music = ModernUI::Toggle_Row( row_x, row_y, row_w, _("Music"), pAudio->m_music_enabled, m_opt_pending_delete );
 		if( new_music != pAudio->m_music_enabled )
