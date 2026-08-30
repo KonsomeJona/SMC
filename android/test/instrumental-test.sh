@@ -180,7 +180,10 @@ fi
 A logcat -c >/dev/null 2>&1
 A shell input swipe "$JUMP_X" "$JUMP_Y" "$JUMP_X" "$JUMP_Y" 400 >/dev/null 2>&1
 sleep 1
-VY=$(A logcat -d 2>/dev/null | grep -oE "PLAYERPOS .*vy=-?[0-9.]+" | tail -1 | grep -oE "vy=-?[0-9.]+" | cut -d= -f2)
+# Le minimum sur toute la fenetre, pas la derniere valeur : en une seconde le
+# joueur a saute ET atterri, et la derniere mesure vaut donc 0 avec les pieds
+# au sol. Le test echouait sur un saut parfaitement fonctionnel.
+VY=$(A logcat -d 2>/dev/null | grep -oE "PLAYERPOS .*vy=-?[0-9.]+" | grep -oE "vy=-?[0-9.]+" | cut -d= -f2 | sort -g | head -1)
 if [ -n "$VY" ] && python3 -c "import sys; sys.exit(0 if float('$VY') < 0 else 1)"; then
     ok "le saut decolle (vy=$VY)"
 else

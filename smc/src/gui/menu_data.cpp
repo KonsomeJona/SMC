@@ -248,7 +248,7 @@ void cMenu_Main :: Init_GUI( void )
 	// website URL — only shown when not in a level/world
 	if( m_exit_to_gamemode == MODE_NOTHING )
 	{
-		cGL_Surface *website_surf = pFont->Render_Text( pFont->m_font_small, "www.secretmaryo.org", orange );
+		cGL_Surface *website_surf = pFont->Render_Text( pFont->m_font_small, "github.com/KonsomeJona/SMC", orange );
 		cHudSprite *website_sprite = new cHudSprite( pMenuCore->m_handler->m_level->m_sprite_manager );
 		website_sprite->Set_Image( website_surf, 1, 1 );
 		website_sprite->Set_Pos( static_cast<float>(game_res_w) * 0.70f, static_cast<float>(game_res_h) * 0.135f );

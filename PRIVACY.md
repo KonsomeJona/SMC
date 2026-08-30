@@ -1,4 +1,4 @@
-# Privacy Policy — Secret Chronicles (Android)
+# Privacy Policy — Bandagoo
 
 Last updated: 25 August 2026
 

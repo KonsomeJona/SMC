@@ -111,8 +111,15 @@ int cAudio_Sound :: Play( int use_res_id /* = -1 */, int loops /* = 0 */ )
 	m_resource_id = use_res_id;
 	// play sound
 	m_channel = Mix_PlayChannel( -1, m_data->m_chunk, loops );
-	const char *mix_err = Mix_GetError();
-	if(mix_err && mix_err[0]) LOG_DEBUG(AUDIO, "Play_Sound error: %s", mix_err);
+
+	// Mix_GetError is SDL_GetError: it keeps whatever was last set, by anyone.
+	// Reading it without checking the return value reported a stale joystick
+	// message on every single sound, which would hide a real audio failure.
+	if( m_channel == -1 )
+	{
+		const char *mix_err = Mix_GetError();
+		if( mix_err && mix_err[0] ) LOG_DEBUG(AUDIO, "Play_Sound error: %s", mix_err);
+	}
 	// add callback if sound finished playing
 	Mix_ChannelFinished( &Finished_Sound );
 

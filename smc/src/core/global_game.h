@@ -33,11 +33,11 @@ namespace SMC
 /* *** *** *** *** *** *** *** Secret Maryo ! *** *** *** *** *** *** *** *** *** *** */
 
 // Caption
-#define CAPTION "Secret Maryo Chronicles"
+#define CAPTION "Bandagoo"
 // Version
 #define SMC_VERSION_MAJOR 2
 #define SMC_VERSION_MINOR 0
-#define SMC_VERSION_PATCH 0
+#define SMC_VERSION_PATCH 27
 static const unsigned int smc_version = SMC_VERSION_NUM(SMC_VERSION_MAJOR, SMC_VERSION_MINOR, SMC_VERSION_PATCH);
 
 /* *** *** *** *** *** *** *** Object Direction *** *** *** *** *** *** *** *** *** *** */
