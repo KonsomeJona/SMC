@@ -78,6 +78,7 @@ cFramerate :: cFramerate( void )
 	m_max_elapsed_ticks = 100;
 	m_speed_factor = 0.1f;
 	m_force_speed_factor = 0.0f;
+	m_game_ticks = 0;
 
 	// create performance timers
 	for( unsigned int i = 0; i < 24; i++ )
@@ -142,6 +143,8 @@ void cFramerate :: Update( void )
 		// speed factor calculation for this frame
 		m_speed_factor = static_cast<float>(m_elapsed_ticks / ( 1000 / m_fps_target ));
 	}
+
+	m_game_ticks += m_elapsed_ticks;
 
 	// speed factor based fps
 	m_fps = m_fps_target / m_speed_factor;

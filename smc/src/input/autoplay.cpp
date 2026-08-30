@@ -180,7 +180,11 @@ void Autoplay_Update( void )
 {
 	if( !s_enabled || !pTouchControls ) return;
 
-	const Uint32 now = SDL_GetTicks();
+	// Game time, not the machine's. Under the offline-render speed factor a
+	// frame takes ~100 ms of wall clock but advances 1/60 s of the world; a
+	// jump scheduled in real milliseconds would last one frame instead of
+	// seven, and the pilot would walk into every pit.
+	const Uint32 now = pFramerate->m_game_ticks;
 
 	// On the overworld: press the pad's jump zone, which is what enters the
 	// level the player stands on.

@@ -249,6 +249,22 @@ int main( int argc, char **argv )
 		Init_Game();
 		Autoplay_Init();
 		Haptics_Init();
+
+		/* Offline render, for the promo capture.
+		 *
+		 * The emulator's video encoder drags the game down to about ten frames
+		 * a second, which is a slideshow. With the speed factor pinned, a
+		 * frame always advances exactly 1/fps_target of world time however
+		 * long it took to draw, so those ten frames a second are ten distinct
+		 * sixtieths of a second. Re-timed to 60 fps afterwards the motion is
+		 * smooth; the recording simply takes six times longer than the clip.
+		 * Flag file only, next to the autoplay one. */
+		if( File_Exists( Get_User_Directory() + "slowmo" ) )
+		{
+			pFramerate->m_force_speed_factor = 1.0f;
+			SDL_Log( "SMCTEST SLOWMO on (offline render, 1 frame = 1/%.0f s)",
+			         pFramerate->m_fps_target );
+		}
 	}
 	catch( const std::exception &e )
 	{

@@ -93,6 +93,13 @@ public:
 	Uint32 m_last_ticks;
 	// elapsed ticks since last frame
 	Uint32 m_elapsed_ticks;
+	/* Milliseconds of game time since start: the sum of m_elapsed_ticks.
+	 *
+	 * Equal to wall-clock time in a normal run. Under a forced speed factor
+	 * it is not, and that is the point — anything that schedules itself in
+	 * game terms, such as the scripted pilot, has to count in this or it
+	 * fires on the machine's clock while the world advances on another. */
+	Uint32 m_game_ticks;
 	// maximum elapsed ticks
 	Uint32 m_max_elapsed_ticks;
 
